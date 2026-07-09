@@ -3,6 +3,7 @@ package com.kholodilin.outbox.ratelimit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.config.AppProperties;
+import com.kholodilin.outbox.config.RateLimitBucketProperties;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import io.github.bucket4j.Bandwidth;
@@ -109,7 +110,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         response.getWriter().write("{\"title\":\"Too Many Requests\",\"status\":429,\"detail\":\"Rate limit exceeded\"}");
     }
 
-    private Bucket createBucket(AppProperties.RateLimit.Limit limit) {
+    private Bucket createBucket(RateLimitBucketProperties limit) {
         Bandwidth bandwidth = Bandwidth.builder()
                 .capacity(limit.getCapacity())
                 .refillGreedy(limit.getRefillPerSecond(), Duration.ofSeconds(1))
