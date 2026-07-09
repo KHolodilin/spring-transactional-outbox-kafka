@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16-alpine:///outbox
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
+
+app:
+  outbox:
+    recovery:
+      enabled: false
+    memory-queue:
+      capacity: 100
+  rate-limit:
+    global:
+      capacity: 1000
+      refill-per-second: 1000
+    per-customer:
+      capacity: 1000
+      refill-per-second: 1000
+    per-ip:
+      capacity: 1000
+      refill-per-second: 1000
+
+logging:
+  level:
+    com.kholodilin.outbox: INFO

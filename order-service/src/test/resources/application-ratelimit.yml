@@ -1,0 +1,15 @@
+spring:
+  profiles:
+    active: test,ratelimit
+
+app:
+  rate-limit:
+    global:
+      capacity: 1
+      refill-per-second: 1
+    per-customer:
+      capacity: 1
+      refill-per-second: 1
+    per-ip:
+      capacity: 1
+      refill-per-second: 1

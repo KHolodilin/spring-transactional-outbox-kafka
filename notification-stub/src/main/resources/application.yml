@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: notification-stub
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: notification-stub
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.kholodilin.outbox.events
+        spring.json.value.default.type: com.kholodilin.outbox.events.EventEnvelope
+      max-poll-records: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+
+logging:
+  level:
+    root: INFO
+    com.kholodilin.outbox: INFO
+
+app:
+  kafka:
+    topic: orders.events
+    batch-listener: true
+
+server:
+  port: 8081

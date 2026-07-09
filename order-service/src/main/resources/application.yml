@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox}
+    username: ${DB_USER:outbox}
+    password: ${DB_PASSWORD:outbox}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        spring.json.add.type.headers: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    root: INFO
+    com.kholodilin.outbox: INFO
+
+app:
+  instance-id: ${HOSTNAME:local-${random.uuid}}
+  kafka:
+    topic: orders.events
+  outbox:
+    memory-queue:
+      capacity: 10000
+      batch-size: 100
+      batch-wait: 50ms
+      usage-threshold: 0.8
+    publisher:
+      lease-duration: 30s
+      max-retries: 5
+      poll-interval: 100ms
+    recovery:
+      enabled: true
+      interval: 10s
+      batch-size: 500
+  rate-limit:
+    throttle-multiplier: 0.5
+    global:
+      capacity: 1000
+      refill-per-second: 100
+    per-customer:
+      capacity: 100
+      refill-per-second: 10
+    per-ip:
+      capacity: 50
+      refill-per-second: 5
+  health:
+    queue-pressure-critical: 0.95
+    outbox-pending-critical: 10000
+
+server:
+  port: 8080
