@@ -3,7 +3,6 @@ package com.kholodilin.outbox.persistence;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.events.OutboxStatus;
-import com.kholodilin.outbox.events.PartitionState;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -19,7 +18,7 @@ import java.util.Map;
  * JDBC access to {@code outbox_events} for the publisher and recovery worker.
  * <p>
  * Uses batch-style updates and {@code FOR UPDATE SKIP LOCKED} for multi-pod coordination.
- * Hot-path reads for publishing go through ACTIVE rows only; successful events move to ARCHIVE.
+ * Hot-path reads use active rows only ({@code status < 100}); finals move to archive ({@code status >= 100}).
  */
 @Repository
 public class OutboxJdbcRepository {
@@ -45,7 +44,7 @@ public class OutboxJdbcRepository {
                     rs.getLong("customer_id"),
                     rs.getString("event_type"),
                     rs.getString("payload"),
-                    OutboxStatus.valueOf(rs.getString("status")),
+                    OutboxStatus.fromCode(rs.getInt("status")),
                     rs.getInt("retry_count")
             );
         }
@@ -62,8 +61,8 @@ public class OutboxJdbcRepository {
     public long insertEvent(Long orderId, Long customerId, String eventType, String payload, Instant now) {
         Long id = jdbcTemplate.queryForObject(
                 """
-                        INSERT INTO outbox_events (order_id, customer_id, event_type, payload, status, partition_state, retry_count, created_at)
-                        VALUES (?, ?, ?, ?::jsonb, ?, ?, 0, ?)
+                        INSERT INTO outbox_events (order_id, customer_id, event_type, payload, status, retry_count, created_at)
+                        VALUES (?, ?, ?, ?::jsonb, ?, 0, ?)
                         RETURNING id
                         """,
                 Long.class,
@@ -71,8 +70,7 @@ public class OutboxJdbcRepository {
                 customerId,
                 eventType,
                 payload,
-                OutboxStatus.NEW.name(),
-                PartitionState.ACTIVE.name(),
+                OutboxStatus.NEW.getCode(),
                 now
         );
         return id;
@@ -88,18 +86,21 @@ public class OutboxJdbcRepository {
         }
         String placeholders = String.join(",", ids.stream().map(id -> "?").toList());
         List<Object> params = new ArrayList<>();
-        params.add(OutboxStatus.PROCESSING.name());
+        params.add(OutboxStatus.PROCESSING.getCode());
         params.add(lockedBy);
         params.add(lockedUntil);
         params.addAll(ids);
+        params.add(OutboxStatus.ARCHIVE_THRESHOLD);
+        params.add(OutboxStatus.NEW.getCode());
+        params.add(OutboxStatus.FAILED.getCode());
 
         return jdbcTemplate.query(
                 """
                         UPDATE outbox_events
                         SET status = ?, locked_by = ?, locked_until = ?
                         WHERE id IN (%s)
-                          AND partition_state = 'ACTIVE'
-                          AND status IN ('NEW', 'FAILED')
+                          AND status < ?
+                          AND status IN (?, ?)
                           AND (locked_until IS NULL OR locked_until < NOW())
                         RETURNING id, order_id, customer_id, event_type, payload::text AS payload, status, retry_count
                         """.formatted(placeholders),
@@ -114,14 +115,13 @@ public class OutboxJdbcRepository {
         }
         String placeholders = String.join(",", ids.stream().map(id -> "?").toList());
         List<Object> params = new ArrayList<>();
-        params.add(OutboxStatus.SENT.name());
-        params.add(PartitionState.ARCHIVE.name());
+        params.add(OutboxStatus.SENT.getCode());
         params.add(sentAt);
         params.addAll(ids);
         jdbcTemplate.update(
                 """
                         UPDATE outbox_events
-                        SET status = ?, partition_state = ?, sent_at = ?, locked_by = NULL, locked_until = NULL
+                        SET status = ?, sent_at = ?, locked_by = NULL, locked_until = NULL
                         WHERE id IN (%s)
                         """.formatted(placeholders),
                 params.toArray()
@@ -135,43 +135,40 @@ public class OutboxJdbcRepository {
                         SET status = ?, retry_count = ?, locked_by = NULL, locked_until = NULL
                         WHERE id = ?
                         """,
-                status.name(),
+                status.getCode(),
                 retryCount,
                 id
         );
     }
 
-    /** Selects stale NEW/FAILED events for recovery; locks rows until the transaction ends. */
-    public List<Long> findRecoverableIds(int batchSize) {
+    /** Atomically selects recoverable rows and applies a short-lived lease; returns claimed ids. */
+    public List<Long> claimRecoverableIds(int batchSize, String lockedBy, Instant lockedUntil) {
         return jdbcTemplate.query(
                 """
-                        SELECT id FROM outbox_events
-                        WHERE partition_state = 'ACTIVE'
-                          AND status IN ('NEW', 'FAILED')
-                          AND (locked_until IS NULL OR locked_until < NOW())
-                        ORDER BY id
-                        LIMIT ?
-                        FOR UPDATE SKIP LOCKED
+                        WITH candidates AS (
+                            SELECT id
+                            FROM outbox_events
+                            WHERE status < ?
+                              AND status IN (?, ?)
+                              AND (locked_until IS NULL OR locked_until < NOW())
+                            ORDER BY id
+                            LIMIT ?
+                            FOR UPDATE SKIP LOCKED
+                        )
+                        UPDATE outbox_events AS o
+                        SET locked_by = ?,
+                            locked_until = ?
+                        FROM candidates AS c
+                        WHERE o.id = c.id
+                        RETURNING o.id
                         """,
                 (rs, rowNum) -> rs.getLong("id"),
-                batchSize
-        );
-    }
-
-    public void setLease(List<Long> ids, String lockedBy, Instant lockedUntil) {
-        if (ids.isEmpty()) {
-            return;
-        }
-        String placeholders = String.join(",", ids.stream().map(id -> "?").toList());
-        List<Object> params = new ArrayList<>();
-        params.add(lockedBy);
-        params.add(lockedUntil);
-        params.addAll(ids);
-        jdbcTemplate.update(
-                """
-                        UPDATE outbox_events SET locked_by = ?, locked_until = ? WHERE id IN (%s)
-                        """.formatted(placeholders),
-                params.toArray()
+                OutboxStatus.ARCHIVE_THRESHOLD,
+                OutboxStatus.NEW.getCode(),
+                OutboxStatus.FAILED.getCode(),
+                batchSize,
+                lockedBy,
+                lockedUntil
         );
     }
 
@@ -192,9 +189,10 @@ public class OutboxJdbcRepository {
         Long count = jdbcTemplate.queryForObject(
                 """
                         SELECT COUNT(*) FROM outbox_events
-                        WHERE partition_state = 'ACTIVE' AND status IN ('NEW', 'FAILED', 'PROCESSING')
+                        WHERE status < ?
                         """,
-                Long.class
+                Long.class,
+                OutboxStatus.ARCHIVE_THRESHOLD
         );
         return count == null ? 0L : count;
     }

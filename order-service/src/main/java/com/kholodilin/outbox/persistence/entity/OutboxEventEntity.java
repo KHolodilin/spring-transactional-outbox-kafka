@@ -1,14 +1,13 @@
 package com.kholodilin.outbox.persistence.entity;
 
 import com.kholodilin.outbox.events.OutboxStatus;
-import com.kholodilin.outbox.events.PartitionState;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,15 +17,21 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 
 /**
- * JPA mapping for {@code outbox_events}.
+ * JPA mapping for range-partitioned {@code outbox_events}.
  * <p>
  * Publisher/recovery use {@link com.kholodilin.outbox.persistence.OutboxJdbcRepository} for batch updates.
  */
 @Entity
 @Table(name = "outbox_events")
+@IdClass(OutboxEventId.class)
 @Getter
 @Setter
 public class OutboxEventEntity {
+
+    @Id
+    @Convert(converter = OutboxStatusConverter.class)
+    @Column(nullable = false)
+    private OutboxStatus status;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,14 +49,6 @@ public class OutboxEventEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
     private String payload;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private OutboxStatus status;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "partition_state", nullable = false)
-    private PartitionState partitionState;
 
     @Column(name = "retry_count", nullable = false)
     private int retryCount;

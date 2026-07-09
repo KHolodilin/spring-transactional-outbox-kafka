@@ -7,7 +7,6 @@ import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -40,19 +39,21 @@ public class RecoveryWorker {
     }
 
     @Scheduled(fixedDelayString = "${app.outbox.recovery.interval:10s}")
-    @Transactional
     public void recover() {
         if (!properties.getOutbox().getRecovery().isEnabled()) {
             return;
         }
         int batchSize = properties.getOutbox().getRecovery().getBatchSize();
-        List<Long> ids = outboxJdbcRepository.findRecoverableIds(batchSize);
+        Instant lockedUntil = Instant.now().plus(properties.getOutbox().getPublisher().getLeaseDuration());
+        List<Long> ids = outboxJdbcRepository.claimRecoverableIds(
+                batchSize,
+                properties.getInstanceId(),
+                lockedUntil
+        );
         if (ids.isEmpty()) {
             return;
         }
 
-        Instant lockedUntil = Instant.now().plus(properties.getOutbox().getPublisher().getLeaseDuration());
-        outboxJdbcRepository.setLease(ids, properties.getInstanceId(), lockedUntil);
         log.debug("Recovery claimed ids={} lockedBy={} lockedUntil={}", ids, properties.getInstanceId(), lockedUntil);
 
         int enqueued = 0;

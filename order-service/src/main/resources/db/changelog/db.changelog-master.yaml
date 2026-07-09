@@ -11,6 +11,3 @@ databaseChangeLog:
   - include:
       file: changes/004-outbox-events.sql
       relativeToChangelogFile: true
-  - include:
-      file: changes/005-outbox-events-active-view.sql
-      relativeToChangelogFile: true

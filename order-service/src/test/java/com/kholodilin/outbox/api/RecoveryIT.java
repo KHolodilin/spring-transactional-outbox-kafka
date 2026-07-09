@@ -2,6 +2,7 @@ package com.kholodilin.outbox.api;
 
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.events.EventConstants;
+import com.kholodilin.outbox.events.OutboxStatus;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import com.kholodilin.outbox.recovery.RecoveryWorker;
@@ -51,8 +52,8 @@ class RecoveryIT {
         Instant now = Instant.now();
         Long eventId = jdbcTemplate.queryForObject(
                 """
-                        INSERT INTO outbox_events (order_id, customer_id, event_type, payload, status, partition_state, retry_count, created_at)
-                        VALUES (?, ?, ?, ?::jsonb, 'NEW', 'ACTIVE', 0, ?)
+                        INSERT INTO outbox_events (order_id, customer_id, event_type, payload, status, retry_count, created_at)
+                        VALUES (?, ?, ?, ?::jsonb, ?, 0, ?)
                         RETURNING id
                         """,
                 Long.class,
@@ -60,6 +61,7 @@ class RecoveryIT {
                 55L,
                 EventConstants.EVENT_TYPE_ORDER_CREATED,
                 "{\"orderId\":100,\"customerId\":55}",
+                OutboxStatus.NEW.getCode(),
                 now
         );
 

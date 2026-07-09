@@ -23,7 +23,7 @@ public class IdempotencyJdbcRepository {
             entity.setId(rs.getLong("id"));
             entity.setIdempotencyKey(rs.getString("idempotency_key"));
             entity.setRequestHash(rs.getString("request_hash"));
-            entity.setStatus(IdempotencyStatus.valueOf(rs.getString("status")));
+            entity.setStatus(IdempotencyStatus.fromCode(rs.getInt("status")));
             entity.setResponseBody(rs.getString("response_body"));
             entity.setCreatedAt(rs.getTimestamp("created_at").toInstant());
             entity.setUpdatedAt(rs.getTimestamp("updated_at").toInstant());
@@ -60,7 +60,7 @@ public class IdempotencyJdbcRepository {
                 customerId,
                 idempotencyKey,
                 requestHash,
-                IdempotencyStatus.PROCESSING.name(),
+                IdempotencyStatus.PROCESSING.getCode(),
                 now,
                 now
         );
@@ -73,7 +73,7 @@ public class IdempotencyJdbcRepository {
                         SET status = ?, response_body = ?::jsonb, updated_at = ?
                         WHERE customer_id = ? AND idempotency_key = ?
                         """,
-                IdempotencyStatus.COMPLETED.name(),
+                IdempotencyStatus.COMPLETED.getCode(),
                 responseBody,
                 now,
                 customerId,

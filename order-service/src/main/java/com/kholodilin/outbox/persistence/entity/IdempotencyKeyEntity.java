@@ -44,7 +44,7 @@ public class IdempotencyKeyEntity {
     @Column(name = "request_hash", nullable = false)
     private String requestHash;
 
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.ORDINAL)
     @Column(nullable = false)
     private IdempotencyStatus status;
 

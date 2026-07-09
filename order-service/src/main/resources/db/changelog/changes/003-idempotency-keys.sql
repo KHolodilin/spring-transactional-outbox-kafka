@@ -6,7 +6,7 @@ CREATE TABLE idempotency_keys (
     customer_id BIGINT NOT NULL,
     idempotency_key VARCHAR(128) NOT NULL,
     request_hash VARCHAR(64) NOT NULL,
-    status VARCHAR(32) NOT NULL,
+    status INT NOT NULL, -- 0=PROCESSING, 1=COMPLETED, 2=FAILED
     response_body JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
