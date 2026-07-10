@@ -1,6 +1,6 @@
 package com.kholodilin.outbox.idempotency;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.IdempotencyStatus;
 import com.kholodilin.outbox.persistence.IdempotencyJdbcRepository;
@@ -24,7 +24,7 @@ class IdempotencyServiceTest {
     @Mock
     private IdempotencyJdbcRepository repository;
 
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final JsonMapper objectMapper = JsonMapper.builder().build();
     private IdempotencyService service;
 
     @BeforeEach

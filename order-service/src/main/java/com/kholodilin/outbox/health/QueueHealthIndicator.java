@@ -2,8 +2,8 @@ package com.kholodilin.outbox.health;
 
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
-import org.springframework.boot.actuate.health.Health;
-import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.boot.health.contributor.Health;
+import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.stereotype.Component;
 
 /** Reports DOWN when in-memory queue pressure exceeds the critical threshold. */

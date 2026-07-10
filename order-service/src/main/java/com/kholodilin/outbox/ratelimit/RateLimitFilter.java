@@ -1,7 +1,7 @@
 package com.kholodilin.outbox.ratelimit;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.config.RateLimitBucketProperties;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
@@ -62,7 +62,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        ContentCachingRequestWrapper wrapped = new ContentCachingRequestWrapper(request);
+        ContentCachingRequestWrapper wrapped = new ContentCachingRequestWrapper(request, 64 * 1024);
         double multiplier = throttleMultiplier();
 
         if (!tryConsume(globalBucket, multiplier)) {

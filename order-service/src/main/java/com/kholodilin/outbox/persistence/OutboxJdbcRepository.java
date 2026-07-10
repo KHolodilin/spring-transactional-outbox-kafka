@@ -1,6 +1,6 @@
 package com.kholodilin.outbox.persistence;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.events.OutboxStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
