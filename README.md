@@ -84,8 +84,9 @@ docker compose up -d
 
 | Service | URL | Notes |
 |---------|-----|-------|
-| Prometheus | http://localhost:9090 | scrapes `host.docker.internal:8080` and `:8081` |
+| Prometheus | http://localhost:9090 | scrapes apps on host + `postgres-exporter` |
 | Grafana | http://localhost:3000 | login `admin` / `admin` (dev only) |
+| postgres-exporter | http://localhost:9187/metrics | standard PostgreSQL metrics |
 
 ### 2. Run services and generate traffic
 
@@ -101,9 +102,9 @@ curl -s http://localhost:8080/actuator/prometheus | head
 curl -s http://localhost:8081/actuator/prometheus | head
 ```
 
-Create an order (see API example above), then open Grafana — dashboard **Transactional Outbox** is provisioned automatically.
+Create an order (see API example above), then open Grafana — dashboards **Transactional Outbox**, **Notification Stub**, and **PostgreSQL** are provisioned automatically.
 
-Prometheus targets: http://localhost:9090/targets (`order-service`, `notification-stub` should be **UP** while apps are running).
+Prometheus targets: http://localhost:9090/targets (`order-service`, `notification-stub`, `postgres` should be **UP** while the stack is running).
 
 ### Custom outbox metrics (`order-service`)
 

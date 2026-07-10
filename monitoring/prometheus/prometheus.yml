@@ -12,3 +12,7 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ['host.docker.internal:8081']
+
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres-exporter:9187']

@@ -6,20 +6,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [
-    {
-      "title": "Notification Stub",
-      "type": "link",
-      "url": "/d/notification-stub/notification-stub",
-      "icon": "external link"
-    },
-    {
-      "title": "PostgreSQL",
-      "type": "link",
-      "url": "/d/postgresql/postgresql",
-      "icon": "external link"
-    }
-  ],
+  "links": [],
   "panels": [
     {
       "datasource": {
@@ -31,21 +18,33 @@
           "color": {
             "mode": "thresholds"
           },
-          "min": 0,
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 100
-              },
-              {
-                "color": "red",
-                "value": 1000
+                "color": "green",
+                "value": 1
               }
             ]
           },
@@ -55,15 +54,15 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 0
       },
       "id": 1,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -80,80 +79,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "outbox_queue_size{job=\"order-service\"}",
-          "legendFormat": "queue size",
+          "expr": "pg_up",
+          "legendFormat": "postgres",
           "refId": "A"
         }
       ],
-      "title": "Outbox Queue Size (current)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "max": 1,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.8
-              },
-              {
-                "color": "red",
-                "value": 0.95
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "outbox_queue_pressure{job=\"order-service\"}",
-          "legendFormat": "queue pressure",
-          "refId": "A"
-        }
-      ],
-      "title": "Outbox Queue Pressure (current)",
+      "title": "PostgreSQL Up",
       "type": "stat"
     },
     {
@@ -166,18 +97,17 @@
           "color": {
             "mode": "palette-classic"
           },
-          "min": 0,
           "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 4
+        "w": 10,
+        "x": 4,
+        "y": 0
       },
-      "id": 7,
+      "id": 2,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -193,12 +123,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "outbox_queue_size{job=\"order-service\"}",
-          "legendFormat": "queue size",
+          "expr": "sum(pg_stat_database_numbackends) by (datname)",
+          "legendFormat": "{{datname}}",
           "refId": "A"
         }
       ],
-      "title": "Outbox Queue Size (history)",
+      "title": "Active Connections",
       "type": "timeseries"
     },
     {
@@ -211,61 +141,15 @@
           "color": {
             "mode": "palette-classic"
           },
-          "max": 1,
-          "min": 0,
-          "unit": "percentunit"
+          "unit": "bytes"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 4
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "outbox_queue_pressure{job=\"order-service\"}",
-          "legendFormat": "queue pressure",
-          "refId": "A"
-        }
-      ],
-      "title": "Outbox Queue Pressure (history)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 12
+        "w": 10,
+        "x": 14,
+        "y": 0
       },
       "id": 3,
       "options": {
@@ -283,12 +167,65 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(outbox_publish_latency_seconds_sum{job=\"order-service\"}[5m]) / rate(outbox_publish_latency_seconds_count{job=\"order-service\"}[5m])",
-          "legendFormat": "avg latency",
+          "expr": "pg_database_size_bytes{datname=\"outbox\"}",
+          "legendFormat": "{{datname}}",
           "refId": "A"
         }
       ],
-      "title": "Publish Latency p95",
+      "title": "Database Size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(pg_stat_database_xact_commit{datname=\"outbox\"}[5m])",
+          "legendFormat": "commits",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(pg_stat_database_xact_rollback{datname=\"outbox\"}[5m])",
+          "legendFormat": "rollbacks",
+          "refId": "B"
+        }
+      ],
+      "title": "Transactions / sec",
       "type": "timeseries"
     },
     {
@@ -309,78 +246,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 12
-      },
-      "id": 4,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(outbox_publish_failures_total{job=\"order-service\"}[5m])",
-          "legendFormat": "failures/s",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(outbox_retry_count_total{job=\"order-service\"}[5m])",
-          "legendFormat": "retries/s",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(outbox_recovery_count_total{job=\"order-service\"}[5m])",
-          "legendFormat": "recovery/s",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(outbox_rate_limit_rejects_total{job=\"order-service\"}[5m])",
-          "legendFormat": "rate-limit rejects/s",
-          "refId": "D"
-        }
-      ],
-      "title": "Failures, Retries, Recovery, Rate Limits",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 20
+        "y": 8
       },
       "id": 5,
       "options": {
@@ -398,12 +264,30 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "jvm_memory_used_bytes{job=\"order-service\", area=\"heap\"}",
-          "legendFormat": "{{id}}",
+          "expr": "rate(pg_stat_database_tup_inserted{datname=\"outbox\"}[5m])",
+          "legendFormat": "inserted",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(pg_stat_database_tup_updated{datname=\"outbox\"}[5m])",
+          "legendFormat": "updated",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(pg_stat_database_tup_deleted{datname=\"outbox\"}[5m])",
+          "legendFormat": "deleted",
+          "refId": "C"
         }
       ],
-      "title": "JVM Heap Used",
+      "title": "Row Operations / sec",
       "type": "timeseries"
     },
     {
@@ -416,15 +300,17 @@
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "reqps"
+          "max": 1,
+          "min": 0,
+          "unit": "percentunit"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 20
+        "w": 8,
+        "x": 0,
+        "y": 16
       },
       "id": 6,
       "options": {
@@ -442,21 +328,205 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(http_server_requests_seconds_count{job=\"order-service\"}[5m])) by (uri, status)",
-          "legendFormat": "{{uri}} {{status}}",
+          "expr": "rate(pg_stat_database_blks_hit{datname=\"outbox\"}[5m]) / (rate(pg_stat_database_blks_hit{datname=\"outbox\"}[5m]) + rate(pg_stat_database_blks_read{datname=\"outbox\"}[5m]))",
+          "legendFormat": "cache hit ratio",
           "refId": "A"
         }
       ],
-      "title": "HTTP Request Rate",
+      "title": "Buffer Cache Hit Ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 16
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(pg_stat_database_deadlocks{datname=\"outbox\"}[5m])",
+          "legendFormat": "deadlocks",
+          "refId": "A"
+        }
+      ],
+      "title": "Deadlocks / sec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(pg_locks_count) by (mode)",
+          "legendFormat": "{{mode}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Locks by Mode",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(pg_stat_activity_count) by (state)",
+          "legendFormat": "{{state}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Sessions by State",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(pg_stat_database_tup_returned{datname=\"outbox\"}[5m])",
+          "legendFormat": "rows returned",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(pg_stat_database_tup_fetched{datname=\"outbox\"}[5m])",
+          "legendFormat": "rows fetched",
+          "refId": "B"
+        }
+      ],
+      "title": "Read Throughput (rows / sec)",
       "type": "timeseries"
     }
   ],
   "refresh": "10s",
   "schemaVersion": 39,
   "tags": [
-    "outbox",
-    "kafka",
-    "spring-boot"
+    "postgres",
+    "database"
   ],
   "templating": {
     "list": []
@@ -467,7 +537,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Transactional Outbox",
-  "uid": "transactional-outbox",
-  "version": 3
+  "title": "PostgreSQL",
+  "uid": "postgresql",
+  "version": 1
 }

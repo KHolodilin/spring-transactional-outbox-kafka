@@ -8,15 +8,9 @@
   "id": null,
   "links": [
     {
-      "title": "Notification Stub",
+      "title": "Transactional Outbox",
       "type": "link",
-      "url": "/d/notification-stub/notification-stub",
-      "icon": "external link"
-    },
-    {
-      "title": "PostgreSQL",
-      "type": "link",
-      "url": "/d/postgresql/postgresql",
+      "url": "/d/transactional-outbox/transactional-outbox",
       "icon": "external link"
     }
   ],
@@ -31,39 +25,50 @@
           "color": {
             "mode": "thresholds"
           },
-          "min": 0,
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 100
-              },
-              {
-                "color": "red",
-                "value": 1000
+                "color": "green",
+                "value": 1
               }
             ]
-          },
-          "unit": "short"
+          }
         },
         "overrides": []
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 0
       },
       "id": 1,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -80,12 +85,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "outbox_queue_size{job=\"order-service\"}",
-          "legendFormat": "queue size",
+          "expr": "up{job=\"notification-stub\"}",
+          "legendFormat": "scrape",
           "refId": "A"
         }
       ],
-      "title": "Outbox Queue Size (current)",
+      "title": "Prometheus Target",
       "type": "stat"
     },
     {
@@ -96,35 +101,16 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
-          "max": 1,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.8
-              },
-              {
-                "color": "red",
-                "value": 0.95
-              }
-            ]
-          },
-          "unit": "percentunit"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 6,
+        "w": 10,
+        "x": 4,
         "y": 0
       },
       "id": 2,
@@ -148,12 +134,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "outbox_queue_pressure{job=\"order-service\"}",
-          "legendFormat": "queue pressure",
+          "expr": "notification_events_received_total{job=\"notification-stub\"}",
+          "legendFormat": "events total",
           "refId": "A"
         }
       ],
-      "title": "Outbox Queue Pressure (current)",
+      "title": "Events Received (total)",
       "type": "stat"
     },
     {
@@ -166,26 +152,30 @@
           "color": {
             "mode": "palette-classic"
           },
-          "min": 0,
           "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 4
+        "h": 4,
+        "w": 10,
+        "x": 14,
+        "y": 0
       },
-      "id": 7,
+      "id": 3,
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single"
-        }
+        "textMode": "auto"
       },
       "targets": [
         {
@@ -193,13 +183,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "outbox_queue_size{job=\"order-service\"}",
-          "legendFormat": "queue size",
+          "expr": "notification_batches_received_total{job=\"notification-stub\"}",
+          "legendFormat": "batches total",
           "refId": "A"
         }
       ],
-      "title": "Outbox Queue Size (history)",
-      "type": "timeseries"
+      "title": "Batches Received (total)",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -211,19 +201,17 @@
           "color": {
             "mode": "palette-classic"
           },
-          "max": 1,
-          "min": 0,
-          "unit": "percentunit"
+          "unit": "ops"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
+        "x": 0,
         "y": 4
       },
-      "id": 8,
+      "id": 4,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -239,12 +227,21 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "outbox_queue_pressure{job=\"order-service\"}",
-          "legendFormat": "queue pressure",
+          "expr": "rate(notification_events_received_total{job=\"notification-stub\"}[5m])",
+          "legendFormat": "events/s",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(notification_batches_received_total{job=\"notification-stub\"}[5m])",
+          "legendFormat": "batches/s",
+          "refId": "B"
         }
       ],
-      "title": "Outbox Queue Pressure (history)",
+      "title": "Consumption Throughput",
       "type": "timeseries"
     },
     {
@@ -264,54 +261,10 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 12
-      },
-      "id": 3,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(outbox_publish_latency_seconds_sum{job=\"order-service\"}[5m]) / rate(outbox_publish_latency_seconds_count{job=\"order-service\"}[5m])",
-          "legendFormat": "avg latency",
-          "refId": "A"
-        }
-      ],
-      "title": "Publish Latency p95",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 12,
-        "y": 12
+        "y": 4
       },
-      "id": 4,
+      "id": 5,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -327,8 +280,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(outbox_publish_failures_total{job=\"order-service\"}[5m])",
-          "legendFormat": "failures/s",
+          "expr": "rate(notification_batch_processing_seconds_sum{job=\"notification-stub\"}[5m]) / rate(notification_batch_processing_seconds_count{job=\"notification-stub\"}[5m])",
+          "legendFormat": "avg batch processing",
           "refId": "A"
         },
         {
@@ -336,30 +289,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(outbox_retry_count_total{job=\"order-service\"}[5m])",
-          "legendFormat": "retries/s",
+          "expr": "sum(rate(spring_kafka_listener_seconds_sum{job=\"notification-stub\"}[5m])) / sum(rate(spring_kafka_listener_seconds_count{job=\"notification-stub\"}[5m]))",
+          "legendFormat": "avg kafka listener",
           "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(outbox_recovery_count_total{job=\"order-service\"}[5m])",
-          "legendFormat": "recovery/s",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(outbox_rate_limit_rejects_total{job=\"order-service\"}[5m])",
-          "legendFormat": "rate-limit rejects/s",
-          "refId": "D"
         }
       ],
-      "title": "Failures, Retries, Recovery, Rate Limits",
+      "title": "Processing Latency (avg)",
       "type": "timeseries"
     },
     {
@@ -380,51 +315,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 20
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "jvm_memory_used_bytes{job=\"order-service\", area=\"heap\"}",
-          "legendFormat": "{{id}}",
-          "refId": "A"
-        }
-      ],
-      "title": "JVM Heap Used",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 20
+        "y": 12
       },
       "id": 6,
       "options": {
@@ -442,19 +333,63 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(http_server_requests_seconds_count{job=\"order-service\"}[5m])) by (uri, status)",
-          "legendFormat": "{{uri}} {{status}}",
+          "expr": "jvm_memory_used_bytes{job=\"notification-stub\", area=\"heap\"}",
+          "legendFormat": "{{id}}",
           "refId": "A"
         }
       ],
-      "title": "HTTP Request Rate",
+      "title": "JVM Heap Used",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(spring_kafka_listener_seconds_count{job=\"notification-stub\"}[5m])) by (name, result)",
+          "legendFormat": "{{name}} {{result}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Kafka Listener Invocations / sec",
       "type": "timeseries"
     }
   ],
   "refresh": "10s",
   "schemaVersion": 39,
   "tags": [
-    "outbox",
+    "notification",
     "kafka",
     "spring-boot"
   ],
@@ -467,7 +402,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Transactional Outbox",
-  "uid": "transactional-outbox",
-  "version": 3
+  "title": "Notification Stub",
+  "uid": "notification-stub",
+  "version": 2
 }

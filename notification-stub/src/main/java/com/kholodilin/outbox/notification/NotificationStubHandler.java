@@ -1,6 +1,7 @@
 package com.kholodilin.outbox.notification;
 
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.metrics.NotificationStubMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -16,20 +17,26 @@ import java.util.List;
 @Component
 public class NotificationStubHandler {
 
+    private final NotificationStubMetrics metrics;
+
+    public NotificationStubHandler(NotificationStubMetrics metrics) {
+        this.metrics = metrics;
+    }
+
     @KafkaListener(
             topics = "${app.kafka.topic}",
             containerFactory = "batchKafkaListenerContainerFactory"
     )
     public void handleBatch(List<EventEnvelope> events) {
-        long start = System.nanoTime();
-        log.info("Notification stub batch received size={}", events.size());
-        for (EventEnvelope event : events) {
-            log.info("Notification stub sent orderId={} customerId={} eventId={}",
-                    event.getOrderId(), event.getCustomerId(), event.getEventId());
-            log.debug("Notification stub event details eventType={} correlationId={} payload={}",
-                    event.getEventType(), event.getCorrelationId(), event.getPayload());
-        }
-        long durationMs = (System.nanoTime() - start) / 1_000_000;
-        log.info("Notification stub batch processed size={} durationMs={}", events.size(), durationMs);
+        metrics.recordBatch(events.size(), () -> {
+            log.info("Notification stub batch received size={}", events.size());
+            for (EventEnvelope event : events) {
+                log.info("Notification stub sent orderId={} customerId={} eventId={}",
+                        event.getOrderId(), event.getCustomerId(), event.getEventId());
+                log.debug("Notification stub event details eventType={} correlationId={} payload={}",
+                        event.getEventType(), event.getCorrelationId(), event.getPayload());
+            }
+            log.info("Notification stub batch processed size={}", events.size());
+        });
     }
 }

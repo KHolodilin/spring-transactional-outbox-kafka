@@ -13,6 +13,16 @@ services:
       timeout: 5s
       retries: 10
 
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    environment:
+      DATA_SOURCE_NAME: "postgresql://outbox:outbox@postgres:5432/outbox?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   kafka:
     image: apache/kafka:3.8.1
     ports:
