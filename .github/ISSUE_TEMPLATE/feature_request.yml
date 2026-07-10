@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest an enhancement to the transactional outbox demo or its tooling.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem you want to solve and how a change would help this project.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem does this feature address?
+      placeholder: It is hard to observe outbox lag in multi-pod deployments because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the solution you would like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative approaches you considered.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Primary component
+      options:
+        - order-service
+        - notification-stub
+        - outbox-events-contract
+        - infrastructure / observability
+        - documentation
+        - other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Willing to contribute
+      options:
+        - label: I am willing to submit a pull request for this feature.
+        - label: I discussed this idea in an issue or discussion first (or this issue is that discussion).

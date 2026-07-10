@@ -1,0 +1,87 @@
+name: Bug report
+description: Report incorrect behavior in order-service, notification-stub, or infrastructure setup.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please include as much detail as possible.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: The outbox recovery worker does not re-enqueue events after restart...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What should have happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce the issue.
+      placeholder: |
+        1. docker compose up -d
+        2. mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
+        3. POST /api/v1/orders with ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - order-service
+        - notification-stub
+        - outbox-events-contract
+        - docker-compose / infrastructure
+        - documentation
+        - other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Branch, tag, or commit SHA if known.
+      placeholder: main @ abc1234
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Java, Maven, OS, Docker versions.
+      placeholder: |
+        Java 21, Maven 3.9.9, Windows 11, Docker Desktop 4.x
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: Relevant application logs or stack traces (redact secrets).
+      render: shell
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues before opening this report.
+          required: true
+        - label: This is not a security vulnerability (use private reporting instead).
+          required: true

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & discussions
+    url: https://github.com/KHolodilin/spring-transactional-outbox-kafka/discussions
+    about: Ask questions or discuss ideas before opening a feature request.
+  - name: Security vulnerability
+    url: https://github.com/KHolodilin/spring-transactional-outbox-kafka/security/advisories/new
+    about: Report a security issue privately (do not use public issues).
