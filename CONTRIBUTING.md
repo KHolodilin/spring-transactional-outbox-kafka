@@ -14,7 +14,7 @@ Thank you for your interest in contributing to **spring-transactional-outbox-kaf
 
 * Java 21
 * Maven 3.9+
-* Docker (for PostgreSQL, Kafka, and integration tests)
+* Docker (for PostgreSQL, Kafka, Prometheus, Grafana, and integration tests)
 
 ### Build and test
 
@@ -35,6 +35,8 @@ mvn clean package -DskipTests
 mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
 mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
 ```
+
+Metrics: Prometheus http://localhost:9090, Grafana http://localhost:3000 — see [README Observability](README.md#observability).
 
 ## Project structure
 
