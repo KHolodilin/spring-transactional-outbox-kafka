@@ -2,8 +2,8 @@ package com.kholodilin.outbox.health;
 
 import com.kholodilin.outbox.config.AppProperties;
 import org.apache.kafka.clients.producer.Producer;
-import org.springframework.boot.actuate.health.Health;
-import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.boot.health.contributor.Health;
+import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 

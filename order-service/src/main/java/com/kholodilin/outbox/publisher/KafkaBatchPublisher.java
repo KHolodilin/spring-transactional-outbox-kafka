@@ -41,7 +41,7 @@ public class KafkaBatchPublisher {
             record.headers().add(new RecordHeader(EventConstants.HEADER_ORDER_ID, toBytes(envelope.getOrderId())));
             record.headers().add(new RecordHeader(EventConstants.HEADER_CUSTOMER_ID, toBytes(envelope.getCustomerId())));
             if (envelope.getCorrelationId() != null) {
-                record.headers().add(new RecordHeader(EventConstants.HEADER_CORRELATION_ID, envelope.getCorrelationId().getBytes(StandardCharsets.UTF_8));
+                record.headers().add(new RecordHeader(EventConstants.HEADER_CORRELATION_ID, envelope.getCorrelationId().getBytes(StandardCharsets.UTF_8)));
             }
             log.debug("Publishing to Kafka topic={} key={} eventId={}", topic, key, envelope.getEventId());
             futures.add(kafkaTemplate.send(record));

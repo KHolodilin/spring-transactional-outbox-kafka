@@ -1,6 +1,6 @@
 package com.kholodilin.outbox.idempotency;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.IdempotencyStatus;
 import com.kholodilin.outbox.persistence.IdempotencyJdbcRepository;

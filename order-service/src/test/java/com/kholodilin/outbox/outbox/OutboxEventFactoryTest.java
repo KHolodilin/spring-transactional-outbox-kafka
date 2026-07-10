@@ -1,6 +1,6 @@
 package com.kholodilin.outbox.outbox;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.OrderItemRequest;
@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class OutboxEventFactoryTest {
 
-    private final OutboxEventFactory factory = new OutboxEventFactory(new ObjectMapper().findAndRegisterModules());
+    private final OutboxEventFactory factory = new OutboxEventFactory(JsonMapper.builder().build());
 
     @Test
     void buildsOrderCreatedPayload() throws Exception {
@@ -25,7 +25,7 @@ class OutboxEventFactoryTest {
                 .build();
         String json = factory.buildOrderCreatedPayload(99L, request);
         @SuppressWarnings("unchecked")
-        Map<String, Object> payload = new ObjectMapper().readValue(json, Map.class);
+        Map<String, Object> payload = JsonMapper.builder().build().readValue(json, Map.class);
         assertThat(payload.get("orderId")).isEqualTo(99);
         assertThat(payload.get("customerId")).isEqualTo(10);
         assertThat(factory.eventType()).isEqualTo(EventConstants.EVENT_TYPE_ORDER_CREATED);

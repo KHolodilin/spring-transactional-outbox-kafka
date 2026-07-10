@@ -1,7 +1,7 @@
 package com.kholodilin.outbox.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import org.springframework.stereotype.Component;
 
@@ -21,8 +21,9 @@ public class RequestHashCalculator {
     private final ObjectMapper canonicalMapper;
 
     public RequestHashCalculator(ObjectMapper objectMapper) {
-        this.canonicalMapper = objectMapper.copy()
-                .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+        this.canonicalMapper = objectMapper.rebuild()
+                .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+                .build();
     }
 
     public String calculate(CreateOrderRequest request) {

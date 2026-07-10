@@ -1,6 +1,6 @@
 package com.kholodilin.outbox.outbox;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.EventConstants;
 import org.springframework.stereotype.Component;
