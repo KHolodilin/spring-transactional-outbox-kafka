@@ -3,11 +3,11 @@ package com.kholodilin.outbox.api;
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.OutboxStatus;
 import com.kholodilin.outbox.recovery.RecoveryWorker;
+import com.kholodilin.outbox.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
@@ -16,8 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@EmbeddedKafka(partitions = 1, topics = EventConstants.TOPIC_ORDERS)
-class RecoveryIT {
+class RecoveryIT extends AbstractIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;

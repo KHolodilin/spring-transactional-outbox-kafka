@@ -7,8 +7,6 @@ spring:
       ddl-auto: validate
   liquibase:
     enabled: true
-  kafka:
-    bootstrap-servers: ${spring.embedded.kafka.brokers}
 
 app:
   outbox:
