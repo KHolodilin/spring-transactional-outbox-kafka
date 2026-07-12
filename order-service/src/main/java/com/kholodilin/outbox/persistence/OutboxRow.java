@@ -35,4 +35,7 @@ public class OutboxRow {
 
     /** Number of failed publish attempts recorded for this row. */
     private final int retryCount;
+
+    /** W3C traceparent captured when the outbox row was created. */
+    private final String traceParent;
 }

@@ -2,3 +2,8 @@ logging:
   level:
     root: INFO
     com.kholodilin.outbox: INFO
+
+management:
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:0.1}

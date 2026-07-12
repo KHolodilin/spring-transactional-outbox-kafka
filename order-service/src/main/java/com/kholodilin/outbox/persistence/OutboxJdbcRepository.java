@@ -3,6 +3,7 @@ package com.kholodilin.outbox.persistence;
 import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.events.OutboxStatus;
+import com.kholodilin.outbox.tracing.OutboxTracing;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -27,6 +28,9 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class OutboxJdbcRepository {
 
+    private static final String OUTBOX_ROW_COLUMNS =
+            "id, order_id, customer_id, event_type, payload::text AS payload, status, retry_count, trace_parent";
+
     private static final RowMapper<OutboxRow> ROW_MAPPER = new RowMapper<>() {
         @Override
         public OutboxRow mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -38,29 +42,34 @@ public class OutboxJdbcRepository {
                     .payload(rs.getString("payload"))
                     .status(OutboxStatus.fromCode(rs.getInt("status")))
                     .retryCount(rs.getInt("retry_count"))
+                    .traceParent(rs.getString("trace_parent"))
                     .build();
         }
     };
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final OutboxTracing outboxTracing;
 
-    public long insertEvent(Long orderId, Long customerId, String eventType, String payload, Instant now) {
-        Long id = jdbcTemplate.queryForObject(
-                """
-                        INSERT INTO outbox_events (order_id, customer_id, event_type, payload, status, retry_count, created_at)
-                        VALUES (?, ?, ?, ?::jsonb, ?, 0, ?)
-                        RETURNING id
-                        """,
-                Long.class,
-                orderId,
-                customerId,
-                eventType,
-                payload,
-                OutboxStatus.NEW.getCode(),
-                Timestamp.from(now)
-        );
-        return id;
+    public long insertEvent(Long orderId, Long customerId, String eventType, String payload, String traceParent, Instant now) {
+        return outboxTracing.observe("outbox.save", () -> {
+            Long id = jdbcTemplate.queryForObject(
+                    """
+                            INSERT INTO outbox_events (order_id, customer_id, event_type, payload, status, retry_count, trace_parent, created_at)
+                            VALUES (?, ?, ?, ?::jsonb, ?, 0, ?, ?)
+                            RETURNING id
+                            """,
+                    Long.class,
+                    orderId,
+                    customerId,
+                    eventType,
+                    payload,
+                    OutboxStatus.NEW.getCode(),
+                    traceParent,
+                    Timestamp.from(now)
+            );
+            return id;
+        });
     }
 
     /**
@@ -86,8 +95,8 @@ public class OutboxJdbcRepository {
                         WHERE id IN (%s)
                           AND status < ?
                           AND (locked_until IS NULL OR locked_until < NOW())
-                        RETURNING id, order_id, customer_id, event_type, payload::text AS payload, status, retry_count
-                        """.formatted(placeholders),
+                        RETURNING %s
+                        """.formatted(placeholders, OUTBOX_ROW_COLUMNS),
                 ROW_MAPPER,
                 params.toArray()
         );
@@ -97,23 +106,25 @@ public class OutboxJdbcRepository {
         if (ids.isEmpty()) {
             return;
         }
-        String placeholders = String.join(",", ids.stream().map(id -> "?").toList());
-        List<Object> params = new ArrayList<>();
-        params.add(OutboxStatus.SENT.getCode());
-        params.add(Timestamp.from(sentAt));
-        params.addAll(ids);
-        jdbcTemplate.update(
-                """
-                        UPDATE outbox_events
-                        SET status = ?, sent_at = ?, locked_by = NULL, locked_until = NULL
-                        WHERE id IN (%s)
-                        """.formatted(placeholders),
-                params.toArray()
-        );
+        outboxTracing.observe("outbox.mark.sent", () -> {
+            String placeholders = String.join(",", ids.stream().map(id -> "?").toList());
+            List<Object> params = new ArrayList<>();
+            params.add(OutboxStatus.SENT.getCode());
+            params.add(Timestamp.from(sentAt));
+            params.addAll(ids);
+            jdbcTemplate.update(
+                    """
+                            UPDATE outbox_events
+                            SET status = ?, sent_at = ?, locked_by = NULL, locked_until = NULL
+                            WHERE id IN (%s)
+                            """.formatted(placeholders),
+                    params.toArray()
+            );
+        });
     }
 
     public void markFailed(Long id, int retryCount, OutboxStatus status) {
-        jdbcTemplate.update(
+        outboxTracing.observe("outbox.retry", () -> jdbcTemplate.update(
                 """
                         UPDATE outbox_events
                         SET status = ?, retry_count = ?, locked_by = NULL, locked_until = NULL
@@ -122,7 +133,7 @@ public class OutboxJdbcRepository {
                 status.getCode(),
                 retryCount,
                 id
-        );
+        ));
     }
 
     /** Atomically selects recoverable rows and applies a short-lived lease; returns claimed ids. */
@@ -201,10 +212,10 @@ public class OutboxJdbcRepository {
     public Optional<OutboxRow> findById(long id) {
         List<OutboxRow> rows = jdbcTemplate.query(
                 """
-                        SELECT id, order_id, customer_id, event_type, payload::text AS payload, status, retry_count
+                        SELECT %s
                         FROM outbox_events
                         WHERE id = ?
-                        """,
+                        """.formatted(OUTBOX_ROW_COLUMNS),
                 ROW_MAPPER,
                 id
         );
@@ -222,6 +233,7 @@ public class OutboxJdbcRepository {
                     .eventType(row.getEventType())
                     .payload(payload)
                     .correlationId(correlationId)
+                    .traceParent(row.getTraceParent())
                     .occurredAt(Instant.now())
                     .build();
         } catch (Exception ex) {

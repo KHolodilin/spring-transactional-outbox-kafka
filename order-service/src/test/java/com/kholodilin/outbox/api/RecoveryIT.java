@@ -30,6 +30,7 @@ class RecoveryIT extends AbstractIntegrationTest {
                 55L,
                 EventConstants.EVENT_TYPE_ORDER_CREATED,
                 "{\"orderId\":100,\"customerId\":55}",
+                null,
                 Instant.now()
         );
 

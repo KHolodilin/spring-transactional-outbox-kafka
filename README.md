@@ -1,4 +1,4 @@
-# spring-transactional-outbox-kafka
+# Transactional Outbox Pattern with Kafka and PostgreSQL
 
 [![CI](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml/badge.svg)](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka/graph/badge.svg)](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
@@ -77,7 +77,7 @@ Kafka messages use **partition key = `customerId`**.
 
 ## Observability
 
-The local stack includes **Prometheus** and **Grafana** (via Docker Compose). Applications run on the host and expose metrics through Spring Boot Actuator.
+The local stack includes **Prometheus**, **Grafana**, and **Grafana Tempo** (via Docker Compose). Applications run on the host and export metrics through Actuator and traces through OTLP.
 
 ### 1. Start infrastructure (including monitoring)
 
@@ -89,6 +89,7 @@ docker compose up -d
 |---------|-----|-------|
 | Prometheus | http://localhost:9090 | scrapes apps on host + `postgres-exporter` |
 | Grafana | http://localhost:3000 | login `admin` / `admin` (dev only) |
+| Grafana Tempo | http://localhost:3200 | OTLP HTTP ingest on `:4318` |
 | postgres-exporter | http://localhost:9187/metrics | standard PostgreSQL metrics |
 
 ### 2. Run services and generate traffic
@@ -105,7 +106,26 @@ curl -s http://localhost:8080/actuator/prometheus | head
 curl -s http://localhost:8081/actuator/prometheus | head
 ```
 
-Create an order (see API example above), then open Grafana — dashboards **Transactional Outbox**, **Notification Stub**, and **PostgreSQL** are provisioned automatically.
+Create an order (see API example above), then open Grafana — dashboards **Transactional Outbox**, **Notification Stub**, **PostgreSQL**, and **Distributed Tracing** are provisioned automatically.
+
+### Distributed tracing (Tempo)
+
+With `dev` profile, both services export traces via Spring Boot 4 OTLP config (`management.opentelemetry.tracing.export.otlp.endpoint`, default `http://localhost:4318/v1/traces`, 100% sampling).
+
+1. Start `docker compose up -d` (includes Tempo).
+2. Run `order-service` and `notification-stub` with profile `dev`.
+3. `POST /api/v1/orders` (see API example).
+4. Grafana → **Distributed Tracing** dashboard → browse recent traces or paste a `traceId` from logs (`traceId=...` in logback output).
+
+End-to-end trace path: HTTP → outbox save → batch publish → Kafka consumer.
+
+Disable tracing without code changes:
+
+```bash
+TRACING_ENABLED=false mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+Production sampling defaults to `10%` (`TRACING_SAMPLING=0.1` in `application-prod.yml`).
 
 Prometheus targets: http://localhost:9090/targets (`order-service`, `notification-stub`, `postgres` should be **UP** while the stack is running).
 
@@ -135,3 +155,4 @@ Prometheus targets: http://localhost:9090/targets (`order-service`, `notificatio
 
 - [Technical Specification v2](docs/spring-transactional-outbox-kafka-Technical-Specification-v2.md)
 - [Implementation Plan](docs/spring-transactional-outbox-kafka-Implementation-Plan.md)
+- [Distributed Tracing Spec](docs/spring-transactional-outbox-kafka-Distributed-Tracing-Spec.md)

@@ -18,6 +18,12 @@
       "type": "link",
       "url": "/d/postgresql/postgresql",
       "icon": "external link"
+    },
+    {
+      "title": "Distributed Tracing",
+      "type": "link",
+      "url": "/d/distributed-tracing/distributed-tracing",
+      "icon": "external link"
     }
   ],
   "panels": [

@@ -9,6 +9,7 @@ import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.persistence.OutboxRow;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
+import com.kholodilin.outbox.tracing.OutboxTracing;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 
@@ -38,11 +41,20 @@ class BatchPublisherWorkerTest {
     @Mock
     private ObjectProvider<KafkaBatchPublisher> kafkaBatchPublisherProvider;
 
+    @Mock
+    private OutboxTracing outboxTracing;
+
     private BatchPublisherWorker worker;
 
     @BeforeEach
     void setUp() {
         lenient().when(kafkaBatchPublisherProvider.getObject()).thenReturn(kafkaBatchPublisher);
+        lenient().when(outboxTracing.observe(anyString(), any(java.util.function.Supplier.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1, java.util.function.Supplier.class).get());
+        lenient().doAnswer(invocation -> {
+            invocation.getArgument(2, Runnable.class).run();
+            return null;
+        }).when(outboxTracing).observeWithTraceParent(any(), anyString(), any(Runnable.class));
         OutboxMetrics metrics = new OutboxMetrics(new SimpleMeterRegistry());
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         AppProperties properties = AppProperties.builder()
@@ -55,6 +67,7 @@ class BatchPublisherWorkerTest {
                 outboxJdbcRepository,
                 kafkaBatchPublisherProvider,
                 metrics,
+                outboxTracing,
                 properties,
                 JsonMapper.builder().build()
         );
