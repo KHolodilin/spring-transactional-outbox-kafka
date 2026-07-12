@@ -20,15 +20,19 @@ public class AppProperties {
     @Builder.Default
     private String instanceId = "local";
 
+    /** Kafka topic and related producer settings. */
     @Builder.Default
     private KafkaProperties kafka = KafkaProperties.builder().build();
 
+    /** In-memory queue, publisher, and recovery worker settings. */
     @Builder.Default
     private OutboxProperties outbox = OutboxProperties.builder().build();
 
+    /** HTTP rate-limit buckets and adaptive throttling settings. */
     @Builder.Default
     private RateLimitProperties rateLimit = RateLimitProperties.builder().build();
 
+    /** Thresholds used by custom Actuator health indicators. */
     @Builder.Default
     private HealthProperties health = HealthProperties.builder().build();
 }

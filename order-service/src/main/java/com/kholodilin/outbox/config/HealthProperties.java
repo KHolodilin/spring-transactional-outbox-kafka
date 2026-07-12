@@ -14,9 +14,11 @@ import lombok.Setter;
 @AllArgsConstructor
 public class HealthProperties {
 
+    /** Queue fill ratio at or above which the queue health indicator reports DOWN. */
     @Builder.Default
     private double queuePressureCritical = 0.95;
 
+    /** Active outbox row count at or above which the outbox health indicator reports DOWN. */
     @Builder.Default
     private long outboxPendingCritical = 10000;
 }

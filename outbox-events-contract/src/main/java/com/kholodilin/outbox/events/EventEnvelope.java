@@ -19,11 +19,24 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class EventEnvelope {
 
+    /** Primary key of the corresponding {@code outbox_events} row. */
     private Long eventId;
+
+    /** Identifier of the business order that triggered this event. */
     private Long orderId;
+
+    /** Customer identifier; serialized as the Kafka record key for partition ordering. */
     private Long customerId;
+
+    /** Domain event name (for example {@link EventConstants#EVENT_TYPE_ORDER_CREATED}). */
     private String eventType;
+
+    /** Event-specific JSON payload (structure depends on {@link #eventType}). */
     private Map<String, Object> payload;
+
+    /** Optional trace id copied from the originating HTTP request. */
     private String correlationId;
+
+    /** UTC timestamp when the envelope was assembled for publishing. */
     private Instant occurredAt;
 }

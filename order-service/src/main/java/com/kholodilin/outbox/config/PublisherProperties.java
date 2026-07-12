@@ -16,12 +16,15 @@ import java.time.Duration;
 @AllArgsConstructor
 public class PublisherProperties {
 
+    /** How long a pod keeps an exclusive lease on claimed outbox rows. */
     @Builder.Default
     private Duration leaseDuration = Duration.ofSeconds(30);
 
+    /** Failed publish attempts after which a row is moved to {@code DEAD}. */
     @Builder.Default
     private int maxRetries = 5;
 
+    /** Reserved poll interval for future publisher tuning. */
     @Builder.Default
     private Duration pollInterval = Duration.ofMillis(100);
 }

@@ -16,12 +16,15 @@ import java.time.Duration;
 @AllArgsConstructor
 public class RecoveryProperties {
 
+    /** Whether the recovery scheduler is active. */
     @Builder.Default
     private boolean enabled = true;
 
+    /** Delay between recovery scans after the previous run completes. */
     @Builder.Default
     private Duration interval = Duration.ofSeconds(10);
 
+    /** Maximum number of outbox ids claimed and re-enqueued per scan. */
     @Builder.Default
     private int batchSize = 500;
 }

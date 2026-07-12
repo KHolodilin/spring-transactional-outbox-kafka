@@ -16,6 +16,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @AllArgsConstructor
 public class NotificationStubProperties {
 
+    /** Kafka consumer settings for the notification stub. */
     @Builder.Default
     private Kafka kafka = Kafka.builder().build();
 
@@ -27,9 +28,11 @@ public class NotificationStubProperties {
     @AllArgsConstructor
     public static class Kafka {
 
+        /** Topic consumed by the notification stub. */
         @Builder.Default
         private String topic = "orders.events";
 
+        /** When {@code true}, the listener receives batches of {@link com.kholodilin.outbox.events.EventEnvelope}. */
         @Builder.Default
         private boolean batchListener = true;
     }

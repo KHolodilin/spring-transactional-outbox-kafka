@@ -14,6 +14,9 @@ import lombok.Setter;
 @AllArgsConstructor
 public class RateLimitBucketProperties {
 
+    /** Maximum number of tokens the bucket can hold (burst size). */
     private long capacity;
+
+    /** Tokens added to the bucket per second under normal conditions. */
     private long refillPerSecond;
 }

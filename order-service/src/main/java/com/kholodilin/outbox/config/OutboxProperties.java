@@ -14,12 +14,15 @@ import lombok.Setter;
 @AllArgsConstructor
 public class OutboxProperties {
 
+    /** Per-pod hot queue between PostgreSQL commit and Kafka publish. */
     @Builder.Default
     private MemoryQueueProperties memoryQueue = MemoryQueueProperties.builder().build();
 
+    /** Background worker that claims rows and publishes batches to Kafka. */
     @Builder.Default
     private PublisherProperties publisher = PublisherProperties.builder().build();
 
+    /** Scheduled worker that re-enqueues stuck outbox rows. */
     @Builder.Default
     private RecoveryProperties recovery = RecoveryProperties.builder().build();
 }

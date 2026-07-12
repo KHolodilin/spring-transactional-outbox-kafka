@@ -14,6 +14,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class KafkaProperties {
 
+    /** Target topic for outbox events published by {@code order-service}. */
     @Builder.Default
     private String topic = "orders.events";
 }
