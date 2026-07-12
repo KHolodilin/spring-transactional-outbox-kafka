@@ -1,11 +1,14 @@
 package com.kholodilin.outbox.api;
 
+import com.kholodilin.outbox.config.KafkaProducerConfig;
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.events.OutboxStatus;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
@@ -18,13 +21,15 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.Duration;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -41,7 +46,10 @@ class OrderApiIT {
     private TestRestTemplate restTemplate;
 
     @Autowired
-    private org.springframework.core.env.Environment environment;
+    private EmbeddedKafkaBroker embeddedKafka;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void createsOrderAndPublishesKafkaMessageWithCustomerPartitionKey() {
@@ -56,20 +64,22 @@ class OrderApiIT {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set(EventConstants.IDEMPOTENCY_KEY_HEADER, idempotencyKey);
 
+        ResponseEntity<Map> response = restTemplate.postForEntity(
+                "/api/v1/orders",
+                new HttpEntity<>(body, headers),
+                Map.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).containsKeys("orderId", "eventId", "status");
+        long eventId = ((Number) response.getBody().get("eventId")).longValue();
+
+        awaitSentInDatabase(eventId);
+
         try (KafkaConsumer<String, EventEnvelope> consumer = createConsumer()) {
-            consumer.subscribe(List.of(EventConstants.TOPIC_ORDERS));
-            awaitPartitionAssignment(consumer);
-            consumer.seekToEnd(consumer.assignment());
-
-            ResponseEntity<Map> response = restTemplate.postForEntity(
-                    "/api/v1/orders",
-                    new HttpEntity<>(body, headers),
-                    Map.class
-            );
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-            assertThat(response.getBody()).containsKeys("orderId", "eventId", "status");
-            long eventId = ((Number) response.getBody().get("eventId")).longValue();
+            TopicPartition partition = new TopicPartition(EventConstants.TOPIC_ORDERS, 0);
+            consumer.assign(List.of(partition));
+            consumer.seekToBeginning(List.of(partition));
 
             ConsumerRecord<String, EventEnvelope> record = awaitRecord(consumer, eventId);
             assertThat(record).isNotNull();
@@ -80,18 +90,31 @@ class OrderApiIT {
         }
     }
 
-    private void awaitPartitionAssignment(KafkaConsumer<?, ?> consumer) {
-        long deadline = System.currentTimeMillis() + 5_000;
-        while (consumer.assignment().isEmpty() && System.currentTimeMillis() < deadline) {
-            consumer.poll(Duration.ofMillis(200));
+    private void awaitSentInDatabase(long eventId) {
+        long deadline = System.currentTimeMillis() + 20_000;
+        while (System.currentTimeMillis() < deadline) {
+            Integer status = jdbcTemplate.queryForObject(
+                    "SELECT status FROM outbox_events WHERE id = ?",
+                    Integer.class,
+                    eventId
+            );
+            if (status != null && status == OutboxStatus.SENT.getCode()) {
+                return;
+            }
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while waiting for outbox SENT status", ex);
+            }
         }
-        assertThat(consumer.assignment()).isNotEmpty();
+        throw new AssertionError("Outbox event " + eventId + " was not marked SENT within 20s");
     }
 
     private ConsumerRecord<String, EventEnvelope> awaitRecord(KafkaConsumer<String, EventEnvelope> consumer, long eventId) {
-        long deadline = System.currentTimeMillis() + 20_000;
+        long deadline = System.currentTimeMillis() + 10_000;
         while (System.currentTimeMillis() < deadline) {
-            ConsumerRecords<String, EventEnvelope> records = consumer.poll(Duration.ofMillis(500));
+            ConsumerRecords<String, EventEnvelope> records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(500));
             for (ConsumerRecord<String, EventEnvelope> record : records) {
                 if (matchesEventId(record, eventId)) {
                     return record;
@@ -110,14 +133,18 @@ class OrderApiIT {
     }
 
     private KafkaConsumer<String, EventEnvelope> createConsumer() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, environment.getProperty("spring.embedded.kafka.brokers"));
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "order-api-it-" + UUID.randomUUID());
+        Map<String, Object> props = KafkaTestUtils.consumerProps(
+                "order-api-it-" + UUID.randomUUID(),
+                "false",
+                embeddedKafka
+        );
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.kholodilin.outbox.events");
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, EventEnvelope.class.getName());
-        return new KafkaConsumer<>(props);
+        JsonDeserializer<EventEnvelope> deserializer = new JsonDeserializer<>(
+                EventEnvelope.class,
+                KafkaProducerConfig.kafkaObjectMapper()
+        );
+        deserializer.addTrustedPackages("com.kholodilin.outbox.events");
+        deserializer.setUseTypeHeaders(false);
+        return new KafkaConsumer<>(props, new StringDeserializer(), deserializer);
     }
 }
