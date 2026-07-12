@@ -1,5 +1,8 @@
 # spring-transactional-outbox-kafka
 
+[![CI](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml/badge.svg)](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka/graph/badge.svg)](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
+
 Production-oriented **Transactional Outbox** demo on Spring Boot 4, PostgreSQL and Kafka.
 
 ## Modules

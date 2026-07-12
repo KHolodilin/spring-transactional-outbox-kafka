@@ -42,3 +42,4 @@
 - [ ] Documentation updated (if user-facing behavior changed)
 - [ ] No secrets or environment-specific credentials committed
 - [ ] Liquibase/schema changes documented (if applicable)
+- [ ] Codecov patch coverage check is green (or explained in PR description)
