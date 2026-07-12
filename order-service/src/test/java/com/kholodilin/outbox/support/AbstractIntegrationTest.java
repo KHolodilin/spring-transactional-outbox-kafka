@@ -1,8 +1,5 @@
 package com.kholodilin.outbox.support;
 
-import org.springframework.context.annotation.Import;
-
-/** Shared test wiring for order-service integration tests. */
-@Import(KafkaPublisherMockTestConfig.class)
+/** Marker base type for order-service integration tests. */
 public abstract class AbstractIntegrationTest {
 }

@@ -2,7 +2,9 @@ package com.kholodilin.outbox.api;
 
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.support.AbstractIntegrationTest;
+import com.kholodilin.outbox.support.KafkaPublisherMockTestConfig;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -23,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
 @ActiveProfiles({"test", "ratelimit"})
+@Import(KafkaPublisherMockTestConfig.class)
 class RateLimitIT extends AbstractIntegrationTest {
 
     @Autowired
