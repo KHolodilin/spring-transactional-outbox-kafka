@@ -6,6 +6,7 @@ import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.idempotency.IdempotencyService;
 import com.kholodilin.outbox.order.OrderTransactionService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
@@ -28,21 +29,12 @@ import java.util.UUID;
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/orders")
+@RequiredArgsConstructor
 public class OrderController {
 
     private final IdempotencyService idempotencyService;
     private final OrderTransactionService orderTransactionService;
     private final RequestHashCalculator requestHashCalculator;
-
-    public OrderController(
-            IdempotencyService idempotencyService,
-            OrderTransactionService orderTransactionService,
-            RequestHashCalculator requestHashCalculator
-    ) {
-        this.idempotencyService = idempotencyService;
-        this.orderTransactionService = orderTransactionService;
-        this.requestHashCalculator = requestHashCalculator;
-    }
 
     @PostMapping
     public ResponseEntity<CreateOrderResponse> createOrder(

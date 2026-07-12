@@ -3,6 +3,7 @@ package com.kholodilin.outbox.publisher;
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.EventEnvelope;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
@@ -21,17 +22,14 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class KafkaBatchPublisher {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final String topic;
-
-    public KafkaBatchPublisher(KafkaTemplate<String, Object> kafkaTemplate, AppProperties properties) {
-        this.kafkaTemplate = kafkaTemplate;
-        this.topic = properties.getKafka().getTopic();
-    }
+    private final AppProperties properties;
 
     public void publish(List<EventEnvelope> envelopes) {
+        String topic = properties.getKafka().getTopic();
         List<CompletableFuture<?>> futures = new ArrayList<>();
         for (EventEnvelope envelope : envelopes) {
             String key = String.valueOf(envelope.getCustomerId());

@@ -9,6 +9,7 @@ import com.kholodilin.outbox.outbox.OutboxEnqueueListener;
 import com.kholodilin.outbox.outbox.OutboxEventFactory;
 import com.kholodilin.outbox.persistence.OrderJdbcRepository;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ import java.time.Instant;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class OrderTransactionService {
 
     private final OrderJdbcRepository orderJdbcRepository;
@@ -32,22 +34,6 @@ public class OrderTransactionService {
     private final OutboxEventFactory outboxEventFactory;
     private final OutboxEnqueueListener outboxEnqueueListener;
     private final ObjectMapper objectMapper;
-
-    public OrderTransactionService(
-            OrderJdbcRepository orderJdbcRepository,
-            OutboxJdbcRepository outboxJdbcRepository,
-            IdempotencyJdbcRepository idempotencyJdbcRepository,
-            OutboxEventFactory outboxEventFactory,
-            OutboxEnqueueListener outboxEnqueueListener,
-            ObjectMapper objectMapper
-    ) {
-        this.orderJdbcRepository = orderJdbcRepository;
-        this.outboxJdbcRepository = outboxJdbcRepository;
-        this.idempotencyJdbcRepository = idempotencyJdbcRepository;
-        this.outboxEventFactory = outboxEventFactory;
-        this.outboxEnqueueListener = outboxEnqueueListener;
-        this.objectMapper = objectMapper;
-    }
 
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {

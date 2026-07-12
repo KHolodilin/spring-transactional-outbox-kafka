@@ -4,6 +4,7 @@ import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -19,24 +20,13 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class RecoveryWorker {
 
     private final AppProperties properties;
     private final OutboxJdbcRepository outboxJdbcRepository;
     private final InMemoryEventQueue eventQueue;
     private final OutboxMetrics metrics;
-
-    public RecoveryWorker(
-            AppProperties properties,
-            OutboxJdbcRepository outboxJdbcRepository,
-            InMemoryEventQueue eventQueue,
-            OutboxMetrics metrics
-    ) {
-        this.properties = properties;
-        this.outboxJdbcRepository = outboxJdbcRepository;
-        this.eventQueue = eventQueue;
-        this.metrics = metrics;
-    }
 
     @Scheduled(fixedDelayString = "${app.outbox.recovery.interval:10s}")
     public void recover() {

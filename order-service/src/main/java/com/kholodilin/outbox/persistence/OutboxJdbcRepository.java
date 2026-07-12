@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * JDBC access to {@code outbox_events} for the publisher and recovery worker.
@@ -198,6 +199,19 @@ public class OutboxJdbcRepository {
                 OutboxStatus.ARCHIVE_THRESHOLD
         );
         return count == null ? 0L : count;
+    }
+
+    public Optional<OutboxRow> findById(long id) {
+        List<OutboxRow> rows = jdbcTemplate.query(
+                """
+                        SELECT id, order_id, customer_id, event_type, payload::text AS payload, status, retry_count
+                        FROM outbox_events
+                        WHERE id = ?
+                        """,
+                ROW_MAPPER,
+                id
+        );
+        return rows.stream().findFirst();
     }
 
     public EventEnvelope toEnvelope(OutboxRow row, String correlationId) {

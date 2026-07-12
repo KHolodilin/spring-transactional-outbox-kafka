@@ -3,6 +3,7 @@ package com.kholodilin.outbox.outbox;
 import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.EventConstants;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -12,13 +13,10 @@ import java.util.Map;
  * Builds the JSON payload stored in {@code outbox_events} and later sent as {@link com.kholodilin.outbox.events.EventEnvelope}.
  */
 @Component
+@RequiredArgsConstructor
 public class OutboxEventFactory {
 
     private final ObjectMapper objectMapper;
-
-    public OutboxEventFactory(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     public String buildOrderCreatedPayload(long orderId, CreateOrderRequest request) {
         try {

@@ -7,6 +7,7 @@ import com.kholodilin.outbox.metrics.OutboxMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.util.List;
@@ -28,7 +29,10 @@ class InMemoryEventQueueTest {
                                 .build())
                         .build())
                 .build();
-        queue = new InMemoryEventQueue(properties, new OutboxMetrics(new SimpleMeterRegistry()));
+        OutboxMetrics metrics = new OutboxMetrics(new SimpleMeterRegistry());
+        ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
+        queue = new InMemoryEventQueue(properties, metrics);
+        ReflectionTestUtils.invokeMethod(queue, "init");
     }
 
     @Test

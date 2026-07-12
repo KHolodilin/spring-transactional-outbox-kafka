@@ -2,6 +2,8 @@ package com.kholodilin.outbox.queue;
 
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -22,18 +24,21 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class InMemoryEventQueue {
 
-    private final BlockingQueue<Long> queue;
-    private final Set<Long> dedup;
-    private final int capacity;
+    private final AppProperties properties;
     private final OutboxMetrics metrics;
 
-    public InMemoryEventQueue(AppProperties properties, OutboxMetrics metrics) {
-        this.capacity = properties.getOutbox().getMemoryQueue().getCapacity();
-        this.queue = new ArrayBlockingQueue<>(capacity);
-        this.dedup = ConcurrentHashMap.newKeySet();
-        this.metrics = metrics;
+    private BlockingQueue<Long> queue;
+    private Set<Long> dedup;
+    private int capacity;
+
+    @PostConstruct
+    void init() {
+        capacity = properties.getOutbox().getMemoryQueue().getCapacity();
+        queue = new ArrayBlockingQueue<>(capacity);
+        dedup = ConcurrentHashMap.newKeySet();
         updateMetrics();
     }
 

@@ -43,6 +43,8 @@ class BatchPublisherWorkerTest {
     @BeforeEach
     void setUp() {
         lenient().when(kafkaBatchPublisherProvider.getObject()).thenReturn(kafkaBatchPublisher);
+        OutboxMetrics metrics = new OutboxMetrics(new SimpleMeterRegistry());
+        ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         AppProperties properties = AppProperties.builder()
                 .outbox(OutboxProperties.builder()
                         .publisher(PublisherProperties.builder().maxRetries(5).build())
@@ -52,7 +54,7 @@ class BatchPublisherWorkerTest {
                 eventQueue,
                 outboxJdbcRepository,
                 kafkaBatchPublisherProvider,
-                new OutboxMetrics(new SimpleMeterRegistry()),
+                metrics,
                 properties,
                 JsonMapper.builder().build()
         );

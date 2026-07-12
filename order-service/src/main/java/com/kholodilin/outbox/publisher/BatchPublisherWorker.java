@@ -10,6 +10,7 @@ import com.kholodilin.outbox.persistence.OutboxRow;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class BatchPublisherWorker {
 
     private final InMemoryEventQueue eventQueue;
@@ -40,22 +42,6 @@ public class BatchPublisherWorker {
     private final ObjectMapper objectMapper;
     private final AtomicBoolean running = new AtomicBoolean(true);
     private ExecutorService executor;
-
-    public BatchPublisherWorker(
-            InMemoryEventQueue eventQueue,
-            OutboxJdbcRepository outboxJdbcRepository,
-            ObjectProvider<KafkaBatchPublisher> kafkaBatchPublisher,
-            OutboxMetrics metrics,
-            AppProperties properties,
-            ObjectMapper objectMapper
-    ) {
-        this.eventQueue = eventQueue;
-        this.outboxJdbcRepository = outboxJdbcRepository;
-        this.kafkaBatchPublisher = kafkaBatchPublisher;
-        this.metrics = metrics;
-        this.properties = properties;
-        this.objectMapper = objectMapper;
-    }
 
     @PostConstruct
     public void start() {

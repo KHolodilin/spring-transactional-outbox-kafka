@@ -2,6 +2,7 @@ package com.kholodilin.outbox.metrics;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -11,6 +12,7 @@ class NotificationStubMetricsTest {
     void recordsBatchMetrics() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         NotificationStubMetrics metrics = new NotificationStubMetrics(registry);
+        ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
 
         metrics.recordBatch(3, () -> {
         });
