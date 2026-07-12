@@ -60,7 +60,7 @@ class OrderApiIT extends AbstractIntegrationTest {
     }
 
     private void awaitSentInDatabase(long eventId) {
-        long deadline = System.currentTimeMillis() + 45_000;
+        long deadline = System.currentTimeMillis() + 20_000;
         Integer lastStatus = null;
         while (System.currentTimeMillis() < deadline) {
             lastStatus = jdbcTemplate.queryForObject(
@@ -84,7 +84,7 @@ class OrderApiIT extends AbstractIntegrationTest {
                 eventId
         );
         throw new AssertionError(
-                "Outbox event " + eventId + " was not marked SENT within 45s (lastStatus="
+                "Outbox event " + eventId + " was not marked SENT within 20s (lastStatus="
                         + lastStatus + ", retryCount=" + retryCount + ")"
         );
     }
