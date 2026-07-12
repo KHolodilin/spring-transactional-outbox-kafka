@@ -161,7 +161,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 24,
         "x": 0,
         "y": 18
       },
@@ -192,33 +192,6 @@
       ],
       "title": "Kafka Consumer (notification-stub)",
       "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "tempo"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 18
-      },
-      "id": 5,
-      "options": {},
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
-          },
-          "query": "${trace_id}",
-          "queryType": "traceId",
-          "refId": "A"
-        }
-      ],
-      "title": "Trace Drill-down (paste Trace ID above)",
-      "type": "traces"
     }
   ],
   "refresh": "10s",
@@ -295,17 +268,6 @@
         ],
         "query": ".*,outbox.save,outbox.batch.fetch,outbox.batch.publish,outbox.publish,outbox.mark.sent,outbox.recovery,http post /api/v1/orders,notification.batch.receive,notification.consume",
         "type": "custom"
-      },
-      {
-        "current": {
-          "text": "",
-          "value": ""
-        },
-        "label": "Trace ID",
-        "name": "trace_id",
-        "options": [],
-        "query": "",
-        "type": "textbox"
       }
     ]
   },
@@ -317,5 +279,5 @@
   "timezone": "browser",
   "title": "Distributed Tracing",
   "uid": "distributed-tracing",
-  "version": 4
+  "version": 5
 }
