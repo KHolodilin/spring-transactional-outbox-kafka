@@ -4,6 +4,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Instant;
 
 /**
@@ -32,8 +33,8 @@ public class OrderJdbcRepository {
                 customerId,
                 "CREATED",
                 totalAmount,
-                now,
-                now
+                Timestamp.from(now),
+                Timestamp.from(now)
         );
         return id;
     }
@@ -49,7 +50,7 @@ public class OrderJdbcRepository {
                 productId,
                 quantity,
                 price,
-                now
+                Timestamp.from(now)
         );
     }
 }

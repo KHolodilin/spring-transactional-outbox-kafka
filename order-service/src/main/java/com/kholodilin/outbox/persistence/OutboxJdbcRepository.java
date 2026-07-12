@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +72,7 @@ public class OutboxJdbcRepository {
                 eventType,
                 payload,
                 OutboxStatus.NEW.getCode(),
-                now
+                Timestamp.from(now)
         );
         return id;
     }
@@ -88,11 +89,9 @@ public class OutboxJdbcRepository {
         List<Object> params = new ArrayList<>();
         params.add(OutboxStatus.PROCESSING.getCode());
         params.add(lockedBy);
-        params.add(lockedUntil);
+        params.add(Timestamp.from(lockedUntil));
         params.addAll(ids);
         params.add(OutboxStatus.ARCHIVE_THRESHOLD);
-        params.add(OutboxStatus.NEW.getCode());
-        params.add(OutboxStatus.FAILED.getCode());
 
         return jdbcTemplate.query(
                 """
@@ -100,7 +99,6 @@ public class OutboxJdbcRepository {
                         SET status = ?, locked_by = ?, locked_until = ?
                         WHERE id IN (%s)
                           AND status < ?
-                          AND status IN (?, ?)
                           AND (locked_until IS NULL OR locked_until < NOW())
                         RETURNING id, order_id, customer_id, event_type, payload::text AS payload, status, retry_count
                         """.formatted(placeholders),
@@ -116,7 +114,7 @@ public class OutboxJdbcRepository {
         String placeholders = String.join(",", ids.stream().map(id -> "?").toList());
         List<Object> params = new ArrayList<>();
         params.add(OutboxStatus.SENT.getCode());
-        params.add(sentAt);
+        params.add(Timestamp.from(sentAt));
         params.addAll(ids);
         jdbcTemplate.update(
                 """
@@ -149,7 +147,6 @@ public class OutboxJdbcRepository {
                             SELECT id
                             FROM outbox_events
                             WHERE status < ?
-                              AND status IN (?, ?)
                               AND (locked_until IS NULL OR locked_until < NOW())
                             ORDER BY id
                             LIMIT ?
@@ -164,11 +161,9 @@ public class OutboxJdbcRepository {
                         """,
                 (rs, rowNum) -> rs.getLong("id"),
                 OutboxStatus.ARCHIVE_THRESHOLD,
-                OutboxStatus.NEW.getCode(),
-                OutboxStatus.FAILED.getCode(),
                 batchSize,
                 lockedBy,
-                lockedUntil
+                Timestamp.from(lockedUntil)
         );
     }
 

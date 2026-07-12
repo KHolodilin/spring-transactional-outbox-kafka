@@ -1,11 +1,7 @@
 package com.kholodilin.outbox.persistence.entity;
 
-import com.kholodilin.outbox.events.OutboxStatus;
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
@@ -29,12 +25,10 @@ import java.time.Instant;
 public class OutboxEventEntity {
 
     @Id
-    @Convert(converter = OutboxStatusConverter.class)
     @Column(nullable = false)
-    private OutboxStatus status;
+    private Integer status;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "order_id", nullable = false)

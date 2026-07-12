@@ -1,3 +1,8 @@
 logging:
   level:
     com.kholodilin.outbox: DEBUG
+
+spring:
+  kafka:
+    consumer:
+      group-id: notification-stub-dev

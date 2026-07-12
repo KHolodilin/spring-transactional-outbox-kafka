@@ -1,5 +1,9 @@
 package com.kholodilin.outbox.config;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.kholodilin.outbox.events.EventEnvelope;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -19,32 +23,40 @@ import java.util.Map;
 public class KafkaConsumerConfig {
 
     @Bean
-    public ConsumerFactory<String, com.kholodilin.outbox.events.EventEnvelope> consumerFactory(
+    public ConsumerFactory<String, EventEnvelope> consumerFactory(
             NotificationStubProperties properties,
             org.springframework.core.env.Environment environment
     ) {
         Map<String, Object> config = new HashMap<>();
         config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, environment.getProperty("spring.kafka.bootstrap-servers"));
         config.put(ConsumerConfig.GROUP_ID_CONFIG, environment.getProperty("spring.kafka.consumer.group-id"));
-        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        config.put(JsonDeserializer.TRUSTED_PACKAGES, "com.kholodilin.outbox.events");
-        config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, com.kholodilin.outbox.events.EventEnvelope.class.getName());
         config.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100);
-        return new DefaultKafkaConsumerFactory<>(config);
+
+        JsonDeserializer<EventEnvelope> valueDeserializer = new JsonDeserializer<>(EventEnvelope.class, kafkaObjectMapper());
+        valueDeserializer.addTrustedPackages("com.kholodilin.outbox.events");
+        valueDeserializer.setUseTypeHeaders(false);
+
+        return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(), valueDeserializer);
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, com.kholodilin.outbox.events.EventEnvelope> batchKafkaListenerContainerFactory(
-            ConsumerFactory<String, com.kholodilin.outbox.events.EventEnvelope> consumerFactory,
+    public ConcurrentKafkaListenerContainerFactory<String, EventEnvelope> batchKafkaListenerContainerFactory(
+            ConsumerFactory<String, EventEnvelope> consumerFactory,
             NotificationStubProperties properties
     ) {
-        ConcurrentKafkaListenerContainerFactory<String, com.kholodilin.outbox.events.EventEnvelope> factory =
+        ConcurrentKafkaListenerContainerFactory<String, EventEnvelope> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
         // Batch listener matches the publisher's batch-oriented throughput model.
         factory.setBatchListener(properties.getKafka().isBatchListener());
         return factory;
+    }
+
+    static ObjectMapper kafkaObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        return mapper;
     }
 }
