@@ -13,7 +13,8 @@ spring:
 app:
   outbox:
     recovery:
-      enabled: false
+      enabled: true
+      interval: 2s
     memory-queue:
       capacity: 100
   rate-limit:

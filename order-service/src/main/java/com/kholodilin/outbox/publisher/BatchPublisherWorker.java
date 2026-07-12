@@ -97,6 +97,9 @@ public class BatchPublisherWorker {
                 );
                 if (claimed.isEmpty()) {
                     log.debug("No outbox rows claimed for ids={}", ids);
+                    for (Long id : outboxJdbcRepository.findReenqueueableIds(ids)) {
+                        eventQueue.enqueue(id);
+                    }
                     continue;
                 }
 

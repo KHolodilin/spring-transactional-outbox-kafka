@@ -168,6 +168,26 @@ public class OutboxJdbcRepository {
         );
     }
 
+    /** Returns ids that are still active and not leased — safe to re-enqueue after a failed claim. */
+    public List<Long> findReenqueueableIds(List<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", ids.stream().map(id -> "?").toList());
+        List<Object> params = new ArrayList<>(ids);
+        params.add(OutboxStatus.ARCHIVE_THRESHOLD);
+        return jdbcTemplate.query(
+                """
+                        SELECT id FROM outbox_events
+                        WHERE id IN (%s)
+                          AND status < ?
+                          AND (locked_until IS NULL OR locked_until < NOW())
+                        """.formatted(placeholders),
+                (rs, rowNum) -> rs.getLong("id"),
+                params.toArray()
+        );
+    }
+
     public long countActivePending() {
         Long count = jdbcTemplate.queryForObject(
                 """

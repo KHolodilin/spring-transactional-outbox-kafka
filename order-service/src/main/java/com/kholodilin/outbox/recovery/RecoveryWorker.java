@@ -56,14 +56,15 @@ public class RecoveryWorker {
 
         log.debug("Recovery claimed ids={} lockedBy={} lockedUntil={}", ids, properties.getInstanceId(), lockedUntil);
 
+        // Release lease before enqueue so the publisher can claim rows as soon as it polls an id.
+        outboxJdbcRepository.clearLease(ids);
+
         int enqueued = 0;
         for (Long id : ids) {
             if (eventQueue.enqueue(id)) {
                 enqueued++;
             }
         }
-        // Release lease immediately; publisher will claim again before sending to Kafka.
-        outboxJdbcRepository.clearLease(ids);
         metrics.incrementRecoveryCount(enqueued);
         log.info("Recovery enqueued eventIds count={}", enqueued);
         log.debug("Recovery id list={}", ids);

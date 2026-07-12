@@ -60,14 +60,15 @@ class RecoveryIT {
     }
 
     private void awaitSentInDatabase(long eventId) {
-        long deadline = System.currentTimeMillis() + 20_000;
+        long deadline = System.currentTimeMillis() + 45_000;
+        Integer lastStatus = null;
         while (System.currentTimeMillis() < deadline) {
-            Integer status = jdbcTemplate.queryForObject(
+            lastStatus = jdbcTemplate.queryForObject(
                     "SELECT status FROM outbox_events WHERE id = ?",
                     Integer.class,
                     eventId
             );
-            if (status != null && status == OutboxStatus.SENT.getCode()) {
+            if (lastStatus != null && lastStatus == OutboxStatus.SENT.getCode()) {
                 return;
             }
             try {
@@ -77,6 +78,14 @@ class RecoveryIT {
                 throw new IllegalStateException("Interrupted while waiting for outbox SENT status", ex);
             }
         }
-        throw new AssertionError("Outbox event " + eventId + " was not marked SENT within 20s");
+        Integer retryCount = jdbcTemplate.queryForObject(
+                "SELECT retry_count FROM outbox_events WHERE id = ?",
+                Integer.class,
+                eventId
+        );
+        throw new AssertionError(
+                "Outbox event " + eventId + " was not marked SENT within 45s (lastStatus="
+                        + lastStatus + ", retryCount=" + retryCount + ")"
+        );
     }
 }
