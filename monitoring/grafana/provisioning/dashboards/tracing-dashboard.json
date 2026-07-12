@@ -26,6 +26,10 @@
         "type": "tempo",
         "uid": "tempo"
       },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 10,
         "w": 24,
@@ -33,25 +37,41 @@
         "y": 0
       },
       "id": 1,
-      "options": {},
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
       "targets": [
         {
           "datasource": {
             "type": "tempo",
             "uid": "tempo"
           },
-          "queryType": "traceqlSearch",
-          "query": "{resource.service.name=~\"$service\" && name=~\"$span\"}",
-          "refId": "A"
+          "filters": [],
+          "limit": 30,
+          "query": "{ resource.service.name = \"${service}\" }",
+          "queryType": "traceql",
+          "refId": "A",
+          "tableType": "traces"
         }
       ],
       "title": "Trace Search",
-      "type": "traces"
+      "type": "table"
     },
     {
       "datasource": {
         "type": "tempo",
         "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -60,25 +80,41 @@
         "y": 10
       },
       "id": 2,
-      "options": {},
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
       "targets": [
         {
           "datasource": {
             "type": "tempo",
             "uid": "tempo"
           },
+          "filters": [],
+          "limit": 20,
+          "query": "{ resource.service.name = \"order-service\" && name = \"http post /api/v1/orders\" }",
           "queryType": "traceql",
-          "query": "{resource.service.name=\"order-service\" && name=\"http post /api/v1/orders\"}",
-          "refId": "A"
+          "refId": "A",
+          "tableType": "traces"
         }
       ],
       "title": "HTTP POST /api/v1/orders",
-      "type": "traces"
+      "type": "table"
     },
     {
       "datasource": {
         "type": "tempo",
         "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -87,25 +123,41 @@
         "y": 10
       },
       "id": 3,
-      "options": {},
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
       "targets": [
         {
           "datasource": {
             "type": "tempo",
             "uid": "tempo"
           },
+          "filters": [],
+          "limit": 20,
+          "query": "{ name =~ \"outbox.*\" }",
           "queryType": "traceql",
-          "query": "{name=~\"outbox.*\"}",
-          "refId": "A"
+          "refId": "A",
+          "tableType": "traces"
         }
       ],
       "title": "Outbox Pipeline Spans",
-      "type": "traces"
+      "type": "table"
     },
     {
       "datasource": {
         "type": "tempo",
         "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -114,20 +166,32 @@
         "y": 18
       },
       "id": 4,
-      "options": {},
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
       "targets": [
         {
           "datasource": {
             "type": "tempo",
             "uid": "tempo"
           },
+          "filters": [],
+          "limit": 20,
+          "query": "{ resource.service.name = \"notification-stub\" && name =~ \"notification.*\" }",
           "queryType": "traceql",
-          "query": "{resource.service.name=\"notification-stub\" && name=~\"notification.*\"}",
-          "refId": "A"
+          "refId": "A",
+          "tableType": "traces"
         }
       ],
       "title": "Kafka Consumer (notification-stub)",
-      "type": "traces"
+      "type": "table"
     },
     {
       "datasource": {
@@ -148,12 +212,12 @@
             "type": "tempo",
             "uid": "tempo"
           },
-          "query": "$trace_id",
+          "query": "${trace_id}",
           "queryType": "traceId",
           "refId": "A"
         }
       ],
-      "title": "Trace Drill-down",
+      "title": "Trace Drill-down (paste Trace ID above)",
       "type": "traces"
     }
   ],
@@ -167,6 +231,7 @@
   "templating": {
     "list": [
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": "order-service",
@@ -192,6 +257,7 @@
         "type": "custom"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": "All",
@@ -251,5 +317,5 @@
   "timezone": "browser",
   "title": "Distributed Tracing",
   "uid": "distributed-tracing",
-  "version": 1
+  "version": 4
 }

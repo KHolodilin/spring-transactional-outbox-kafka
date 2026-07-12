@@ -13,3 +13,8 @@ datasources:
         datasourceUid: prometheus
       tracesToLogsV2:
         datasourceUid: prometheus
+      search:
+        hide: false
+      streamingEnabled:
+        search: false
+        metrics: false
