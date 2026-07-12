@@ -35,10 +35,7 @@ public class RecoveryWorker {
         if (!properties.getOutbox().getRecovery().isEnabled()) {
             return;
         }
-        outboxTracing.observe("outbox.recovery", this::recoverInternal);
-    }
 
-    private void recoverInternal() {
         int batchSize = properties.getOutbox().getRecovery().getBatchSize();
         Instant lockedUntil = Instant.now().plus(properties.getOutbox().getPublisher().getLeaseDuration());
         List<Long> ids = outboxJdbcRepository.claimRecoverableIds(
@@ -50,6 +47,10 @@ public class RecoveryWorker {
             return;
         }
 
+        outboxTracing.observe("outbox.recovery", () -> enqueueRecovered(ids, lockedUntil));
+    }
+
+    private void enqueueRecovered(List<Long> ids, Instant lockedUntil) {
         log.debug("Recovery claimed ids={} lockedBy={} lockedUntil={}", ids, properties.getInstanceId(), lockedUntil);
 
         // Release lease before enqueue so the publisher can claim rows as soon as it polls an id.
