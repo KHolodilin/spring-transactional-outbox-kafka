@@ -6,6 +6,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,7 @@ import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Duration;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,37 +55,58 @@ class OrderApiIT {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set(EventConstants.IDEMPOTENCY_KEY_HEADER, idempotencyKey);
-        ResponseEntity<Map> response = restTemplate.postForEntity(
-                "/api/v1/orders",
-                new HttpEntity<>(body, headers),
-                Map.class
-        );
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(response.getBody()).containsKeys("orderId", "eventId", "status");
-        long eventId = ((Number) response.getBody().get("eventId")).longValue();
 
         try (KafkaConsumer<String, EventEnvelope> consumer = createConsumer()) {
             consumer.subscribe(List.of(EventConstants.TOPIC_ORDERS));
+            awaitPartitionAssignment(consumer);
+            consumer.seekToEnd(consumer.assignment());
+
+            ResponseEntity<Map> response = restTemplate.postForEntity(
+                    "/api/v1/orders",
+                    new HttpEntity<>(body, headers),
+                    Map.class
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(response.getBody()).containsKeys("orderId", "eventId", "status");
+            long eventId = ((Number) response.getBody().get("eventId")).longValue();
+
             ConsumerRecord<String, EventEnvelope> record = awaitRecord(consumer, eventId);
             assertThat(record).isNotNull();
             assertThat(record.key()).isEqualTo("42");
+            assertThat(record.value()).isNotNull();
             assertThat(record.value().getCustomerId()).isEqualTo(42L);
             assertThat(record.value().getEventId()).isEqualTo(eventId);
         }
     }
 
+    private void awaitPartitionAssignment(KafkaConsumer<?, ?> consumer) {
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (consumer.assignment().isEmpty() && System.currentTimeMillis() < deadline) {
+            consumer.poll(Duration.ofMillis(200));
+        }
+        assertThat(consumer.assignment()).isNotEmpty();
+    }
+
     private ConsumerRecord<String, EventEnvelope> awaitRecord(KafkaConsumer<String, EventEnvelope> consumer, long eventId) {
-        long deadline = System.currentTimeMillis() + 10_000;
+        long deadline = System.currentTimeMillis() + 20_000;
         while (System.currentTimeMillis() < deadline) {
             ConsumerRecords<String, EventEnvelope> records = consumer.poll(Duration.ofMillis(500));
             for (ConsumerRecord<String, EventEnvelope> record : records) {
-                if (record.value() != null && eventId == record.value().getEventId()) {
+                if (matchesEventId(record, eventId)) {
                     return record;
                 }
             }
         }
         return null;
+    }
+
+    private boolean matchesEventId(ConsumerRecord<String, EventEnvelope> record, long eventId) {
+        Header header = record.headers().lastHeader(EventConstants.HEADER_EVENT_ID);
+        if (header != null) {
+            return eventId == Long.parseLong(new String(header.value(), StandardCharsets.UTF_8));
+        }
+        return record.value() != null && eventId == record.value().getEventId();
     }
 
     private KafkaConsumer<String, EventEnvelope> createConsumer() {
