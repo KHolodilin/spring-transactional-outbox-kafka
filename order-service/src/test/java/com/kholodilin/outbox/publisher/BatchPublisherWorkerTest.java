@@ -15,10 +15,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,10 +35,16 @@ class BatchPublisherWorkerTest {
     @Mock
     private KafkaBatchPublisher kafkaBatchPublisher;
 
+    @Mock
+    private ObjectProvider<KafkaBatchPublisher> kafkaBatchPublisherProvider;
+
     private BatchPublisherWorker worker;
 
     @BeforeEach
     void setUp() {
+        lenient().when(kafkaBatchPublisherProvider.getObject()).thenReturn(kafkaBatchPublisher);
+        OutboxMetrics metrics = new OutboxMetrics(new SimpleMeterRegistry());
+        ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         AppProperties properties = AppProperties.builder()
                 .outbox(OutboxProperties.builder()
                         .publisher(PublisherProperties.builder().maxRetries(5).build())
@@ -45,8 +53,8 @@ class BatchPublisherWorkerTest {
         worker = new BatchPublisherWorker(
                 eventQueue,
                 outboxJdbcRepository,
-                kafkaBatchPublisher,
-                new OutboxMetrics(new SimpleMeterRegistry()),
+                kafkaBatchPublisherProvider,
+                metrics,
                 properties,
                 JsonMapper.builder().build()
         );

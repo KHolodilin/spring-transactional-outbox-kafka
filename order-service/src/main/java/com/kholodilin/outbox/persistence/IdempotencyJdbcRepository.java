@@ -2,6 +2,7 @@ package com.kholodilin.outbox.persistence;
 
 import com.kholodilin.outbox.events.IdempotencyStatus;
 import com.kholodilin.outbox.persistence.entity.IdempotencyKeyEntity;
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -14,6 +15,7 @@ import java.util.Optional;
 
 /** JDBC access to hash-partitioned {@code idempotency_keys} table. */
 @Repository
+@RequiredArgsConstructor
 public class IdempotencyJdbcRepository {
 
     private static final RowMapper<IdempotencyKeyEntity> ROW_MAPPER = new RowMapper<>() {
@@ -33,10 +35,6 @@ public class IdempotencyJdbcRepository {
     };
 
     private final JdbcTemplate jdbcTemplate;
-
-    public IdempotencyJdbcRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
 
     public Optional<IdempotencyKeyEntity> findByCustomerIdAndKey(Long customerId, String idempotencyKey) {
         var list = jdbcTemplate.query(

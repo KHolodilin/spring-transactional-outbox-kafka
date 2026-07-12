@@ -2,6 +2,7 @@ package com.kholodilin.outbox.notification;
 
 import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.metrics.NotificationStubMetrics;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -15,13 +16,10 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class NotificationStubHandler {
 
     private final NotificationStubMetrics metrics;
-
-    public NotificationStubHandler(NotificationStubMetrics metrics) {
-        this.metrics = metrics;
-    }
 
     @KafkaListener(
             topics = "${app.kafka.topic}",

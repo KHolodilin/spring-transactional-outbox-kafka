@@ -37,7 +37,7 @@ public class KafkaProducerConfig {
         return new KafkaTemplate<>(producerFactory);
     }
 
-    static ObjectMapper kafkaObjectMapper() {
+    public static ObjectMapper kafkaObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);

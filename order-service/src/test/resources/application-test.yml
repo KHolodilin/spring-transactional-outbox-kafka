@@ -7,13 +7,12 @@ spring:
       ddl-auto: validate
   liquibase:
     enabled: true
-  kafka:
-    bootstrap-servers: ${spring.embedded.kafka.brokers}
 
 app:
   outbox:
     recovery:
-      enabled: false
+      enabled: true
+      interval: 2s
     memory-queue:
       capacity: 100
   rate-limit:

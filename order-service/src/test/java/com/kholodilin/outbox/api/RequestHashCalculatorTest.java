@@ -2,7 +2,9 @@ package com.kholodilin.outbox.api;
 
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.OrderItemRequest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
@@ -12,7 +14,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RequestHashCalculatorTest {
 
-    private final RequestHashCalculator calculator = new RequestHashCalculator(JsonMapper.builder().build());
+    private final RequestHashCalculator calculator;
+
+    RequestHashCalculatorTest() {
+        calculator = new RequestHashCalculator(JsonMapper.builder().build());
+        ReflectionTestUtils.invokeMethod(calculator, "init");
+    }
 
     @Test
     void sameRequestProducesSameHash() {

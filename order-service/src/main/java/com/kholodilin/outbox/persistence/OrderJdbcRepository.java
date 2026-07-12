@@ -1,5 +1,6 @@
 package com.kholodilin.outbox.persistence;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -14,13 +15,10 @@ import java.time.Instant;
  * No FK on {@code order_items.order_id} — referential integrity is enforced in application code.
  */
 @Repository
+@RequiredArgsConstructor
 public class OrderJdbcRepository {
 
     private final JdbcTemplate jdbcTemplate;
-
-    public OrderJdbcRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
 
     public long insertOrder(Long customerId, BigDecimal totalAmount, Instant now) {
         Long id = jdbcTemplate.queryForObject(

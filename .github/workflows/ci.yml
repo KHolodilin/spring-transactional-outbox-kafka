@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Verify Docker is available
+        run: docker info
+
+      - name: Build and test
+        run: |
+          mvn -B clean verify || {
+            echo "=== Failsafe failures ==="
+            find . -path '*/failsafe-reports/*.txt' -print -exec cat {} \;
+            exit 1
+          }
+
+      - name: Upload failsafe reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failsafe-reports
+          path: "**/failsafe-reports/"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: |
+            outbox-events-contract/target/site/jacoco/jacoco.xml,
+            order-service/target/site/jacoco/jacoco.xml,
+            notification-stub/target/site/jacoco/jacoco.xml
+          fail_ci_if_error: true

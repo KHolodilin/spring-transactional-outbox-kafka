@@ -38,6 +38,37 @@ mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
 
 Metrics: Prometheus http://localhost:9090, Grafana http://localhost:3000 — see [README Observability](README.md#observability).
 
+### Code coverage (JaCoCo)
+
+After `mvn clean verify`, JaCoCo XML reports are written per module:
+
+```text
+outbox-events-contract/target/site/jacoco/jacoco.xml
+order-service/target/site/jacoco/jacoco.xml
+notification-stub/target/site/jacoco/jacoco.xml
+```
+
+CI uploads all module reports to Codecov (merged on the Codecov side).
+
+## Continuous integration and Codecov
+
+Every push to `main` and every pull request runs [GitHub Actions CI](.github/workflows/ci.yml):
+
+1. JDK 21 (Temurin), Maven cache
+2. `mvn -B clean verify` (Docker required for Testcontainers integration tests)
+3. Upload of per-module JaCoCo XML reports to [Codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
+
+PRs receive a Codecov comment with patch coverage. The README badge reflects the latest `main` upload.
+
+### Repository maintainer setup (one-time)
+
+1. Sign in at [codecov.io](https://about.codecov.io/) with GitHub and add this repository.
+2. Install the **Codecov GitHub App** (PR comments and status checks).
+3. Copy the repository upload token from Codecov → repo Settings.
+4. Add a GitHub Actions secret named `CODECOV_TOKEN` (repo Settings → Secrets → Actions).
+
+Without `CODECOV_TOKEN`, the CI upload step fails (`fail_ci_if_error: true`).
+
 ## Project structure
 
 | Module | Purpose |

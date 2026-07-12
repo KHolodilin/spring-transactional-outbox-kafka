@@ -10,7 +10,9 @@ import com.kholodilin.outbox.persistence.OutboxRow;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -29,32 +31,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class BatchPublisherWorker {
 
     private final InMemoryEventQueue eventQueue;
     private final OutboxJdbcRepository outboxJdbcRepository;
-    private final KafkaBatchPublisher kafkaBatchPublisher;
+    private final ObjectProvider<KafkaBatchPublisher> kafkaBatchPublisher;
     private final OutboxMetrics metrics;
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
     private final AtomicBoolean running = new AtomicBoolean(true);
     private ExecutorService executor;
-
-    public BatchPublisherWorker(
-            InMemoryEventQueue eventQueue,
-            OutboxJdbcRepository outboxJdbcRepository,
-            KafkaBatchPublisher kafkaBatchPublisher,
-            OutboxMetrics metrics,
-            AppProperties properties,
-            ObjectMapper objectMapper
-    ) {
-        this.eventQueue = eventQueue;
-        this.outboxJdbcRepository = outboxJdbcRepository;
-        this.kafkaBatchPublisher = kafkaBatchPublisher;
-        this.metrics = metrics;
-        this.properties = properties;
-        this.objectMapper = objectMapper;
-    }
 
     @PostConstruct
     public void start() {
@@ -97,6 +84,9 @@ public class BatchPublisherWorker {
                 );
                 if (claimed.isEmpty()) {
                     log.debug("No outbox rows claimed for ids={}", ids);
+                    for (Long id : outboxJdbcRepository.findReenqueueableIds(ids)) {
+                        eventQueue.enqueue(id);
+                    }
                     continue;
                 }
 
@@ -108,7 +98,7 @@ public class BatchPublisherWorker {
 
                 long start = System.nanoTime();
                 try {
-                    kafkaBatchPublisher.publish(envelopes);
+                    kafkaBatchPublisher.getObject().publish(envelopes);
                     List<Long> sentIds = claimed.stream().map(OutboxRow::getId).toList();
                     outboxJdbcRepository.markSent(sentIds, Instant.now());
                     metrics.publishLatency().record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);

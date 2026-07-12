@@ -3,6 +3,7 @@ package com.kholodilin.outbox.persistence;
 import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.events.OutboxStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -14,6 +15,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * JDBC access to {@code outbox_events} for the publisher and recovery worker.
@@ -22,6 +24,7 @@ import java.util.Map;
  * Hot-path reads use active rows only ({@code status < 100}); finals move to archive ({@code status >= 100}).
  */
 @Repository
+@RequiredArgsConstructor
 public class OutboxJdbcRepository {
 
     private static final RowMapper<OutboxRow> ROW_MAPPER = new RowMapper<>() {
@@ -41,11 +44,6 @@ public class OutboxJdbcRepository {
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
-
-    public OutboxJdbcRepository(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.objectMapper = objectMapper;
-    }
 
     public long insertEvent(Long orderId, Long customerId, String eventType, String payload, Instant now) {
         Long id = jdbcTemplate.queryForObject(
@@ -168,6 +166,26 @@ public class OutboxJdbcRepository {
         );
     }
 
+    /** Returns ids that are still active and not leased — safe to re-enqueue after a failed claim. */
+    public List<Long> findReenqueueableIds(List<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", ids.stream().map(id -> "?").toList());
+        List<Object> params = new ArrayList<>(ids);
+        params.add(OutboxStatus.ARCHIVE_THRESHOLD);
+        return jdbcTemplate.query(
+                """
+                        SELECT id FROM outbox_events
+                        WHERE id IN (%s)
+                          AND status < ?
+                          AND (locked_until IS NULL OR locked_until < NOW())
+                        """.formatted(placeholders),
+                (rs, rowNum) -> rs.getLong("id"),
+                params.toArray()
+        );
+    }
+
     public long countActivePending() {
         Long count = jdbcTemplate.queryForObject(
                 """
@@ -178,6 +196,19 @@ public class OutboxJdbcRepository {
                 OutboxStatus.ARCHIVE_THRESHOLD
         );
         return count == null ? 0L : count;
+    }
+
+    public Optional<OutboxRow> findById(long id) {
+        List<OutboxRow> rows = jdbcTemplate.query(
+                """
+                        SELECT id, order_id, customer_id, event_type, payload::text AS payload, status, retry_count
+                        FROM outbox_events
+                        WHERE id = ?
+                        """,
+                ROW_MAPPER,
+                id
+        );
+        return rows.stream().findFirst();
     }
 
     public EventEnvelope toEnvelope(OutboxRow row, String correlationId) {

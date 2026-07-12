@@ -5,6 +5,7 @@ import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.IdempotencyStatus;
 import com.kholodilin.outbox.persistence.IdempotencyJdbcRepository;
 import com.kholodilin.outbox.persistence.entity.IdempotencyKeyEntity;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -18,15 +19,11 @@ import java.util.Optional;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class IdempotencyService {
 
     private final IdempotencyJdbcRepository repository;
     private final ObjectMapper objectMapper;
-
-    public IdempotencyService(IdempotencyJdbcRepository repository, ObjectMapper objectMapper) {
-        this.repository = repository;
-        this.objectMapper = objectMapper;
-    }
 
     public Optional<CreateOrderResponse> findCachedResponse(Long customerId, String idempotencyKey, String requestHash) {
         Optional<IdempotencyKeyEntity> existing = repository.findByCustomerIdAndKey(customerId, idempotencyKey);

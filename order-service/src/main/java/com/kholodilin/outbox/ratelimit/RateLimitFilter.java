@@ -8,10 +8,12 @@ import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -31,27 +33,21 @@ import java.util.concurrent.ConcurrentHashMap;
  * (adaptive backpressure) to slow down ingress while the publisher catches up.
  */
 @Component
+@RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private final Bucket globalBucket;
-    private final Map<Long, Bucket> customerBuckets = new ConcurrentHashMap<>();
-    private final Map<String, Bucket> ipBuckets = new ConcurrentHashMap<>();
     private final AppProperties properties;
     private final InMemoryEventQueue eventQueue;
     private final OutboxMetrics metrics;
     private final ObjectMapper objectMapper;
 
-    public RateLimitFilter(
-            AppProperties properties,
-            InMemoryEventQueue eventQueue,
-            OutboxMetrics metrics,
-            ObjectMapper objectMapper
-    ) {
-        this.properties = properties;
-        this.eventQueue = eventQueue;
-        this.metrics = metrics;
-        this.objectMapper = objectMapper;
-        this.globalBucket = createBucket(properties.getRateLimit().getGlobal());
+    private Bucket globalBucket;
+    private final Map<Long, Bucket> customerBuckets = new ConcurrentHashMap<>();
+    private final Map<String, Bucket> ipBuckets = new ConcurrentHashMap<>();
+
+    @PostConstruct
+    void init() {
+        globalBucket = createBucket(properties.getRateLimit().getGlobal());
     }
 
     @Override

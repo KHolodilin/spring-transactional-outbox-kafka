@@ -1,6 +1,7 @@
 package com.kholodilin.outbox.outbox;
 
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -14,13 +15,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class OutboxEnqueueListener {
 
     private final InMemoryEventQueue eventQueue;
-
-    public OutboxEnqueueListener(InMemoryEventQueue eventQueue) {
-        this.eventQueue = eventQueue;
-    }
 
     public void enqueueAfterCommit(long eventId) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
