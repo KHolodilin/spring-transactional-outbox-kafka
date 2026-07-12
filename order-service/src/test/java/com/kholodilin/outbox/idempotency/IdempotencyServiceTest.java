@@ -60,4 +60,16 @@ class IdempotencyServiceTest {
         assertThatThrownBy(() -> service.findCachedResponse(1L, "key", "hash"))
                 .isInstanceOf(IdempotencyConflictException.class);
     }
+
+    @Test
+    void throwsWhenRequestIsStillProcessing() {
+        IdempotencyKeyEntity entity = new IdempotencyKeyEntity();
+        entity.setRequestHash("hash");
+        entity.setStatus(IdempotencyStatus.PROCESSING);
+        when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
+
+        assertThatThrownBy(() -> service.findCachedResponse(1L, "key", "hash"))
+                .isInstanceOf(IdempotencyConflictException.class)
+                .hasMessageContaining("already being processed");
+    }
 }

@@ -47,4 +47,20 @@ class InMemoryEventQueueTest {
         assertThat(first).isEqualTo(1L);
         assertThat(drained).containsExactly(2L);
     }
+
+    @Test
+    void reportsPressure() {
+        queue.enqueue(1L);
+        assertThat(queue.pressure()).isEqualTo(0.5);
+        assertThat(queue.capacity()).isEqualTo(2);
+    }
+
+    @Test
+    void allowsEnqueueAfterQueueSlotFreed() throws Exception {
+        assertThat(queue.enqueue(1L)).isTrue();
+        assertThat(queue.enqueue(2L)).isTrue();
+        assertThat(queue.enqueue(3L)).isFalse();
+        queue.poll(100);
+        assertThat(queue.enqueue(3L)).isTrue();
+    }
 }
