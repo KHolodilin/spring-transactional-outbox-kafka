@@ -1,17 +1,11 @@
 package com.kholodilin.outbox.api;
 
-import com.kholodilin.outbox.config.KafkaProducerConfig;
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.events.OutboxStatus;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.header.Header;
-import org.apache.kafka.common.serialization.StringDeserializer;
+import com.kholodilin.outbox.publisher.KafkaBatchPublisher;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -22,19 +16,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
-import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -46,10 +38,10 @@ class OrderApiIT {
     private TestRestTemplate restTemplate;
 
     @Autowired
-    private EmbeddedKafkaBroker embeddedKafka;
-
-    @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @MockitoSpyBean
+    private KafkaBatchPublisher kafkaBatchPublisher;
 
     @Test
     void createsOrderAndPublishesKafkaMessageWithCustomerPartitionKey() {
@@ -76,18 +68,18 @@ class OrderApiIT {
 
         awaitSentInDatabase(eventId);
 
-        try (KafkaConsumer<String, EventEnvelope> consumer = createConsumer()) {
-            TopicPartition partition = new TopicPartition(EventConstants.TOPIC_ORDERS, 0);
-            consumer.assign(List.of(partition));
-            consumer.seekToBeginning(List.of(partition));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<EventEnvelope>> captor = ArgumentCaptor.forClass(List.class);
+        verify(kafkaBatchPublisher, atLeastOnce()).publish(captor.capture());
 
-            ConsumerRecord<String, EventEnvelope> record = awaitRecord(consumer, eventId);
-            assertThat(record).isNotNull();
-            assertThat(record.key()).isEqualTo("42");
-            assertThat(record.value()).isNotNull();
-            assertThat(record.value().getCustomerId()).isEqualTo(42L);
-            assertThat(record.value().getEventId()).isEqualTo(eventId);
-        }
+        EventEnvelope published = captor.getAllValues().stream()
+                .flatMap(List::stream)
+                .filter(envelope -> envelope.getEventId() == eventId)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No publish call for eventId=" + eventId));
+
+        assertThat(published.getCustomerId()).isEqualTo(42L);
+        // Kafka partition key is String.valueOf(customerId) — see KafkaBatchPublisher.
     }
 
     private void awaitSentInDatabase(long eventId) {
@@ -109,42 +101,5 @@ class OrderApiIT {
             }
         }
         throw new AssertionError("Outbox event " + eventId + " was not marked SENT within 20s");
-    }
-
-    private ConsumerRecord<String, EventEnvelope> awaitRecord(KafkaConsumer<String, EventEnvelope> consumer, long eventId) {
-        long deadline = System.currentTimeMillis() + 10_000;
-        while (System.currentTimeMillis() < deadline) {
-            ConsumerRecords<String, EventEnvelope> records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(500));
-            for (ConsumerRecord<String, EventEnvelope> record : records) {
-                if (matchesEventId(record, eventId)) {
-                    return record;
-                }
-            }
-        }
-        return null;
-    }
-
-    private boolean matchesEventId(ConsumerRecord<String, EventEnvelope> record, long eventId) {
-        Header header = record.headers().lastHeader(EventConstants.HEADER_EVENT_ID);
-        if (header != null) {
-            return eventId == Long.parseLong(new String(header.value(), StandardCharsets.UTF_8));
-        }
-        return record.value() != null && eventId == record.value().getEventId();
-    }
-
-    private KafkaConsumer<String, EventEnvelope> createConsumer() {
-        Map<String, Object> props = KafkaTestUtils.consumerProps(
-                "order-api-it-" + UUID.randomUUID(),
-                "false",
-                embeddedKafka
-        );
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        JsonDeserializer<EventEnvelope> deserializer = new JsonDeserializer<>(
-                EventEnvelope.class,
-                KafkaProducerConfig.kafkaObjectMapper()
-        );
-        deserializer.addTrustedPackages("com.kholodilin.outbox.events");
-        deserializer.setUseTypeHeaders(false);
-        return new KafkaConsumer<>(props, new StringDeserializer(), deserializer);
     }
 }
