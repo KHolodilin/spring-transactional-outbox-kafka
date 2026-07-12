@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,30 +24,18 @@ import java.util.Map;
 @Repository
 public class OutboxJdbcRepository {
 
-    /** Lightweight row loaded for publishing — payload kept as JSON string until send time. */
-    public record OutboxRow(
-            Long id,
-            Long orderId,
-            Long customerId,
-            String eventType,
-            String payload,
-            OutboxStatus status,
-            int retryCount
-    ) {
-    }
-
     private static final RowMapper<OutboxRow> ROW_MAPPER = new RowMapper<>() {
         @Override
         public OutboxRow mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return new OutboxRow(
-                    rs.getLong("id"),
-                    rs.getLong("order_id"),
-                    rs.getLong("customer_id"),
-                    rs.getString("event_type"),
-                    rs.getString("payload"),
-                    OutboxStatus.fromCode(rs.getInt("status")),
-                    rs.getInt("retry_count")
-            );
+            return OutboxRow.builder()
+                    .id(rs.getLong("id"))
+                    .orderId(rs.getLong("order_id"))
+                    .customerId(rs.getLong("customer_id"))
+                    .eventType(rs.getString("event_type"))
+                    .payload(rs.getString("payload"))
+                    .status(OutboxStatus.fromCode(rs.getInt("status")))
+                    .retryCount(rs.getInt("retry_count"))
+                    .build();
         }
     };
 
@@ -71,7 +60,7 @@ public class OutboxJdbcRepository {
                 eventType,
                 payload,
                 OutboxStatus.NEW.getCode(),
-                now
+                Timestamp.from(now)
         );
         return id;
     }
@@ -88,11 +77,9 @@ public class OutboxJdbcRepository {
         List<Object> params = new ArrayList<>();
         params.add(OutboxStatus.PROCESSING.getCode());
         params.add(lockedBy);
-        params.add(lockedUntil);
+        params.add(Timestamp.from(lockedUntil));
         params.addAll(ids);
         params.add(OutboxStatus.ARCHIVE_THRESHOLD);
-        params.add(OutboxStatus.NEW.getCode());
-        params.add(OutboxStatus.FAILED.getCode());
 
         return jdbcTemplate.query(
                 """
@@ -100,7 +87,6 @@ public class OutboxJdbcRepository {
                         SET status = ?, locked_by = ?, locked_until = ?
                         WHERE id IN (%s)
                           AND status < ?
-                          AND status IN (?, ?)
                           AND (locked_until IS NULL OR locked_until < NOW())
                         RETURNING id, order_id, customer_id, event_type, payload::text AS payload, status, retry_count
                         """.formatted(placeholders),
@@ -116,7 +102,7 @@ public class OutboxJdbcRepository {
         String placeholders = String.join(",", ids.stream().map(id -> "?").toList());
         List<Object> params = new ArrayList<>();
         params.add(OutboxStatus.SENT.getCode());
-        params.add(sentAt);
+        params.add(Timestamp.from(sentAt));
         params.addAll(ids);
         jdbcTemplate.update(
                 """
@@ -149,7 +135,6 @@ public class OutboxJdbcRepository {
                             SELECT id
                             FROM outbox_events
                             WHERE status < ?
-                              AND status IN (?, ?)
                               AND (locked_until IS NULL OR locked_until < NOW())
                             ORDER BY id
                             LIMIT ?
@@ -164,11 +149,9 @@ public class OutboxJdbcRepository {
                         """,
                 (rs, rowNum) -> rs.getLong("id"),
                 OutboxStatus.ARCHIVE_THRESHOLD,
-                OutboxStatus.NEW.getCode(),
-                OutboxStatus.FAILED.getCode(),
                 batchSize,
                 lockedBy,
-                lockedUntil
+                Timestamp.from(lockedUntil)
         );
     }
 
@@ -200,18 +183,18 @@ public class OutboxJdbcRepository {
     public EventEnvelope toEnvelope(OutboxRow row, String correlationId) {
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> payload = objectMapper.readValue(row.payload(), Map.class);
+            Map<String, Object> payload = objectMapper.readValue(row.getPayload(), Map.class);
             return EventEnvelope.builder()
-                    .eventId(row.id())
-                    .orderId(row.orderId())
-                    .customerId(row.customerId())
-                    .eventType(row.eventType())
+                    .eventId(row.getId())
+                    .orderId(row.getOrderId())
+                    .customerId(row.getCustomerId())
+                    .eventType(row.getEventType())
                     .payload(payload)
                     .correlationId(correlationId)
                     .occurredAt(Instant.now())
                     .build();
         } catch (Exception ex) {
-            throw new IllegalStateException("Failed to parse outbox payload for id=" + row.id(), ex);
+            throw new IllegalStateException("Failed to parse outbox payload for id=" + row.getId(), ex);
         }
     }
 }

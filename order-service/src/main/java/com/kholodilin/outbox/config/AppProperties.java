@@ -1,55 +1,38 @@
 package com.kholodilin.outbox.config;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /** Typed configuration bound from {@code app.*} keys in application.yml. */
 @ConfigurationProperties(prefix = "app")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class AppProperties {
 
     /** Unique pod/instance id used as {@code locked_by} for outbox leases. */
+    @Builder.Default
     private String instanceId = "local";
-    private KafkaProperties kafka = new KafkaProperties();
-    private OutboxProperties outbox = new OutboxProperties();
-    private RateLimitProperties rateLimit = new RateLimitProperties();
-    private HealthProperties health = new HealthProperties();
 
-    public String getInstanceId() {
-        return instanceId;
-    }
+    /** Kafka topic and related producer settings. */
+    @Builder.Default
+    private KafkaProperties kafka = KafkaProperties.builder().build();
 
-    public void setInstanceId(String instanceId) {
-        this.instanceId = instanceId;
-    }
+    /** In-memory queue, publisher, and recovery worker settings. */
+    @Builder.Default
+    private OutboxProperties outbox = OutboxProperties.builder().build();
 
-    public KafkaProperties getKafka() {
-        return kafka;
-    }
+    /** HTTP rate-limit buckets and adaptive throttling settings. */
+    @Builder.Default
+    private RateLimitProperties rateLimit = RateLimitProperties.builder().build();
 
-    public void setKafka(KafkaProperties kafka) {
-        this.kafka = kafka;
-    }
-
-    public OutboxProperties getOutbox() {
-        return outbox;
-    }
-
-    public void setOutbox(OutboxProperties outbox) {
-        this.outbox = outbox;
-    }
-
-    public RateLimitProperties getRateLimit() {
-        return rateLimit;
-    }
-
-    public void setRateLimit(RateLimitProperties rateLimit) {
-        this.rateLimit = rateLimit;
-    }
-
-    public HealthProperties getHealth() {
-        return health;
-    }
-
-    public void setHealth(HealthProperties health) {
-        this.health = health;
-    }
+    /** Thresholds used by custom Actuator health indicators. */
+    @Builder.Default
+    private HealthProperties health = HealthProperties.builder().build();
 }

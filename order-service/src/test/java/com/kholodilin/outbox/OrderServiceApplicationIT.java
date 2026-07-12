@@ -8,7 +8,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @ActiveProfiles("test")
 @EmbeddedKafka(partitions = 1, topics = "orders.events")
-class OrderServiceApplicationTest {
+class OrderServiceApplicationIT {
 
     @Test
     void contextLoads() {

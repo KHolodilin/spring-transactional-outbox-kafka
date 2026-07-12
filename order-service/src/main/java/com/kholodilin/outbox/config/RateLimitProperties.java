@@ -1,42 +1,32 @@
 package com.kholodilin.outbox.config;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 /** Token-bucket limits with adaptive backpressure when queue pressure is high. */
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class RateLimitProperties {
 
+    /** Multiplier applied to bucket refill rates while the queue is under pressure. */
+    @Builder.Default
     private double throttleMultiplier = 0.5;
-    private RateLimitBucketProperties global = new RateLimitBucketProperties(1000, 100);
-    private RateLimitBucketProperties perCustomer = new RateLimitBucketProperties(100, 10);
-    private RateLimitBucketProperties perIp = new RateLimitBucketProperties(50, 5);
 
-    public double getThrottleMultiplier() {
-        return throttleMultiplier;
-    }
+    /** Cluster-wide request rate limit. */
+    @Builder.Default
+    private RateLimitBucketProperties global = RateLimitBucketProperties.builder().capacity(1000).refillPerSecond(100).build();
 
-    public void setThrottleMultiplier(double throttleMultiplier) {
-        this.throttleMultiplier = throttleMultiplier;
-    }
+    /** Per-customer request rate limit. */
+    @Builder.Default
+    private RateLimitBucketProperties perCustomer = RateLimitBucketProperties.builder().capacity(100).refillPerSecond(10).build();
 
-    public RateLimitBucketProperties getGlobal() {
-        return global;
-    }
-
-    public void setGlobal(RateLimitBucketProperties global) {
-        this.global = global;
-    }
-
-    public RateLimitBucketProperties getPerCustomer() {
-        return perCustomer;
-    }
-
-    public void setPerCustomer(RateLimitBucketProperties perCustomer) {
-        this.perCustomer = perCustomer;
-    }
-
-    public RateLimitBucketProperties getPerIp() {
-        return perIp;
-    }
-
-    public void setPerIp(RateLimitBucketProperties perIp) {
-        this.perIp = perIp;
-    }
+    /** Per client IP request rate limit. */
+    @Builder.Default
+    private RateLimitBucketProperties perIp = RateLimitBucketProperties.builder().capacity(50).refillPerSecond(5).build();
 }

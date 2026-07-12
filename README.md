@@ -72,6 +72,52 @@ Key settings in `order-service/src/main/resources/application.yml`:
 
 Kafka messages use **partition key = `customerId`**.
 
+## Observability
+
+The local stack includes **Prometheus** and **Grafana** (via Docker Compose). Applications run on the host and expose metrics through Spring Boot Actuator.
+
+### 1. Start infrastructure (including monitoring)
+
+```bash
+docker compose up -d
+```
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| Prometheus | http://localhost:9090 | scrapes apps on host + `postgres-exporter` |
+| Grafana | http://localhost:3000 | login `admin` / `admin` (dev only) |
+| postgres-exporter | http://localhost:9187/metrics | standard PostgreSQL metrics |
+
+### 2. Run services and generate traffic
+
+```bash
+mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
+mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+Verify metrics endpoints:
+
+```bash
+curl -s http://localhost:8080/actuator/prometheus | head
+curl -s http://localhost:8081/actuator/prometheus | head
+```
+
+Create an order (see API example above), then open Grafana — dashboards **Transactional Outbox**, **Notification Stub**, and **PostgreSQL** are provisioned automatically.
+
+Prometheus targets: http://localhost:9090/targets (`order-service`, `notification-stub`, `postgres` should be **UP** while the stack is running).
+
+### Custom outbox metrics (`order-service`)
+
+| Metric | Description |
+|--------|-------------|
+| `outbox.queue.size` | In-memory queue size |
+| `outbox.queue.pressure` | Queue fill ratio (0–1) |
+| `outbox.publish.latency` | Kafka publish duration |
+| `outbox.publish.failures` | Failed publish attempts |
+| `outbox.retry.count` | Publisher retries |
+| `outbox.recovery.count` | Events re-enqueued by recovery worker |
+| `outbox.rate_limit.rejects` | HTTP 429 responses |
+
 ## Failure scenarios (local)
 
 | Scenario | Expected behavior |

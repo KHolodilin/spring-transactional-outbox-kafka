@@ -1,6 +1,6 @@
 name: Feature request
 description: Suggest an enhancement to the transactional outbox demo or its tooling.
-title: "[Feature]: "
+title: "Transactional Outbox Pattern - [Feature]: "
 labels:
   - enhancement
 body:

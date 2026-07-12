@@ -1,6 +1,6 @@
 name: Bug report
 description: Report incorrect behavior in order-service, notification-stub, or infrastructure setup.
-title: "[Bug]: "
+title: "Transactional Outbox Pattern - [Bug]: "
 labels:
   - bug
 body:

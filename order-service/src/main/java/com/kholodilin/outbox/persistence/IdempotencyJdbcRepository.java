@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -61,8 +62,8 @@ public class IdempotencyJdbcRepository {
                 idempotencyKey,
                 requestHash,
                 IdempotencyStatus.PROCESSING.getCode(),
-                now,
-                now
+                Timestamp.from(now),
+                Timestamp.from(now)
         );
     }
 
@@ -75,7 +76,7 @@ public class IdempotencyJdbcRepository {
                         """,
                 IdempotencyStatus.COMPLETED.getCode(),
                 responseBody,
-                now,
+                Timestamp.from(now),
                 customerId,
                 idempotencyKey
         );

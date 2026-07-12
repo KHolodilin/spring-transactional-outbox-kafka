@@ -1,6 +1,8 @@
 package com.kholodilin.outbox.queue;
 
 import com.kholodilin.outbox.config.AppProperties;
+import com.kholodilin.outbox.config.MemoryQueueProperties;
+import com.kholodilin.outbox.config.OutboxProperties;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,10 +19,15 @@ class InMemoryEventQueueTest {
 
     @BeforeEach
     void setUp() {
-        AppProperties properties = new AppProperties();
-        properties.getOutbox().getMemoryQueue().setCapacity(2);
-        properties.getOutbox().getMemoryQueue().setBatchSize(10);
-        properties.getOutbox().getMemoryQueue().setBatchWait(Duration.ofMillis(10));
+        AppProperties properties = AppProperties.builder()
+                .outbox(OutboxProperties.builder()
+                        .memoryQueue(MemoryQueueProperties.builder()
+                                .capacity(2)
+                                .batchSize(10)
+                                .batchWait(Duration.ofMillis(10))
+                                .build())
+                        .build())
+                .build();
         queue = new InMemoryEventQueue(properties, new OutboxMetrics(new SimpleMeterRegistry()));
     }
 
@@ -46,5 +53,21 @@ class InMemoryEventQueueTest {
         List<Long> drained = queue.drainBatch(10);
         assertThat(first).isEqualTo(1L);
         assertThat(drained).containsExactly(2L);
+    }
+
+    @Test
+    void reportsPressure() {
+        queue.enqueue(1L);
+        assertThat(queue.pressure()).isEqualTo(0.5);
+        assertThat(queue.capacity()).isEqualTo(2);
+    }
+
+    @Test
+    void allowsEnqueueAfterQueueSlotFreed() throws Exception {
+        assertThat(queue.enqueue(1L)).isTrue();
+        assertThat(queue.enqueue(2L)).isTrue();
+        assertThat(queue.enqueue(3L)).isFalse();
+        queue.poll(100);
+        assertThat(queue.enqueue(3L)).isTrue();
     }
 }

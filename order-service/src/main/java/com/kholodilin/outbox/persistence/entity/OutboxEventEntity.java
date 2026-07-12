@@ -1,15 +1,14 @@
 package com.kholodilin.outbox.persistence.entity;
 
-import com.kholodilin.outbox.events.OutboxStatus;
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -26,15 +25,16 @@ import java.time.Instant;
 @IdClass(OutboxEventId.class)
 @Getter
 @Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OutboxEventEntity {
 
     @Id
-    @Convert(converter = OutboxStatusConverter.class)
     @Column(nullable = false)
-    private OutboxStatus status;
+    private Integer status;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "order_id", nullable = false)

@@ -1,40 +1,39 @@
 package com.kholodilin.outbox.config;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /** Typed configuration bound from {@code app.*} keys in notification-stub application.yml. */
 @ConfigurationProperties(prefix = "app")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class NotificationStubProperties {
 
-    private Kafka kafka = new Kafka();
-
-    public Kafka getKafka() {
-        return kafka;
-    }
-
-    public void setKafka(Kafka kafka) {
-        this.kafka = kafka;
-    }
+    /** Kafka consumer settings for the notification stub. */
+    @Builder.Default
+    private Kafka kafka = Kafka.builder().build();
 
     /** Kafka consumer topic and batch-listener toggle. */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Kafka {
+
+        /** Topic consumed by the notification stub. */
+        @Builder.Default
         private String topic = "orders.events";
+
+        /** When {@code true}, the listener receives batches of {@link com.kholodilin.outbox.events.EventEnvelope}. */
+        @Builder.Default
         private boolean batchListener = true;
-
-        public String getTopic() {
-            return topic;
-        }
-
-        public void setTopic(String topic) {
-            this.topic = topic;
-        }
-
-        public boolean isBatchListener() {
-            return batchListener;
-        }
-
-        public void setBatchListener(boolean batchListener) {
-            this.batchListener = batchListener;
-        }
     }
 }

@@ -20,12 +20,15 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CreateOrderRequest {
 
+    /** Customer who places the order; also used as the Kafka partition key. */
     @NotNull
     @Positive
     private Long customerId;
 
+    /** Line items that make up the order; must contain at least one element. */
     @NotEmpty
     private List<@Valid OrderItemRequest> items;
 
+    /** Optional trace id propagated to logs, outbox payload, and Kafka headers. */
     private String correlationId;
 }
