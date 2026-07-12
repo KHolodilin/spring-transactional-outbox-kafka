@@ -30,7 +30,7 @@ jobs:
         run: |
           mvn -B clean verify || {
             echo "=== Failsafe failures ==="
-            find . -path '*/failsafe-reports/*.txt' -print -exec tail -40 {} \;
+            find . -path '*/failsafe-reports/*.txt' -print -exec cat {} \;
             exit 1
           }
 
