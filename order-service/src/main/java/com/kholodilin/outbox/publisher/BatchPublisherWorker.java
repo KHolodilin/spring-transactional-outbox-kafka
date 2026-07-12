@@ -108,12 +108,12 @@ public class BatchPublisherWorker {
                                 .orElse(null);
                         outboxTracing.observeWithTraceParent(batchTraceParent, "outbox.batch.publish", () -> {
                             kafkaBatchPublisher.getObject().publish(envelopes);
+                            outboxJdbcRepository.markSent(sentIds(claimed), Instant.now());
+                            metrics.publishLatency().record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);
+                            log.info("Kafka batch published size={} durationMs={}",
+                                    envelopes.size(),
+                                    (System.nanoTime() - start) / 1_000_000);
                         });
-                        outboxJdbcRepository.markSent(sentIds(claimed), Instant.now());
-                        metrics.publishLatency().record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);
-                        log.info("Kafka batch published size={} durationMs={}",
-                                envelopes.size(),
-                                (System.nanoTime() - start) / 1_000_000);
                     } catch (Exception ex) {
                         metrics.incrementPublishFailures();
                         log.warn("Kafka batch publish failed size={} error={}", claimed.size(), ex.getMessage());

@@ -68,7 +68,7 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{resource.service.name=\"order-service\" && name=\"http.server.requests\" && span.http.route=\"/api/v1/orders\"}",
+          "query": "{resource.service.name=\"order-service\" && name=\"http post /api/v1/orders\"}",
           "refId": "A"
         }
       ],
@@ -122,7 +122,7 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{resource.service.name=\"notification-stub\"}",
+          "query": "{resource.service.name=\"notification-stub\" && name=~\"notification.*\"}",
           "refId": "A"
         }
       ],
@@ -218,11 +218,16 @@
           },
           {
             "selected": false,
-            "text": "http.server.requests",
-            "value": "http.server.requests"
+            "text": "http post /api/v1/orders",
+            "value": "http post /api/v1/orders"
+          },
+          {
+            "selected": false,
+            "text": "notification.consume",
+            "value": "notification.consume"
           }
         ],
-        "query": ".*,outbox.save,outbox.batch.fetch,outbox.publish,outbox.mark.sent,outbox.recovery,http.server.requests",
+        "query": ".*,outbox.save,outbox.batch.fetch,outbox.batch.publish,outbox.publish,outbox.mark.sent,outbox.recovery,http post /api/v1/orders,notification.batch.receive,notification.consume",
         "type": "custom"
       },
       {
