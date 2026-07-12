@@ -40,13 +40,15 @@ Metrics: Prometheus http://localhost:9090, Grafana http://localhost:3000 — see
 
 ### Code coverage (JaCoCo)
 
-After `mvn clean verify`, an aggregated JaCoCo XML report is written to:
+After `mvn clean verify`, JaCoCo XML reports are written per module:
 
 ```text
-target/site/jacoco-aggregate/jacoco.xml
+outbox-events-contract/target/site/jacoco/jacoco.xml
+order-service/target/site/jacoco/jacoco.xml
+notification-stub/target/site/jacoco/jacoco.xml
 ```
 
-Per-module HTML reports are under each module's `target/site/jacoco/`.
+CI uploads all module reports to Codecov (merged on the Codecov side).
 
 ## Continuous integration and Codecov
 
@@ -54,7 +56,7 @@ Every push to `main` and every pull request runs [GitHub Actions CI](.github/wor
 
 1. JDK 21 (Temurin), Maven cache
 2. `mvn -B clean verify` (Docker required for Testcontainers integration tests)
-3. Upload of `target/site/jacoco-aggregate/jacoco.xml` to [Codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
+3. Upload of per-module JaCoCo XML reports to [Codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
 
 PRs receive a Codecov comment with patch coverage. The README badge reflects the latest `main` upload.
 

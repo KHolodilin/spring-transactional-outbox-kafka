@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: true
 
     steps:
       - name: Checkout
@@ -25,16 +27,14 @@ jobs:
         run: docker info
 
       - name: Build and test
-        run: |
-          mvn -B clean verify || {
-            echo "=== Failsafe reports ==="
-            find . -path '*/failsafe-reports/*.txt' -print -exec head -50 {} \;
-            exit 1
-          }
+        run: mvn -B clean verify
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: target/site/jacoco-aggregate/jacoco.xml
+          files: |
+            outbox-events-contract/target/site/jacoco/jacoco.xml,
+            order-service/target/site/jacoco/jacoco.xml,
+            notification-stub/target/site/jacoco/jacoco.xml
           fail_ci_if_error: true
