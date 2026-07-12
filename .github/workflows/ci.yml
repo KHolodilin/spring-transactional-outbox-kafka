@@ -27,7 +27,12 @@ jobs:
         run: docker info
 
       - name: Build and test
-        run: mvn -B clean verify
+        run: |
+          mvn -B clean verify || {
+            echo "=== Failsafe failures ==="
+            find . -path '*/failsafe-reports/*.txt' -print -exec tail -40 {} \;
+            exit 1
+          }
 
       - name: Upload failsafe reports on failure
         if: failure()
