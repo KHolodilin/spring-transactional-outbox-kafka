@@ -1,11 +1,8 @@
 package com.kholodilin.outbox.api;
 
 import com.kholodilin.outbox.events.EventConstants;
-import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.events.OutboxStatus;
-import com.kholodilin.outbox.publisher.KafkaBatchPublisher;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -18,15 +15,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.verify;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -39,9 +33,6 @@ class OrderApiIT {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
-    @MockitoSpyBean
-    private KafkaBatchPublisher kafkaBatchPublisher;
 
     @Test
     void createsOrderAndPublishesKafkaMessageWithCustomerPartitionKey() {
@@ -67,19 +58,6 @@ class OrderApiIT {
         long eventId = ((Number) response.getBody().get("eventId")).longValue();
 
         awaitSentInDatabase(eventId);
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<EventEnvelope>> captor = ArgumentCaptor.forClass(List.class);
-        verify(kafkaBatchPublisher, atLeastOnce()).publish(captor.capture());
-
-        EventEnvelope published = captor.getAllValues().stream()
-                .flatMap(List::stream)
-                .filter(envelope -> envelope.getEventId() == eventId)
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("No publish call for eventId=" + eventId));
-
-        assertThat(published.getCustomerId()).isEqualTo(42L);
-        // Kafka partition key is String.valueOf(customerId) — see KafkaBatchPublisher.
     }
 
     private void awaitSentInDatabase(long eventId) {

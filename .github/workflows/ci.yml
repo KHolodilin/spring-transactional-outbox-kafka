@@ -29,6 +29,13 @@ jobs:
       - name: Build and test
         run: mvn -B clean verify
 
+      - name: Upload failsafe reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failsafe-reports
+          path: "**/failsafe-reports/"
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
