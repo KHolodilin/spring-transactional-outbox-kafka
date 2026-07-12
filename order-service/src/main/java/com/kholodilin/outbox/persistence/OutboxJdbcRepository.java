@@ -3,6 +3,7 @@ package com.kholodilin.outbox.persistence;
 import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.events.OutboxStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -23,6 +24,7 @@ import java.util.Optional;
  * Hot-path reads use active rows only ({@code status < 100}); finals move to archive ({@code status >= 100}).
  */
 @Repository
+@RequiredArgsConstructor
 public class OutboxJdbcRepository {
 
     private static final RowMapper<OutboxRow> ROW_MAPPER = new RowMapper<>() {
@@ -42,11 +44,6 @@ public class OutboxJdbcRepository {
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
-
-    public OutboxJdbcRepository(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.objectMapper = objectMapper;
-    }
 
     public long insertEvent(Long orderId, Long customerId, String eventType, String payload, Instant now) {
         Long id = jdbcTemplate.queryForObject(
