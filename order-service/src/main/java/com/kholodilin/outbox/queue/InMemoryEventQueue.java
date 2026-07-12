@@ -32,6 +32,7 @@ public class InMemoryEventQueue {
 
     private BlockingQueue<Long> queue;
     private Set<Long> dedup;
+    private Set<Long> inFlight;
     private int capacity;
 
     @PostConstruct
@@ -39,6 +40,7 @@ public class InMemoryEventQueue {
         capacity = properties.getOutbox().getMemoryQueue().getCapacity();
         queue = new ArrayBlockingQueue<>(capacity);
         dedup = ConcurrentHashMap.newKeySet();
+        inFlight = ConcurrentHashMap.newKeySet();
         updateMetrics();
     }
 
@@ -69,6 +71,7 @@ public class InMemoryEventQueue {
         Long eventId = queue.poll(timeoutMs, TimeUnit.MILLISECONDS);
         if (eventId != null) {
             dedup.remove(eventId);
+            inFlight.add(eventId);
             updateMetrics();
         }
         return eventId;
@@ -80,10 +83,18 @@ public class InMemoryEventQueue {
         queue.drainTo(batch, batchSize);
         for (Long eventId : batch) {
             dedup.remove(eventId);
+            inFlight.add(eventId);
         }
         updateMetrics();
         log.debug("Drained batch size={} remaining={}", batch.size(), queue.size());
         return batch;
+    }
+
+    /** Called after publish completes (success or failure) so recovery can re-enqueue if needed. */
+    public void acknowledge(java.util.Collection<Long> eventIds) {
+        for (Long eventId : eventIds) {
+            inFlight.remove(eventId);
+        }
     }
 
     public int size() {
@@ -97,6 +108,11 @@ public class InMemoryEventQueue {
 
     public int capacity() {
         return capacity;
+    }
+
+    /** Returns true when the event id is already queued or being published. */
+    public boolean isTracked(long eventId) {
+        return dedup.contains(eventId) || inFlight.contains(eventId);
     }
 
     private void updateMetrics() {

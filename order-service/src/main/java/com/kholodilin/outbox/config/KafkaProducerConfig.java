@@ -25,6 +25,9 @@ public class KafkaProducerConfig {
         Map<String, Object> config = new HashMap<>();
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, environment.getProperty("spring.kafka.bootstrap-servers"));
         config.put(ProducerConfig.ACKS_CONFIG, environment.getProperty("spring.kafka.producer.acks", "all"));
+        config.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 10_000);
+        config.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30_000);
+        config.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 60_000);
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
 
         JsonSerializer<Object> valueSerializer = new JsonSerializer<>(kafkaObjectMapper());

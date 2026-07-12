@@ -9,6 +9,8 @@ spring:
     enabled: true
 
 management:
+  opentelemetry:
+    enabled: false
   tracing:
     enabled: false
 

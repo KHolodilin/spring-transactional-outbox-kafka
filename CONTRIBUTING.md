@@ -51,7 +51,7 @@ Environment variables:
 |----------|---------------|---------|
 | `TRACING_ENABLED` | `true` | Kill switch (`false` disables export) |
 | `TRACING_SAMPLING` | `1.0` / `0.1` prod | Trace sampling probability |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | Tempo OTLP HTTP endpoint |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | Tempo OTLP HTTP traces endpoint (maps to `management.opentelemetry.tracing.export.otlp.endpoint`) |
 
 Integration tests run with `management.tracing.enabled=false` — no Tempo required in CI.
 

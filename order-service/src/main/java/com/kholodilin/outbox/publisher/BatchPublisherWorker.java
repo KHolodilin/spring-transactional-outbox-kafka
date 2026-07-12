@@ -77,47 +77,51 @@ public class BatchPublisherWorker {
                 List<Long> drained = eventQueue.drainBatch(batchSize - 1);
                 ids.addAll(drained);
 
-                // Multi-pod safety: only rows we successfully claim are published.
-                Instant lockedUntil = Instant.now().plus(properties.getOutbox().getPublisher().getLeaseDuration());
-                List<OutboxRow> claimed = outboxTracing.observe("outbox.batch.fetch", () -> outboxJdbcRepository.claimByIds(
-                        ids,
-                        properties.getInstanceId(),
-                        lockedUntil
-                ));
-                if (claimed.isEmpty()) {
-                    log.debug("No outbox rows claimed for ids={}", ids);
-                    for (Long id : outboxJdbcRepository.findReenqueueableIds(ids)) {
-                        eventQueue.enqueue(id);
-                    }
-                    continue;
-                }
-
-                List<EventEnvelope> envelopes = new ArrayList<>();
-                for (OutboxRow row : claimed) {
-                    String correlationId = extractCorrelationId(row.getPayload());
-                    envelopes.add(outboxJdbcRepository.toEnvelope(row, correlationId));
-                }
-
-                long start = System.nanoTime();
                 try {
-                    String batchTraceParent = claimed.stream()
-                            .map(OutboxRow::getTraceParent)
-                            .filter(parent -> parent != null && !parent.isBlank())
-                            .findFirst()
-                            .orElse(null);
-                    outboxTracing.observeWithTraceParent(batchTraceParent, "outbox.batch.publish", () -> {
-                        kafkaBatchPublisher.getObject().publish(envelopes);
+                    // Multi-pod safety: only rows we successfully claim are published.
+                    Instant lockedUntil = Instant.now().plus(properties.getOutbox().getPublisher().getLeaseDuration());
+                    List<OutboxRow> claimed = outboxTracing.observe("outbox.batch.fetch", () -> outboxJdbcRepository.claimByIds(
+                            ids,
+                            properties.getInstanceId(),
+                            lockedUntil
+                    ));
+                    if (claimed.isEmpty()) {
+                        log.debug("No outbox rows claimed for ids={}", ids);
+                        for (Long id : outboxJdbcRepository.findReenqueueableIds(ids)) {
+                            eventQueue.enqueue(id);
+                        }
+                        continue;
+                    }
+
+                    List<EventEnvelope> envelopes = new ArrayList<>();
+                    for (OutboxRow row : claimed) {
+                        String correlationId = extractCorrelationId(row.getPayload());
+                        envelopes.add(outboxJdbcRepository.toEnvelope(row, correlationId));
+                    }
+
+                    long start = System.nanoTime();
+                    try {
+                        String batchTraceParent = claimed.stream()
+                                .map(OutboxRow::getTraceParent)
+                                .filter(parent -> parent != null && !parent.isBlank())
+                                .findFirst()
+                                .orElse(null);
+                        outboxTracing.observeWithTraceParent(batchTraceParent, "outbox.batch.publish", () -> {
+                            kafkaBatchPublisher.getObject().publish(envelopes);
+                        });
                         outboxJdbcRepository.markSent(sentIds(claimed), Instant.now());
-                    });
-                    metrics.publishLatency().record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);
-                    log.info("Kafka batch published size={} durationMs={}",
-                            envelopes.size(),
-                            (System.nanoTime() - start) / 1_000_000);
-                } catch (Exception ex) {
-                    metrics.incrementPublishFailures();
-                    log.warn("Kafka batch publish failed size={} error={}", claimed.size(), ex.getMessage());
-                    log.debug("Kafka publish failure", ex);
-                    handleFailures(claimed);
+                        metrics.publishLatency().record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);
+                        log.info("Kafka batch published size={} durationMs={}",
+                                envelopes.size(),
+                                (System.nanoTime() - start) / 1_000_000);
+                    } catch (Exception ex) {
+                        metrics.incrementPublishFailures();
+                        log.warn("Kafka batch publish failed size={} error={}", claimed.size(), ex.getMessage());
+                        log.debug("Kafka publish failure", ex);
+                        handleFailures(claimed);
+                    }
+                } finally {
+                    eventQueue.acknowledge(ids);
                 }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();

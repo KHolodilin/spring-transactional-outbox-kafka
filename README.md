@@ -1,4 +1,4 @@
-# spring-transactional-outbox-kafka
+# Transactional Outbox Pattern with Kafka and PostgreSQL
 
 [![CI](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml/badge.svg)](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka/graph/badge.svg)](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
@@ -110,7 +110,7 @@ Create an order (see API example above), then open Grafana — dashboards **Tran
 
 ### Distributed tracing (Tempo)
 
-With `dev` profile, both services export traces to `http://localhost:4318/v1/traces` (100% sampling).
+With `dev` profile, both services export traces via Spring Boot 4 OTLP config (`management.opentelemetry.tracing.export.otlp.endpoint`, default `http://localhost:4318/v1/traces`, 100% sampling).
 
 1. Start `docker compose up -d` (includes Tempo).
 2. Run `order-service` and `notification-stub` with profile `dev`.

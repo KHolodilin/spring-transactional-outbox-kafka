@@ -57,6 +57,9 @@ public class RecoveryWorker {
 
         int enqueued = 0;
         for (Long id : ids) {
+            if (eventQueue.isTracked(id)) {
+                continue;
+            }
             if (eventQueue.enqueue(id)) {
                 enqueued++;
             }

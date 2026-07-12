@@ -17,6 +17,8 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,21 +31,31 @@ class RateLimitIT extends AbstractIntegrationTest {
     private TestRestTemplate restTemplate;
 
     @Test
-    void burstRequestsReturn429() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set(EventConstants.IDEMPOTENCY_KEY_HEADER, UUID.randomUUID().toString());
-
+    void burstRequestsReturn429() throws Exception {
         Map<String, Object> body = Map.of(
                 "customerId", 99,
                 "items", List.of(Map.of("productId", "sku-1", "quantity", 1, "price", 1.00))
         );
 
-        ResponseEntity<Map> first = restTemplate.postForEntity("/api/v1/orders", new HttpEntity<>(body, headers), Map.class);
-        headers.set(EventConstants.IDEMPOTENCY_KEY_HEADER, UUID.randomUUID().toString());
-        ResponseEntity<String> second = restTemplate.postForEntity("/api/v1/orders", new HttpEntity<>(body, headers), String.class);
+        HttpHeaders firstHeaders = new HttpHeaders();
+        firstHeaders.setContentType(MediaType.APPLICATION_JSON);
+        firstHeaders.set(EventConstants.IDEMPOTENCY_KEY_HEADER, UUID.randomUUID().toString());
 
-        assertThat(first.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(second.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        HttpHeaders secondHeaders = new HttpHeaders();
+        secondHeaders.setContentType(MediaType.APPLICATION_JSON);
+        secondHeaders.set(EventConstants.IDEMPOTENCY_KEY_HEADER, UUID.randomUUID().toString());
+
+        CompletableFuture<ResponseEntity<Map>> first = CompletableFuture.supplyAsync(() ->
+                restTemplate.postForEntity("/api/v1/orders", new HttpEntity<>(body, firstHeaders), Map.class)
+        );
+        CompletableFuture<ResponseEntity<String>> second = CompletableFuture.supplyAsync(() ->
+                restTemplate.postForEntity("/api/v1/orders", new HttpEntity<>(body, secondHeaders), String.class)
+        );
+
+        ResponseEntity<Map> firstResponse = first.get(30, TimeUnit.SECONDS);
+        ResponseEntity<String> secondResponse = second.get(30, TimeUnit.SECONDS);
+
+        assertThat(firstResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(secondResponse.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
     }
 }

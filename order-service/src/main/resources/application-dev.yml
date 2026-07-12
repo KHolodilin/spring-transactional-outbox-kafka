@@ -7,8 +7,15 @@ management:
     sampling:
       probability: 1.0
   otlp:
+    metrics:
+      export:
+        enabled: false
+  opentelemetry:
     tracing:
-      endpoint: http://localhost:4318/v1/traces
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/traces
+          timeout: 2s
 
 app:
   rate-limit:
