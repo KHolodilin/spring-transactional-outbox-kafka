@@ -2,8 +2,11 @@ package com.kholodilin.outbox.publisher;
 
 import tools.jackson.databind.json.JsonMapper;
 import com.kholodilin.outbox.config.AppProperties;
+import com.kholodilin.outbox.config.OutboxProperties;
+import com.kholodilin.outbox.config.PublisherProperties;
 import com.kholodilin.outbox.events.OutboxStatus;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
+import com.kholodilin.outbox.persistence.OutboxRow;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -34,8 +37,11 @@ class BatchPublisherWorkerTest {
 
     @BeforeEach
     void setUp() {
-        AppProperties properties = new AppProperties();
-        properties.getOutbox().getPublisher().setMaxRetries(5);
+        AppProperties properties = AppProperties.builder()
+                .outbox(OutboxProperties.builder()
+                        .publisher(PublisherProperties.builder().maxRetries(5).build())
+                        .build())
+                .build();
         worker = new BatchPublisherWorker(
                 eventQueue,
                 outboxJdbcRepository,
@@ -48,7 +54,7 @@ class BatchPublisherWorkerTest {
 
     @Test
     void marksFailedBeforeMaxRetries() {
-        OutboxJdbcRepository.OutboxRow row = sampleRow(2);
+        OutboxRow row = sampleRow(2);
 
         ReflectionTestUtils.invokeMethod(worker, "handleFailures", List.of(row));
 
@@ -57,22 +63,22 @@ class BatchPublisherWorkerTest {
 
     @Test
     void marksDeadAfterMaxRetries() {
-        OutboxJdbcRepository.OutboxRow row = sampleRow(4);
+        OutboxRow row = sampleRow(4);
 
         ReflectionTestUtils.invokeMethod(worker, "handleFailures", List.of(row));
 
         verify(outboxJdbcRepository).markFailed(1L, 5, OutboxStatus.DEAD);
     }
 
-    private OutboxJdbcRepository.OutboxRow sampleRow(int retryCount) {
-        return new OutboxJdbcRepository.OutboxRow(
-                1L,
-                10L,
-                20L,
-                "OrderCreated",
-                "{\"orderId\":10}",
-                OutboxStatus.PROCESSING,
-                retryCount
-        );
+    private OutboxRow sampleRow(int retryCount) {
+        return OutboxRow.builder()
+                .id(1L)
+                .orderId(10L)
+                .customerId(20L)
+                .eventType("OrderCreated")
+                .payload("{\"orderId\":10}")
+                .status(OutboxStatus.PROCESSING)
+                .retryCount(retryCount)
+                .build();
     }
 }

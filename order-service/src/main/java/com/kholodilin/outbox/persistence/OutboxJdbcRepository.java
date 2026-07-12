@@ -24,30 +24,18 @@ import java.util.Map;
 @Repository
 public class OutboxJdbcRepository {
 
-    /** Lightweight row loaded for publishing — payload kept as JSON string until send time. */
-    public record OutboxRow(
-            Long id,
-            Long orderId,
-            Long customerId,
-            String eventType,
-            String payload,
-            OutboxStatus status,
-            int retryCount
-    ) {
-    }
-
     private static final RowMapper<OutboxRow> ROW_MAPPER = new RowMapper<>() {
         @Override
         public OutboxRow mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return new OutboxRow(
-                    rs.getLong("id"),
-                    rs.getLong("order_id"),
-                    rs.getLong("customer_id"),
-                    rs.getString("event_type"),
-                    rs.getString("payload"),
-                    OutboxStatus.fromCode(rs.getInt("status")),
-                    rs.getInt("retry_count")
-            );
+            return OutboxRow.builder()
+                    .id(rs.getLong("id"))
+                    .orderId(rs.getLong("order_id"))
+                    .customerId(rs.getLong("customer_id"))
+                    .eventType(rs.getString("event_type"))
+                    .payload(rs.getString("payload"))
+                    .status(OutboxStatus.fromCode(rs.getInt("status")))
+                    .retryCount(rs.getInt("retry_count"))
+                    .build();
         }
     };
 
@@ -195,18 +183,18 @@ public class OutboxJdbcRepository {
     public EventEnvelope toEnvelope(OutboxRow row, String correlationId) {
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> payload = objectMapper.readValue(row.payload(), Map.class);
+            Map<String, Object> payload = objectMapper.readValue(row.getPayload(), Map.class);
             return EventEnvelope.builder()
-                    .eventId(row.id())
-                    .orderId(row.orderId())
-                    .customerId(row.customerId())
-                    .eventType(row.eventType())
+                    .eventId(row.getId())
+                    .orderId(row.getOrderId())
+                    .customerId(row.getCustomerId())
+                    .eventType(row.getEventType())
                     .payload(payload)
                     .correlationId(correlationId)
                     .occurredAt(Instant.now())
                     .build();
         } catch (Exception ex) {
-            throw new IllegalStateException("Failed to parse outbox payload for id=" + row.id(), ex);
+            throw new IllegalStateException("Failed to parse outbox payload for id=" + row.getId(), ex);
         }
     }
 }

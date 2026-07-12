@@ -1,33 +1,25 @@
 package com.kholodilin.outbox.config;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 /** In-memory queue, publisher worker, and recovery worker tuning. */
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OutboxProperties {
 
-    private MemoryQueueProperties memoryQueue = new MemoryQueueProperties();
-    private PublisherProperties publisher = new PublisherProperties();
-    private RecoveryProperties recovery = new RecoveryProperties();
+    @Builder.Default
+    private MemoryQueueProperties memoryQueue = MemoryQueueProperties.builder().build();
 
-    public MemoryQueueProperties getMemoryQueue() {
-        return memoryQueue;
-    }
+    @Builder.Default
+    private PublisherProperties publisher = PublisherProperties.builder().build();
 
-    public void setMemoryQueue(MemoryQueueProperties memoryQueue) {
-        this.memoryQueue = memoryQueue;
-    }
-
-    public PublisherProperties getPublisher() {
-        return publisher;
-    }
-
-    public void setPublisher(PublisherProperties publisher) {
-        this.publisher = publisher;
-    }
-
-    public RecoveryProperties getRecovery() {
-        return recovery;
-    }
-
-    public void setRecovery(RecoveryProperties recovery) {
-        this.recovery = recovery;
-    }
+    @Builder.Default
+    private RecoveryProperties recovery = RecoveryProperties.builder().build();
 }

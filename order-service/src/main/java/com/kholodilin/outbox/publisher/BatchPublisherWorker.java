@@ -6,6 +6,7 @@ import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.events.OutboxStatus;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
+import com.kholodilin.outbox.persistence.OutboxRow;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -89,7 +90,7 @@ public class BatchPublisherWorker {
 
                 // Multi-pod safety: only rows we successfully claim are published.
                 Instant lockedUntil = Instant.now().plus(properties.getOutbox().getPublisher().getLeaseDuration());
-                List<OutboxJdbcRepository.OutboxRow> claimed = outboxJdbcRepository.claimByIds(
+                List<OutboxRow> claimed = outboxJdbcRepository.claimByIds(
                         ids,
                         properties.getInstanceId(),
                         lockedUntil
@@ -100,15 +101,15 @@ public class BatchPublisherWorker {
                 }
 
                 List<EventEnvelope> envelopes = new ArrayList<>();
-                for (OutboxJdbcRepository.OutboxRow row : claimed) {
-                    String correlationId = extractCorrelationId(row.payload());
+                for (OutboxRow row : claimed) {
+                    String correlationId = extractCorrelationId(row.getPayload());
                     envelopes.add(outboxJdbcRepository.toEnvelope(row, correlationId));
                 }
 
                 long start = System.nanoTime();
                 try {
                     kafkaBatchPublisher.publish(envelopes);
-                    List<Long> sentIds = claimed.stream().map(OutboxJdbcRepository.OutboxRow::id).toList();
+                    List<Long> sentIds = claimed.stream().map(OutboxRow::getId).toList();
                     outboxJdbcRepository.markSent(sentIds, Instant.now());
                     metrics.publishLatency().record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);
                     log.info("Kafka batch published size={} durationMs={}",
@@ -129,14 +130,14 @@ public class BatchPublisherWorker {
         }
     }
 
-    private void handleFailures(List<OutboxJdbcRepository.OutboxRow> claimed) {
+    private void handleFailures(List<OutboxRow> claimed) {
         int maxRetries = properties.getOutbox().getPublisher().getMaxRetries();
-        for (OutboxJdbcRepository.OutboxRow row : claimed) {
-            int nextRetry = row.retryCount() + 1;
+        for (OutboxRow row : claimed) {
+            int nextRetry = row.getRetryCount() + 1;
             metrics.incrementRetryCount();
             OutboxStatus status = nextRetry >= maxRetries ? OutboxStatus.DEAD : OutboxStatus.FAILED;
-            outboxJdbcRepository.markFailed(row.id(), nextRetry, status);
-            log.info("Outbox event marked {} eventId={} retryCount={}", status, row.id(), nextRetry);
+            outboxJdbcRepository.markFailed(row.getId(), nextRetry, status);
+            log.info("Outbox event marked {} eventId={} retryCount={}", status, row.getId(), nextRetry);
         }
     }
 

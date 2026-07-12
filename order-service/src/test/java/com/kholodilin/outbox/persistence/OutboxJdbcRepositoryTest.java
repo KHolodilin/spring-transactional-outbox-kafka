@@ -16,15 +16,15 @@ class OutboxJdbcRepositoryTest {
 
     @Test
     void toEnvelopeBuildsKafkaMessage() {
-        OutboxJdbcRepository.OutboxRow row = new OutboxJdbcRepository.OutboxRow(
-                1L,
-                99L,
-                10L,
-                "OrderCreated",
-                "{\"orderId\":99,\"customerId\":10}",
-                OutboxStatus.NEW,
-                0
-        );
+        OutboxRow row = OutboxRow.builder()
+                .id(1L)
+                .orderId(99L)
+                .customerId(10L)
+                .eventType("OrderCreated")
+                .payload("{\"orderId\":99,\"customerId\":10}")
+                .status(OutboxStatus.NEW)
+                .retryCount(0)
+                .build();
 
         EventEnvelope envelope = repository.toEnvelope(row, "corr-1");
 

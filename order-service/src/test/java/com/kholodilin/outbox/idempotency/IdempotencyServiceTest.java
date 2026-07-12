@@ -34,15 +34,16 @@ class IdempotencyServiceTest {
 
     @Test
     void returnsCachedCompletedResponse() throws Exception {
-        IdempotencyKeyEntity entity = new IdempotencyKeyEntity();
-        entity.setRequestHash("hash");
-        entity.setStatus(IdempotencyStatus.COMPLETED);
-        entity.setResponseBody(objectMapper.writeValueAsString(CreateOrderResponse.builder()
-                .orderId(1L)
-                .eventId(2L)
-                .status("ACCEPTED")
-                .createdAt(Instant.now())
-                .build()));
+        IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
+                .requestHash("hash")
+                .status(IdempotencyStatus.COMPLETED)
+                .responseBody(objectMapper.writeValueAsString(CreateOrderResponse.builder()
+                        .orderId(1L)
+                        .eventId(2L)
+                        .status("ACCEPTED")
+                        .createdAt(Instant.now())
+                        .build()))
+                .build();
         when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
 
         Optional<CreateOrderResponse> response = service.findCachedResponse(1L, "key", "hash");
@@ -52,9 +53,10 @@ class IdempotencyServiceTest {
 
     @Test
     void throwsOnHashConflict() {
-        IdempotencyKeyEntity entity = new IdempotencyKeyEntity();
-        entity.setRequestHash("other");
-        entity.setStatus(IdempotencyStatus.COMPLETED);
+        IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
+                .requestHash("other")
+                .status(IdempotencyStatus.COMPLETED)
+                .build();
         when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.findCachedResponse(1L, "key", "hash"))
@@ -63,9 +65,10 @@ class IdempotencyServiceTest {
 
     @Test
     void throwsWhenRequestIsStillProcessing() {
-        IdempotencyKeyEntity entity = new IdempotencyKeyEntity();
-        entity.setRequestHash("hash");
-        entity.setStatus(IdempotencyStatus.PROCESSING);
+        IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
+                .requestHash("hash")
+                .status(IdempotencyStatus.PROCESSING)
+                .build();
         when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.findCachedResponse(1L, "key", "hash"))

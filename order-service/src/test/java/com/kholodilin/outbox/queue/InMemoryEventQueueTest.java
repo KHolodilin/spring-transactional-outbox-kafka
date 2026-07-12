@@ -1,6 +1,8 @@
 package com.kholodilin.outbox.queue;
 
 import com.kholodilin.outbox.config.AppProperties;
+import com.kholodilin.outbox.config.MemoryQueueProperties;
+import com.kholodilin.outbox.config.OutboxProperties;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,10 +19,15 @@ class InMemoryEventQueueTest {
 
     @BeforeEach
     void setUp() {
-        AppProperties properties = new AppProperties();
-        properties.getOutbox().getMemoryQueue().setCapacity(2);
-        properties.getOutbox().getMemoryQueue().setBatchSize(10);
-        properties.getOutbox().getMemoryQueue().setBatchWait(Duration.ofMillis(10));
+        AppProperties properties = AppProperties.builder()
+                .outbox(OutboxProperties.builder()
+                        .memoryQueue(MemoryQueueProperties.builder()
+                                .capacity(2)
+                                .batchSize(10)
+                                .batchWait(Duration.ofMillis(10))
+                                .build())
+                        .build())
+                .build();
         queue = new InMemoryEventQueue(properties, new OutboxMetrics(new SimpleMeterRegistry()));
     }
 
