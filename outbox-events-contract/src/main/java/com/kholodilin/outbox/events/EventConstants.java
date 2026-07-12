@@ -29,6 +29,12 @@ public final class EventConstants {
     /** Kafka / tracing header with the client-supplied correlation id. */
     public static final String HEADER_CORRELATION_ID = "correlationId";
 
+    /** W3C trace context propagated through Kafka (see {@code traceparent}). */
+    public static final String HEADER_TRACEPARENT = "traceparent";
+
+    /** Optional W3C tracestate header propagated through Kafka. */
+    public static final String HEADER_TRACESTATE = "tracestate";
+
     /** HTTP header name for idempotent order creation requests. */
     public static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 

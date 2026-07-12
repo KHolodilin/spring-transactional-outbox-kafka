@@ -8,6 +8,10 @@ spring:
   liquibase:
     enabled: true
 
+management:
+  tracing:
+    enabled: false
+
 app:
   outbox:
     recovery:

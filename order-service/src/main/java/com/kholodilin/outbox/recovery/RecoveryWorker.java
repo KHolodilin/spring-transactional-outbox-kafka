@@ -4,6 +4,7 @@ import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
+import com.kholodilin.outbox.tracing.OutboxTracing;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,12 +28,17 @@ public class RecoveryWorker {
     private final OutboxJdbcRepository outboxJdbcRepository;
     private final InMemoryEventQueue eventQueue;
     private final OutboxMetrics metrics;
+    private final OutboxTracing outboxTracing;
 
     @Scheduled(fixedDelayString = "${app.outbox.recovery.interval:10s}")
     public void recover() {
         if (!properties.getOutbox().getRecovery().isEnabled()) {
             return;
         }
+        outboxTracing.observe("outbox.recovery", this::recoverInternal);
+    }
+
+    private void recoverInternal() {
         int batchSize = properties.getOutbox().getRecovery().getBatchSize();
         Instant lockedUntil = Instant.now().plus(properties.getOutbox().getPublisher().getLeaseDuration());
         List<Long> ids = outboxJdbcRepository.claimRecoverableIds(

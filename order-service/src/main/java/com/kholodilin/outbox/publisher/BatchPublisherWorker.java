@@ -8,6 +8,7 @@ import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.persistence.OutboxRow;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
+import com.kholodilin.outbox.tracing.OutboxTracing;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class BatchPublisherWorker {
     private final OutboxJdbcRepository outboxJdbcRepository;
     private final ObjectProvider<KafkaBatchPublisher> kafkaBatchPublisher;
     private final OutboxMetrics metrics;
+    private final OutboxTracing outboxTracing;
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
     private final AtomicBoolean running = new AtomicBoolean(true);
@@ -77,11 +79,11 @@ public class BatchPublisherWorker {
 
                 // Multi-pod safety: only rows we successfully claim are published.
                 Instant lockedUntil = Instant.now().plus(properties.getOutbox().getPublisher().getLeaseDuration());
-                List<OutboxRow> claimed = outboxJdbcRepository.claimByIds(
+                List<OutboxRow> claimed = outboxTracing.observe("outbox.batch.fetch", () -> outboxJdbcRepository.claimByIds(
                         ids,
                         properties.getInstanceId(),
                         lockedUntil
-                );
+                ));
                 if (claimed.isEmpty()) {
                     log.debug("No outbox rows claimed for ids={}", ids);
                     for (Long id : outboxJdbcRepository.findReenqueueableIds(ids)) {
@@ -98,9 +100,15 @@ public class BatchPublisherWorker {
 
                 long start = System.nanoTime();
                 try {
-                    kafkaBatchPublisher.getObject().publish(envelopes);
-                    List<Long> sentIds = claimed.stream().map(OutboxRow::getId).toList();
-                    outboxJdbcRepository.markSent(sentIds, Instant.now());
+                    String batchTraceParent = claimed.stream()
+                            .map(OutboxRow::getTraceParent)
+                            .filter(parent -> parent != null && !parent.isBlank())
+                            .findFirst()
+                            .orElse(null);
+                    outboxTracing.observeWithTraceParent(batchTraceParent, "outbox.batch.publish", () -> {
+                        kafkaBatchPublisher.getObject().publish(envelopes);
+                        outboxJdbcRepository.markSent(sentIds(claimed), Instant.now());
+                    });
                     metrics.publishLatency().record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);
                     log.info("Kafka batch published size={} durationMs={}",
                             envelopes.size(),
@@ -118,6 +126,10 @@ public class BatchPublisherWorker {
                 log.error("Batch publisher loop error", ex);
             }
         }
+    }
+
+    private List<Long> sentIds(List<OutboxRow> claimed) {
+        return claimed.stream().map(OutboxRow::getId).toList();
     }
 
     private void handleFailures(List<OutboxRow> claimed) {

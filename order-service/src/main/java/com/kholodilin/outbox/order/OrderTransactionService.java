@@ -9,6 +9,7 @@ import com.kholodilin.outbox.outbox.OutboxEnqueueListener;
 import com.kholodilin.outbox.outbox.OutboxEventFactory;
 import com.kholodilin.outbox.persistence.OrderJdbcRepository;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
+import com.kholodilin.outbox.tracing.TraceContextSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class OrderTransactionService {
     private final OutboxEventFactory outboxEventFactory;
     private final OutboxEnqueueListener outboxEnqueueListener;
     private final ObjectMapper objectMapper;
+    private final TraceContextSupport traceContextSupport;
 
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {
@@ -57,11 +59,13 @@ public class OrderTransactionService {
         }
 
         String payload = outboxEventFactory.buildOrderCreatedPayload(orderId, request);
+        String traceParent = traceContextSupport.captureTraceParent();
         long eventId = outboxJdbcRepository.insertEvent(
                 orderId,
                 request.getCustomerId(),
                 outboxEventFactory.eventType(),
                 payload,
+                traceParent,
                 now
         );
 

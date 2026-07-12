@@ -1,5 +1,6 @@
 package com.kholodilin.outbox.events;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -39,4 +40,12 @@ public class EventEnvelope {
 
     /** UTC timestamp when the envelope was assembled for publishing. */
     private Instant occurredAt;
+
+    /** W3C traceparent restored from outbox row; not serialized in the Kafka JSON body. */
+    @JsonIgnore
+    private String traceParent;
+
+    /** Optional W3C tracestate; not serialized in the Kafka JSON body. */
+    @JsonIgnore
+    private String traceState;
 }

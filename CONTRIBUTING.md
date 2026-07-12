@@ -38,6 +38,23 @@ mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
 
 Metrics: Prometheus http://localhost:9090, Grafana http://localhost:3000 — see [README Observability](README.md#observability).
 
+### Distributed tracing (local)
+
+1. `docker compose up -d` — starts Tempo (OTLP HTTP `:4318`, query `:3200`).
+2. Run services with profile `dev` (100% sampling, OTLP to `localhost:4318`).
+3. Open Grafana → **Distributed Tracing** dashboard after creating an order.
+4. Logs include `traceId` and `spanId` via `logback-spring.xml`.
+
+Environment variables:
+
+| Variable | Default (dev) | Purpose |
+|----------|---------------|---------|
+| `TRACING_ENABLED` | `true` | Kill switch (`false` disables export) |
+| `TRACING_SAMPLING` | `1.0` / `0.1` prod | Trace sampling probability |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | Tempo OTLP HTTP endpoint |
+
+Integration tests run with `management.tracing.enabled=false` — no Tempo required in CI.
+
 ### Code coverage (JaCoCo)
 
 After `mvn clean verify`, JaCoCo XML reports are written per module:

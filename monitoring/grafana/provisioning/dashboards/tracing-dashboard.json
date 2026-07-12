@@ -1,0 +1,250 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "Transactional Outbox",
+      "type": "link",
+      "url": "/d/transactional-outbox/transactional-outbox",
+      "icon": "external link"
+    },
+    {
+      "title": "Notification Stub",
+      "type": "link",
+      "url": "/d/notification-stub/notification-stub",
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceqlSearch",
+          "query": "{resource.service.name=~\"$service\" && name=~\"$span\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Trace Search",
+      "type": "traces"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "id": 2,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{resource.service.name=\"order-service\" && name=\"http.server.requests\" && span.http.route=\"/api/v1/orders\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP POST /api/v1/orders",
+      "type": "traces"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "id": 3,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{name=~\"outbox.*\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Outbox Pipeline Spans",
+      "type": "traces"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "id": 4,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{resource.service.name=\"notification-stub\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Kafka Consumer (notification-stub)",
+      "type": "traces"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 5,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "query": "$trace_id",
+          "queryType": "traceId",
+          "refId": "A"
+        }
+      ],
+      "title": "Trace Drill-down",
+      "type": "traces"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": [
+    "tracing",
+    "tempo",
+    "outbox"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "order-service",
+          "value": "order-service"
+        },
+        "includeAll": true,
+        "label": "Service",
+        "multi": false,
+        "name": "service",
+        "options": [
+          {
+            "selected": true,
+            "text": "order-service",
+            "value": "order-service"
+          },
+          {
+            "selected": false,
+            "text": "notification-stub",
+            "value": "notification-stub"
+          }
+        ],
+        "query": "order-service,notification-stub",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": ".*"
+        },
+        "includeAll": true,
+        "label": "Span",
+        "name": "span",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": ".*"
+          },
+          {
+            "selected": false,
+            "text": "outbox.save",
+            "value": "outbox.save"
+          },
+          {
+            "selected": false,
+            "text": "outbox.publish",
+            "value": "outbox.publish"
+          },
+          {
+            "selected": false,
+            "text": "http.server.requests",
+            "value": "http.server.requests"
+          }
+        ],
+        "query": ".*,outbox.save,outbox.batch.fetch,outbox.publish,outbox.mark.sent,outbox.recovery,http.server.requests",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "label": "Trace ID",
+        "name": "trace_id",
+        "options": [],
+        "query": "",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Distributed Tracing",
+  "uid": "distributed-tracing",
+  "version": 1
+}
