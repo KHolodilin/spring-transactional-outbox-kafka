@@ -25,7 +25,12 @@ jobs:
         run: docker info
 
       - name: Build and test
-        run: mvn -B clean verify
+        run: |
+          mvn -B clean verify || {
+            echo "=== Failsafe reports ==="
+            find . -path '*/failsafe-reports/*.txt' -print -exec head -50 {} \;
+            exit 1
+          }
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
