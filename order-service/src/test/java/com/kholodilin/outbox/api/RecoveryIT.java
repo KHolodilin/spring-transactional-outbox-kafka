@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +43,7 @@ class RecoveryIT extends AbstractIntegrationTest {
                 EventConstants.EVENT_TYPE_ORDER_CREATED,
                 "{\"orderId\":100,\"customerId\":55}",
                 OutboxStatus.NEW.getCode(),
-                now
+                Timestamp.from(now)
         );
 
         properties.getOutbox().getRecovery().setEnabled(true);

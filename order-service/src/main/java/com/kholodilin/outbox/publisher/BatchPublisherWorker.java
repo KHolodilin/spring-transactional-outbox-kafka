@@ -11,6 +11,7 @@ import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -33,7 +34,7 @@ public class BatchPublisherWorker {
 
     private final InMemoryEventQueue eventQueue;
     private final OutboxJdbcRepository outboxJdbcRepository;
-    private final KafkaBatchPublisher kafkaBatchPublisher;
+    private final ObjectProvider<KafkaBatchPublisher> kafkaBatchPublisher;
     private final OutboxMetrics metrics;
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
@@ -43,7 +44,7 @@ public class BatchPublisherWorker {
     public BatchPublisherWorker(
             InMemoryEventQueue eventQueue,
             OutboxJdbcRepository outboxJdbcRepository,
-            KafkaBatchPublisher kafkaBatchPublisher,
+            ObjectProvider<KafkaBatchPublisher> kafkaBatchPublisher,
             OutboxMetrics metrics,
             AppProperties properties,
             ObjectMapper objectMapper
@@ -111,7 +112,7 @@ public class BatchPublisherWorker {
 
                 long start = System.nanoTime();
                 try {
-                    kafkaBatchPublisher.publish(envelopes);
+                    kafkaBatchPublisher.getObject().publish(envelopes);
                     List<Long> sentIds = claimed.stream().map(OutboxRow::getId).toList();
                     outboxJdbcRepository.markSent(sentIds, Instant.now());
                     metrics.publishLatency().record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);
