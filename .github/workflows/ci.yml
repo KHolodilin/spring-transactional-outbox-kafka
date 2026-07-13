@@ -41,9 +41,9 @@ jobs:
 
       - name: Gatling smoke (start order-service)
         run: |
-          # Run order-service with reactor dependencies (e.g. outbox-events-contract).
-          # Using -am here avoids relying on local-repo SNAPSHOTs.
-          mvn -B -pl order-service -am spring-boot:run -Dspring-boot.run.profiles=dev &
+          # order-service is already packaged by "mvn clean verify" above.
+          # Run the jar directly to avoid spring-boot:run hitting the root pom (no mainClass).
+          java -jar order-service/target/order-service-*.jar --spring.profiles.active=dev &
           echo $! > order-service.pid
           for i in {1..60}; do
             if curl -sf http://localhost:8080/actuator/health >/dev/null; then
