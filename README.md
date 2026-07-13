@@ -12,6 +12,12 @@
 
 Production-oriented **Transactional Outbox** demo on Spring Boot 4, PostgreSQL and Kafka.
 
+<p align="center">
+  <a href="docs/images/hero-architecture.png">
+    <img alt="Architecture diagram" src="docs/images/hero-architecture.png" />
+  </a>
+</p>
+
 ## Modules
 
 | Module | Role |
@@ -19,6 +25,7 @@ Production-oriented **Transactional Outbox** demo on Spring Boot 4, PostgreSQL a
 | `order-service` | `POST /api/v1/orders`, transactional outbox, Kafka publisher |
 | `outbox-events-contract` | Shared DTOs/enums |
 | `notification-stub` | Demo downstream notification consumer (mock) |
+| `load-tests` | Gatling load tests (baseline `POST /api/v1/orders`) |
 
 ## Architecture
 
@@ -53,6 +60,24 @@ mvn clean verify
 ```bash
 mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
 mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+### 4. Load testing (Gatling)
+
+Baseline simulation lives in `load-tests` module.
+
+```bash
+# default baseline: 50/100/200 RPS stages, p95<200ms, errors<0.5%
+mvn -pl load-tests gatling:test -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation
+```
+
+Smoke run example (useful in CI):
+
+```bash
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation \
+  -DstageDurationSeconds=15 -DrampSeconds=5 \
+  -Drps1=10 -Drps2=10 -Drps3=10
 ```
 
 ## API example
