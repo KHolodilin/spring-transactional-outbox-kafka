@@ -75,4 +75,36 @@ class IdempotencyServiceTest {
                 .isInstanceOf(IdempotencyConflictException.class)
                 .hasMessageContaining("already being processed");
     }
+
+    @Test
+    void returnsEmptyWhenNoExistingRecord() {
+        when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.empty());
+
+        assertThat(service.findCachedResponse(1L, "key", "hash")).isEmpty();
+    }
+
+    @Test
+    void returnsEmptyWhenRecordIsFailedStatus() {
+        IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
+                .requestHash("hash")
+                .status(IdempotencyStatus.FAILED)
+                .build();
+        when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
+
+        assertThat(service.findCachedResponse(1L, "key", "hash")).isEmpty();
+    }
+
+    @Test
+    void throwsWhenStoredResponseCannotBeDeserialized() {
+        IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
+                .requestHash("hash")
+                .status(IdempotencyStatus.COMPLETED)
+                .responseBody("not-json")
+                .build();
+        when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
+
+        assertThatThrownBy(() -> service.findCachedResponse(1L, "key", "hash"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Failed to deserialize");
+    }
 }

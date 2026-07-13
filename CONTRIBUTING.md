@@ -90,7 +90,7 @@ Every push to `main` and every pull request runs [GitHub Actions CI](.github/wor
 2. `mvn -B clean verify` (Docker required for Testcontainers integration tests)
 3. Upload of per-module JaCoCo XML reports to [Codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
 
-PRs receive a Codecov comment with patch coverage. The README badge reflects the latest `main` upload.
+PRs receive a Codecov comment with patch coverage. The README badge reflects the latest `main` upload. Project coverage target is **80%** (see `codecov.yml`).
 
 ### Repository maintainer setup (one-time)
 
