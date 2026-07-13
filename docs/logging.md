@@ -67,9 +67,43 @@ curl -X POST http://localhost:8080/api/v1/orders \
 ### 4. OpenSearch Dashboards
 
 1. Open http://localhost:5601
-2. **Stack Management → Index Patterns** → create `spring-outbox-logs-local-*`, time field `@timestamp`
-3. Import saved objects: **Stack Management → Saved Objects → Import** → `monitoring/opensearch-dashboards/saved-objects.ndjson`
+2. Dashboards are imported automatically on `docker compose up` (service `opensearch-dashboards-init`).
+3. If missing, import manually: **Stack Management → Saved Objects → Import** → `monitoring/opensearch-dashboards/saved-objects.ndjson`
 4. Open dashboard **Transactional Outbox Overview**
+
+### 5. Observability → Logs → Queries
+
+PPL saved queries are imported with the same `saved-objects.ndjson` file.
+
+1. Open **Observability → Logs**
+2. Go to **Queries** tab
+3. Pick a saved query and run it (widen time range to **Last 24 hours** if needed)
+4. Results appear on the **Events** tab
+
+| Saved query | Purpose |
+|-------------|---------|
+| **Logs by customerId** | All logs for one customer — edit `customerId = '42'` in the query |
+| **Log volume by customerId** | Stats table: `cnt` per customerId (Events tab) |
+| **Outbox publish failures** | `event.action = outbox.publish.failed` |
+| **Rate limit rejected** | HTTP 429 from rate limiter |
+| **Idempotency response reused** | Cached idempotent replays |
+| **Logs by correlationId** | Filter by correlationId prefix |
+| **Order Service logs** | Producer logs only |
+| **Error logs** | ERROR level across services |
+
+Example PPL for a specific customer:
+
+```sql
+source = spring-outbox-logs-local-* | where customerId = '42' | sort - @timestamp
+```
+
+Example PPL stats (view on **Events** tab):
+
+```sql
+source = spring-outbox-logs-local-* | where isnotnull(customerId) | stats count() as cnt by customerId | sort - cnt
+```
+
+> **Note:** JSON logs are written under `order-service/logs/` and `notification-stub/logs/` when running via `mvn -pl … spring-boot:run` (module working directory). Fluent Bit mounts those paths.
 
 ## Saved searches
 
@@ -77,6 +111,8 @@ curl -X POST http://localhost:8080/api/v1/orders \
 |-------|---------|
 | `trace.id:"<id>"` | End-to-end trace |
 | `correlationId:"<id>"` | Business correlation |
+| `customerId:"42"` | All logs for one customer |
+| `customer.id:42` | Same (numeric field) |
 | `order.id:781` | Single order |
 | `outbox.id:1542` | Outbox event |
 | `event.action:"outbox.publish.failed"` | Publish failures |

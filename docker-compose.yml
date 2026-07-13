@@ -98,10 +98,46 @@ services:
     depends_on:
       - opensearch
 
+  opensearch-init:
+    image: curlimages/curl:8.12.1
+    restart: "no"
+    volumes:
+      - ./monitoring/opensearch/index-template.json:/index-template.json:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until curl -sf http://opensearch:9200 >/dev/null; do sleep 2; done
+        curl -sf -X PUT http://opensearch:9200/_index_template/spring-outbox-logs \
+          -H "Content-Type: application/json" \
+          -d @/index-template.json
+        echo opensearch index template applied
+    depends_on:
+      opensearch:
+        condition: service_started
+
+  opensearch-dashboards-init:
+    image: curlimages/curl:8.12.1
+    restart: "no"
+    volumes:
+      - ./monitoring/opensearch-dashboards/saved-objects.ndjson:/saved-objects.ndjson:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until curl -sf http://opensearch-dashboards:5601/api/status >/dev/null; do sleep 3; done
+        sleep 5
+        curl -sf -X POST "http://opensearch-dashboards:5601/api/saved_objects/_import?overwrite=true" \
+          -H "osd-xsrf: true" \
+          -F file=@/saved-objects.ndjson
+        echo opensearch dashboards saved objects imported
+    depends_on:
+      opensearch-dashboards:
+        condition: service_started
+
   fluent-bit:
     image: fluent/fluent-bit:3.2.10
     volumes:
-      - ./logs:/var/log/app:ro
+      - ./order-service/logs:/var/log/app/order-service:ro
+      - ./notification-stub/logs:/var/log/app/notification-stub:ro
       - ./monitoring/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - ./monitoring/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
     depends_on:

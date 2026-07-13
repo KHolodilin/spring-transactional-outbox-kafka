@@ -1,0 +1,13 @@
+# Strict rate limits for local error/demo scenarios.
+# Usage: mvn -pl order-service spring-boot:run "-Dspring-boot.run.profiles=dev,ratelimit"
+app:
+  rate-limit:
+    global:
+      capacity: 1
+      refill-per-second: 1
+    per-customer:
+      capacity: 1
+      refill-per-second: 1
+    per-ip:
+      capacity: 1
+      refill-per-second: 1
