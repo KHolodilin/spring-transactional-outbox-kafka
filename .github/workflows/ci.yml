@@ -34,6 +34,48 @@ jobs:
             exit 1
           }
 
+      - name: Gatling smoke (start infra)
+        run: |
+          docker compose up -d postgres kafka
+          docker compose ps
+
+      - name: Gatling smoke (start order-service)
+        run: |
+          mvn -B -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev &
+          echo $! > order-service.pid
+          for i in {1..60}; do
+            if curl -sf http://localhost:8080/actuator/health >/dev/null; then
+              echo "order-service is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "order-service did not become healthy in time"
+          exit 1
+
+      - name: Gatling smoke (run)
+        run: |
+          mvn -B -pl load-tests gatling:test \
+            -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation \
+            -DbaseUrl=http://localhost:8080 \
+            -DstageDurationSeconds=15 -DrampSeconds=5 \
+            -Drps1=10 -Drps2=10 -Drps3=10
+
+      - name: Gatling smoke (stop order-service)
+        if: always()
+        run: |
+          if [ -f order-service.pid ]; then
+            kill "$(cat order-service.pid)" || true
+          fi
+          docker compose down -v || true
+
+      - name: Upload Gatling reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gatling-reports
+          path: "load-tests/target/gatling/"
+
       - name: Upload failsafe reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
