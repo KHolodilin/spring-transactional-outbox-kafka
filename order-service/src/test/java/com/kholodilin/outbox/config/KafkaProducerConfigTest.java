@@ -1,6 +1,6 @@
 package com.kholodilin.outbox.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.kholodilin.outbox.events.EventEnvelope;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +13,7 @@ class KafkaProducerConfigTest {
 
     @Test
     void serializesInstantAsIso8601() throws Exception {
-        ObjectMapper mapper = KafkaProducerConfig.kafkaObjectMapper();
+        JsonMapper mapper = KafkaProducerConfig.kafkaObjectMapper();
         EventEnvelope envelope = EventEnvelope.builder()
                 .eventId(1L)
                 .orderId(10L)

@@ -1,6 +1,6 @@
 package com.kholodilin.outbox.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.kholodilin.outbox.events.EventEnvelope;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +13,7 @@ class KafkaConsumerConfigTest {
 
     @Test
     void deserializesInstantFromIso8601() throws Exception {
-        ObjectMapper mapper = KafkaConsumerConfig.kafkaObjectMapper();
+        JsonMapper mapper = KafkaConsumerConfig.kafkaObjectMapper();
         String json = """
                 {
                   "eventId": 1,
