@@ -37,7 +37,15 @@ logging:
     root: INFO
     com.kholodilin.outbox: INFO
 
+deployment:
+  environment: ${DEPLOYMENT_ENV:local}
+
 app:
+  instance-id: ${HOSTNAME:local-${random.uuid}}
+  logging:
+    json:
+      enabled: true
+      path: ${LOG_JSON_PATH:./logs}
   kafka:
     topic: orders.events
     batch-listener: true

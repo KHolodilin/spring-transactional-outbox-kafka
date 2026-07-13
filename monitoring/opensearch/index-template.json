@@ -1,0 +1,41 @@
+{
+  "index_patterns": ["spring-outbox-logs-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "log.level": { "type": "keyword" },
+        "message": { "type": "text" },
+        "service.name": { "type": "keyword" },
+        "service.version": { "type": "keyword" },
+        "deployment.environment": { "type": "keyword" },
+        "instance.id": { "type": "keyword" },
+        "locked_by": { "type": "keyword" },
+        "trace.id": { "type": "keyword" },
+        "span.id": { "type": "keyword" },
+        "correlationId": { "type": "keyword" },
+        "customerId": { "type": "keyword" },
+        "idempotencyKey": { "type": "keyword" },
+        "order.id": { "type": "long" },
+        "customer.id": { "type": "long" },
+        "outbox.id": { "type": "long" },
+        "event.type": { "type": "keyword" },
+        "event.action": { "type": "keyword" },
+        "outbox.status": { "type": "keyword" },
+        "outbox.status_code": { "type": "integer" },
+        "outbox.retry_count": { "type": "integer" },
+        "outbox.batch_size": { "type": "integer" },
+        "kafka.topic": { "type": "keyword" },
+        "kafka.partition": { "type": "integer" },
+        "kafka.offset": { "type": "long" },
+        "duration.ms": { "type": "long" },
+        "notification.channel": { "type": "keyword" },
+        "notification.status": { "type": "keyword" }
+      }
+    }
+  }
+}

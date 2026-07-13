@@ -1,5 +1,6 @@
 package com.kholodilin.outbox.outbox;
 
+import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,9 @@ public class OutboxEnqueueListener {
             @Override
             public void afterCommit() {
                 boolean enqueued = eventQueue.enqueue(eventId);
+                StructuredLogContext.putOrderFields(null, eventId);
                 if (enqueued) {
+                    StructuredLogContext.putEventAction("outbox.event.persisted");
                     log.info("Outbox event enqueued after commit eventId={}", eventId);
                 } else {
                     log.warn("Outbox event not enqueued after commit eventId={} (queue full or duplicate)", eventId);

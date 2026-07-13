@@ -35,4 +35,8 @@ public class AppProperties {
     /** Thresholds used by custom Actuator health indicators. */
     @Builder.Default
     private HealthProperties health = HealthProperties.builder().build();
+
+    /** JSON file logging for centralized log shipping. */
+    @Builder.Default
+    private LoggingProperties logging = LoggingProperties.builder().build();
 }

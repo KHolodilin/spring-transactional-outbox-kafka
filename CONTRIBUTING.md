@@ -14,7 +14,7 @@ Thank you for your interest in contributing to **spring-transactional-outbox-kaf
 
 * Java 21
 * Maven 3.9+
-* Docker (for PostgreSQL, Kafka, Prometheus, Grafana, and integration tests)
+* Docker (for PostgreSQL, Kafka, Prometheus, Grafana, OpenSearch, and integration tests)
 
 ### Build and test
 
@@ -37,6 +37,21 @@ mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 Metrics: Prometheus http://localhost:9090, Grafana http://localhost:3000 — see [README Observability](README.md#observability).
+
+### Centralized logging (OpenSearch)
+
+1. `docker compose up -d` — starts OpenSearch (`:9200`), Dashboards (`:5601`), Fluent Bit.
+2. Apply index template: see [docs/logging.md](docs/logging.md).
+3. Run services with profile `dev` — JSON logs land in `./logs/<service>/app.json`.
+4. Import saved objects from `monitoring/opensearch-dashboards/saved-objects.ndjson`.
+5. Console logs include `correlationId`, `customerId`, `idempotencyKey`, `traceId`, `spanId`, `instanceId`.
+
+Environment variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `LOG_JSON_PATH` | `./logs` | JSON rolling log directory |
+| `DEPLOYMENT_ENV` | `local` | Index prefix segment (`spring-outbox-logs-local-*`) |
 
 ### Distributed tracing (local)
 

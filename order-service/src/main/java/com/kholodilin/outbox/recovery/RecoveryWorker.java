@@ -1,6 +1,7 @@
 package com.kholodilin.outbox.recovery;
 
 import com.kholodilin.outbox.config.AppProperties;
+import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
@@ -51,6 +52,7 @@ public class RecoveryWorker {
     }
 
     private void enqueueRecovered(List<Long> ids, Instant lockedUntil) {
+        StructuredLogContext.putInstanceFields(properties.getInstanceId());
         log.debug("Recovery claimed ids={} lockedBy={} lockedUntil={}", ids, properties.getInstanceId(), lockedUntil);
 
         // Release lease before enqueue so the publisher can claim rows as soon as it polls an id.
@@ -66,6 +68,8 @@ public class RecoveryWorker {
             }
         }
         metrics.incrementRecoveryCount(enqueued);
+        StructuredLogContext.putBatchSize(enqueued);
+        StructuredLogContext.putEventAction("outbox.recovery.completed");
         log.info("Recovery enqueued eventIds count={}", enqueued);
         log.debug("Recovery id list={}", ids);
     }

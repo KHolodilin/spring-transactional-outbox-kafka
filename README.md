@@ -77,7 +77,16 @@ Kafka messages use **partition key = `customerId`**.
 
 ## Observability
 
-The local stack includes **Prometheus**, **Grafana**, and **Grafana Tempo** (via Docker Compose). Applications run on the host and export metrics through Actuator and traces through OTLP.
+The local stack includes **Prometheus**, **Grafana**, **Grafana Tempo**, **OpenSearch**, **OpenSearch Dashboards**, and **Fluent Bit** (via Docker Compose). Applications run on the host and export metrics through Actuator, traces through OTLP, and structured JSON logs to module-local `logs/` directories.
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| Prometheus | http://localhost:9090 | scrapes apps on host + `postgres-exporter` |
+| Grafana | http://localhost:3000 | login `admin` / `admin` (dev only) |
+| Grafana Tempo | http://localhost:3200 | OTLP HTTP ingest on `:4318` |
+| OpenSearch | http://localhost:9200 | centralized JSON logs (`spring-outbox-logs-local-*`) |
+| OpenSearch Dashboards | http://localhost:5601 | classic dashboard + PPL queries |
+| postgres-exporter | http://localhost:9187/metrics | standard PostgreSQL metrics |
 
 ### 1. Start infrastructure (including monitoring)
 
@@ -85,12 +94,7 @@ The local stack includes **Prometheus**, **Grafana**, and **Grafana Tempo** (via
 docker compose up -d
 ```
 
-| Service | URL | Notes |
-|---------|-----|-------|
-| Prometheus | http://localhost:9090 | scrapes apps on host + `postgres-exporter` |
-| Grafana | http://localhost:3000 | login `admin` / `admin` (dev only) |
-| Grafana Tempo | http://localhost:3200 | OTLP HTTP ingest on `:4318` |
-| postgres-exporter | http://localhost:9187/metrics | standard PostgreSQL metrics |
+Index template and saved objects (dashboards, PPL queries) are applied automatically by `opensearch-init` and `opensearch-dashboards-init`.
 
 ### 2. Run services and generate traffic
 
@@ -98,6 +102,15 @@ docker compose up -d
 mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
 mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
 ```
+
+JSON logs (when running via `mvn -pl …`):
+
+```text
+order-service/logs/order-service/app.json
+notification-stub/logs/notification-stub/app.json
+```
+
+Fluent Bit tails those paths from the host. Full guide: [docs/logging.md](docs/logging.md).
 
 Verify metrics endpoints:
 
@@ -107,6 +120,35 @@ curl -s http://localhost:8081/actuator/prometheus | head
 ```
 
 Create an order (see API example above), then open Grafana — dashboards **Transactional Outbox**, **Notification Stub**, **PostgreSQL**, and **Distributed Tracing** are provisioned automatically.
+
+### Centralized logging (OpenSearch)
+
+Structured JSON logs include `correlationId`, `customerId`, `idempotencyKey`, `event.action`, `trace.id`, `service.name`, and more.
+
+**OpenSearch Dashboards** (http://localhost:5601):
+
+| Where | What |
+|-------|------|
+| **Dashboards** → *Transactional Outbox Overview* | classic saved searches (Discover-style) |
+| **Observability → Logs → Queries** | PPL saved queries (results on **Events** tab) |
+
+Notable saved queries:
+
+| Query | Purpose |
+|-------|---------|
+| **Logs by customerId** | all logs for one customer — edit `customerId = '42'` in the query |
+| **Log volume by customerId** | stats table: log count per customerId |
+| **Outbox publish failures** | `event.action = outbox.publish.failed` |
+| **Rate limit rejected** | HTTP 429 from rate limiter |
+| **Logs by correlationId** | filter by correlationId prefix |
+
+Example PPL:
+
+```sql
+source = spring-outbox-logs-local-* | where customerId = '42' | sort - @timestamp
+```
+
+In Discover/KQL: `customerId:"42"` or `customer.id:42`.
 
 ### Distributed tracing (Tempo)
 
@@ -156,3 +198,5 @@ Prometheus targets: http://localhost:9090/targets (`order-service`, `notificatio
 - [Technical Specification v2](docs/spring-transactional-outbox-kafka-Technical-Specification-v2.md)
 - [Implementation Plan](docs/spring-transactional-outbox-kafka-Implementation-Plan.md)
 - [Distributed Tracing Spec](docs/spring-transactional-outbox-kafka-Distributed-Tracing-Spec.md)
+- [OpenSearch Logging Spec](docs/spring-transactional-outbox-kafka-OpenSearch-Logging-Spec.md)
+- [Logging guide](docs/logging.md)

@@ -3,6 +3,7 @@ package com.kholodilin.outbox.idempotency;
 import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.IdempotencyStatus;
+import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.persistence.IdempotencyJdbcRepository;
 import com.kholodilin.outbox.persistence.entity.IdempotencyKeyEntity;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class IdempotencyService {
         if (record.getStatus() == IdempotencyStatus.COMPLETED && record.getResponseBody() != null) {
             try {
                 CreateOrderResponse response = objectMapper.readValue(record.getResponseBody(), CreateOrderResponse.class);
+                StructuredLogContext.putEventAction("idempotency.response.reused");
                 log.info("Idempotent response returned customerId={} idempotencyKey={}", customerId, idempotencyKey);
                 return Optional.of(response);
             } catch (Exception ex) {

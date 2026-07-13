@@ -7,6 +7,7 @@ import com.kholodilin.outbox.events.OutboxStatus;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.persistence.OutboxRow;
+import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import com.kholodilin.outbox.tracing.OutboxTracing;
 import jakarta.annotation.PostConstruct;
@@ -93,6 +94,10 @@ public class BatchPublisherWorker {
                         continue;
                     }
 
+                    StructuredLogContext.putInstanceFields(properties.getInstanceId());
+                    StructuredLogContext.putBatchSize(claimed.size());
+                    StructuredLogContext.putEventAction("outbox.batch.loaded");
+
                     List<EventEnvelope> envelopes = new ArrayList<>();
                     for (OutboxRow row : claimed) {
                         String correlationId = extractCorrelationId(row.getPayload());
@@ -110,12 +115,16 @@ public class BatchPublisherWorker {
                             kafkaBatchPublisher.getObject().publish(envelopes);
                             outboxJdbcRepository.markSent(sentIds(claimed), Instant.now());
                             metrics.publishLatency().record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);
+                            long durationMs = (System.nanoTime() - start) / 1_000_000;
+                            StructuredLogContext.putDurationMs(durationMs);
+                            StructuredLogContext.putEventAction("outbox.batch.published");
                             log.info("Kafka batch published size={} durationMs={}",
                                     envelopes.size(),
-                                    (System.nanoTime() - start) / 1_000_000);
+                                    durationMs);
                         });
                     } catch (Exception ex) {
                         metrics.incrementPublishFailures();
+                        StructuredLogContext.putEventAction("outbox.publish.failed");
                         log.warn("Kafka batch publish failed size={} error={}", claimed.size(), ex.getMessage());
                         log.debug("Kafka publish failure", ex);
                         handleFailures(claimed);
@@ -143,6 +152,8 @@ public class BatchPublisherWorker {
             metrics.incrementRetryCount();
             OutboxStatus status = nextRetry >= maxRetries ? OutboxStatus.DEAD : OutboxStatus.FAILED;
             outboxJdbcRepository.markFailed(row.getId(), nextRetry, status);
+            StructuredLogContext.putOutboxStatus(status.name(), status.getCode(), nextRetry);
+            StructuredLogContext.putEventAction("outbox.retry");
             log.info("Outbox event marked {} eventId={} retryCount={}", status, row.getId(), nextRetry);
         }
     }

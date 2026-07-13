@@ -3,6 +3,7 @@ package com.kholodilin.outbox.publisher;
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.tracing.TraceContextSupport;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
@@ -63,6 +64,8 @@ public class KafkaBatchPublisher {
                 ProducerRecord<String, Object> record = new ProducerRecord<>(topic, key, envelope);
                 addBusinessHeaders(record, envelope);
                 addTraceHeaders(record);
+                StructuredLogContext.putKafkaFields(topic, null, null);
+                StructuredLogContext.putOrderFields(envelope.getOrderId(), envelope.getEventId());
                 log.debug("Publishing to Kafka topic={} key={} eventId={}", topic, key, envelope.getEventId());
                 futures.add(kafkaTemplate.send(record));
             });
