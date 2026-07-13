@@ -55,7 +55,8 @@ class RateLimitIT extends AbstractIntegrationTest {
         ResponseEntity<Map> firstResponse = first.get(30, TimeUnit.SECONDS);
         ResponseEntity<String> secondResponse = second.get(30, TimeUnit.SECONDS);
 
-        assertThat(firstResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(secondResponse.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        // With capacity=1 buckets, either parallel request may win the token.
+        assertThat(List.of(firstResponse.getStatusCode(), secondResponse.getStatusCode()))
+                .containsExactlyInAnyOrder(HttpStatus.CREATED, HttpStatus.TOO_MANY_REQUESTS);
     }
 }
