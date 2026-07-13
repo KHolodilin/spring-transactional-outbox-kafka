@@ -41,9 +41,10 @@ jobs:
 
       - name: Gatling smoke (start order-service)
         run: |
-          # -pl alone doesn't build required sibling modules (e.g. outbox-events-contract),
-          # so use -am to also build dependencies in the reactor.
-          mvn -B -pl order-service -am spring-boot:run -Dspring-boot.run.profiles=dev &
+          # Build required sibling modules (e.g. outbox-events-contract) first,
+          # then run ONLY order-service (root project has no mainClass).
+          mvn -B -pl order-service -am package -DskipTests
+          mvn -B -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev &
           echo $! > order-service.pid
           for i in {1..60}; do
             if curl -sf http://localhost:8080/actuator/health >/dev/null; then
