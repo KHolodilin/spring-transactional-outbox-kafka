@@ -12,6 +12,12 @@
 
 Production-oriented **Transactional Outbox** demo on Spring Boot 4, PostgreSQL and Kafka.
 
+<p align="center">
+  <a href="docs/images/hero-architecture.png">
+    <img alt="Architecture diagram" src="docs/images/hero-architecture.png" />
+  </a>
+</p>
+
 ## Modules
 
 | Module | Role |
