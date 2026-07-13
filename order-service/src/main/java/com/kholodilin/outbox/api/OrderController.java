@@ -4,11 +4,11 @@ import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.idempotency.IdempotencyService;
+import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.order.OrderTransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,10 +47,8 @@ public class OrderController {
             @Valid @RequestBody CreateOrderRequest request
     ) {
         String correlationId = request.getCorrelationId() != null ? request.getCorrelationId() : UUID.randomUUID().toString();
-        // MDC fields are referenced in logback pattern for structured logging.
-        MDC.put("correlationId", correlationId);
-        MDC.put("customerId", String.valueOf(request.getCustomerId()));
-        MDC.put("idempotencyKey", idempotencyKey);
+        StructuredLogContext.putCorrelation(correlationId, request.getCustomerId(), idempotencyKey);
+        StructuredLogContext.putEventAction("http.request.accepted");
 
         log.info("Order request accepted customerId={} idempotencyKey={}", request.getCustomerId(), idempotencyKey);
         log.debug("Order request body customerId={} items={}", request.getCustomerId(), request.getItems().size());
@@ -66,16 +64,15 @@ public class OrderController {
                 requestHash
         );
         if (cached.isPresent()) {
-            // Same key + same body hash → return previously stored response.
             CreateOrderResponse response = cached.get();
-            MDC.put("orderId", String.valueOf(response.getOrderId()));
-            MDC.put("eventId", String.valueOf(response.getEventId()));
+            StructuredLogContext.putOrderFields(response.getOrderId(), response.getEventId());
+            StructuredLogContext.putEventAction("http.request.completed");
             return ResponseEntity.ok(response);
         }
 
         CreateOrderResponse created = orderTransactionService.createOrder(request, idempotencyKey, requestHash);
-        MDC.put("orderId", String.valueOf(created.getOrderId()));
-        MDC.put("eventId", String.valueOf(created.getEventId()));
+        StructuredLogContext.putOrderFields(created.getOrderId(), created.getEventId());
+        StructuredLogContext.putEventAction("http.request.completed");
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 }

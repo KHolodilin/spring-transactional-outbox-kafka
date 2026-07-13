@@ -2,6 +2,8 @@ package com.kholodilin.outbox.notification;
 
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.logging.InstanceMdcInitializer;
+import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.NotificationStubMetrics;
 import com.kholodilin.outbox.tracing.TraceContextSupport;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ public class NotificationStubHandler {
 
     private final NotificationStubMetrics metrics;
     private final TraceContextSupport traceContextSupport;
+    private final InstanceMdcInitializer instanceMdcInitializer;
 
     @KafkaListener(
             topics = "${app.kafka.topic}",
@@ -38,25 +41,42 @@ public class NotificationStubHandler {
         }
         String batchTraceParent = extractTraceParent(records.get(0));
         traceContextSupport.runWithTraceParent(batchTraceParent, "notification.batch.receive", () -> {
+            instanceMdcInitializer.enrich();
+            StructuredLogContext.putEventAction("notification.batch.received");
+            StructuredLogContext.putBatchSize(records.size());
+            long start = System.nanoTime();
             metrics.recordBatch(records.size(), () -> {
                 log.info("Notification stub batch received size={}", records.size());
+                StructuredLogContext.putEventAction("notification.processing.started");
                 for (ConsumerRecord<String, EventEnvelope> record : records) {
                     traceContextSupport.runWithTraceParent(
                             extractTraceParent(record),
                             "notification.consume",
-                            () -> logEvent(record.value())
+                            () -> logEvent(record)
                     );
                 }
+                StructuredLogContext.putDurationMs((System.nanoTime() - start) / 1_000_000);
+                StructuredLogContext.putEventAction("notification.processed");
                 log.info("Notification stub batch processed size={}", records.size());
             });
+            instanceMdcInitializer.clearConsumerContext();
         });
     }
 
-    private void logEvent(EventEnvelope event) {
+    private void logEvent(ConsumerRecord<String, EventEnvelope> record) {
+        EventEnvelope event = record.value();
+        instanceMdcInitializer.enrich();
+        StructuredLogContext.putCorrelation(event.getCorrelationId(), event.getCustomerId());
+        StructuredLogContext.putOrderFields(event.getOrderId(), event.getEventId());
+        StructuredLogContext.putEventType(event.getEventType());
+        StructuredLogContext.putKafkaFields(record.topic(), record.partition(), record.offset());
+        StructuredLogContext.putNotificationFields("log", "sent");
+        StructuredLogContext.putEventAction("notification.processed");
         log.info("Notification stub sent orderId={} customerId={} eventId={}",
                 event.getOrderId(), event.getCustomerId(), event.getEventId());
         log.debug("Notification stub event details eventType={} correlationId={} payload={}",
                 event.getEventType(), event.getCorrelationId(), event.getPayload());
+        instanceMdcInitializer.clearConsumerContext();
     }
 
     private String extractTraceParent(ConsumerRecord<String, EventEnvelope> record) {

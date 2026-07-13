@@ -5,6 +5,7 @@ import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.OrderItemRequest;
 import com.kholodilin.outbox.persistence.IdempotencyJdbcRepository;
+import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.outbox.OutboxEnqueueListener;
 import com.kholodilin.outbox.outbox.OutboxEventFactory;
 import com.kholodilin.outbox.persistence.OrderJdbcRepository;
@@ -88,6 +89,9 @@ public class OrderTransactionService {
         }
 
         outboxEnqueueListener.enqueueAfterCommit(eventId);
+        StructuredLogContext.putOrderFields(orderId, eventId);
+        StructuredLogContext.putEventType(outboxEventFactory.eventType());
+        StructuredLogContext.putEventAction("outbox.event.persisted");
         log.info("Order persisted orderId={} eventId={} customerId={}", orderId, eventId, request.getCustomerId());
         return response;
     }

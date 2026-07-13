@@ -28,10 +28,16 @@
         <bucket4j.version>8.10.1</bucket4j.version>
         <testcontainers.version>1.21.4</testcontainers.version>
         <jacoco.version>0.8.12</jacoco.version>
+        <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>${logstash-logback-encoder.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.kholodilin.outbox</groupId>
                 <artifactId>outbox-events-contract</artifactId>

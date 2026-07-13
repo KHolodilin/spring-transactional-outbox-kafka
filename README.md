@@ -77,7 +77,16 @@ Kafka messages use **partition key = `customerId`**.
 
 ## Observability
 
-The local stack includes **Prometheus**, **Grafana**, and **Grafana Tempo** (via Docker Compose). Applications run on the host and export metrics through Actuator and traces through OTLP.
+The local stack includes **Prometheus**, **Grafana**, **Grafana Tempo**, **OpenSearch**, and **Fluent Bit** (via Docker Compose). Applications run on the host and export metrics through Actuator, traces through OTLP, and structured JSON logs to `./logs/`.
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| Prometheus | http://localhost:9090 | scrapes apps on host + `postgres-exporter` |
+| Grafana | http://localhost:3000 | login `admin` / `admin` (dev only) |
+| Grafana Tempo | http://localhost:3200 | OTLP HTTP ingest on `:4318` |
+| OpenSearch | http://localhost:9200 | centralized JSON logs |
+| OpenSearch Dashboards | http://localhost:5601 | **Transactional Outbox Overview** dashboard |
+| postgres-exporter | http://localhost:9187/metrics | standard PostgreSQL metrics |
 
 ### 1. Start infrastructure (including monitoring)
 
@@ -85,19 +94,14 @@ The local stack includes **Prometheus**, **Grafana**, and **Grafana Tempo** (via
 docker compose up -d
 ```
 
-| Service | URL | Notes |
-|---------|-----|-------|
-| Prometheus | http://localhost:9090 | scrapes apps on host + `postgres-exporter` |
-| Grafana | http://localhost:3000 | login `admin` / `admin` (dev only) |
-| Grafana Tempo | http://localhost:3200 | OTLP HTTP ingest on `:4318` |
-| postgres-exporter | http://localhost:9187/metrics | standard PostgreSQL metrics |
-
 ### 2. Run services and generate traffic
 
 ```bash
 mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
 mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
 ```
+
+JSON logs: `./logs/order-service/app.json`, `./logs/notification-stub/app.json`. See [docs/logging.md](docs/logging.md).
 
 Verify metrics endpoints:
 
