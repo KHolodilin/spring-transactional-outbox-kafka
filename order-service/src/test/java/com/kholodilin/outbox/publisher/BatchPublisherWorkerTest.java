@@ -21,6 +21,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
@@ -89,6 +90,32 @@ class BatchPublisherWorkerTest {
         ReflectionTestUtils.invokeMethod(worker, "handleFailures", List.of(row));
 
         verify(outboxJdbcRepository).markFailed(1L, 5, OutboxStatus.DEAD);
+    }
+
+    @Test
+    void extractCorrelationIdFromPayload() {
+        String correlationId = ReflectionTestUtils.invokeMethod(
+                worker,
+                "extractCorrelationId",
+                "{\"correlationId\":\"corr-1\",\"orderId\":10}"
+        );
+
+        assertThat(correlationId).isEqualTo("corr-1");
+    }
+
+    @Test
+    void extractCorrelationIdReturnsNullForInvalidJson() {
+        String correlationId = ReflectionTestUtils.invokeMethod(worker, "extractCorrelationId", "not-json");
+
+        assertThat(correlationId).isNull();
+    }
+
+    @Test
+    void sentIdsMapsClaimedRows() {
+        @SuppressWarnings("unchecked")
+        List<Long> ids = ReflectionTestUtils.invokeMethod(worker, "sentIds", List.of(sampleRow(0)));
+
+        assertThat(ids).containsExactly(1L);
     }
 
     private OutboxRow sampleRow(int retryCount) {

@@ -136,6 +136,46 @@ class KafkaBatchPublisherTest {
         assertThat(new String(header.value(), StandardCharsets.UTF_8)).isEqualTo(TRACE_PARENT);
     }
 
+    @Test
+    void addsCorrelationIdHeaderWhenPresent() {
+        EventEnvelope envelope = EventEnvelope.builder()
+                .eventId(1L)
+                .orderId(10L)
+                .customerId(42L)
+                .eventType(EventConstants.EVENT_TYPE_ORDER_CREATED)
+                .payload(Map.of("orderId", 10))
+                .correlationId("corr-99")
+                .occurredAt(Instant.parse("2026-07-12T10:00:00Z"))
+                .build();
+
+        publisher.publish(List.of(envelope));
+
+        ArgumentCaptor<ProducerRecord<String, Object>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
+        org.mockito.Mockito.verify(kafkaTemplate).send(captor.capture());
+        Header header = captor.getValue().headers().lastHeader(EventConstants.HEADER_CORRELATION_ID);
+        assertThat(header).isNotNull();
+        assertThat(new String(header.value(), StandardCharsets.UTF_8)).isEqualTo("corr-99");
+    }
+
+    @Test
+    void addsTracestateHeaderWhenPropagatorInjectsIt() {
+        doAnswer(invocation -> {
+            Map<String, String> map = invocation.getArgument(1);
+            map.put("traceparent", TRACE_PARENT);
+            map.put("tracestate", "vendor=state");
+            return null;
+        }).when(propagator).inject(eq(traceContext), any(), any());
+        EventEnvelope envelope = sampleEnvelope(TRACE_PARENT);
+
+        publisher.publish(List.of(envelope));
+
+        ArgumentCaptor<ProducerRecord<String, Object>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
+        org.mockito.Mockito.verify(kafkaTemplate).send(captor.capture());
+        Header header = captor.getValue().headers().lastHeader(EventConstants.HEADER_TRACESTATE);
+        assertThat(header).isNotNull();
+        assertThat(new String(header.value(), StandardCharsets.UTF_8)).isEqualTo("vendor=state");
+    }
+
     private EventEnvelope sampleEnvelope(String traceParent) {
         return EventEnvelope.builder()
                 .eventId(1L)

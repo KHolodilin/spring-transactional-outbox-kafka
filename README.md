@@ -2,6 +2,13 @@
 
 [![CI](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml/badge.svg)](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka/graph/badge.svg)](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
+[![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-brightgreen?logo=springboot)](https://spring.io/projects/spring-boot)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Kafka](https://img.shields.io/badge/Kafka-transactional%20outbox-black?logo=apachekafka)](https://kafka.apache.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-outbox%20store-336791?logo=postgresql)](https://www.postgresql.org/)
+[![OpenSearch](https://img.shields.io/badge/OpenSearch-centralized%20logging-005EB8?logo=opensearch)](https://opensearch.org/)
+[![Grafana](https://img.shields.io/badge/Grafana-metrics%20%26%20tracing-F46800?logo=grafana)](https://grafana.com/)
 
 Production-oriented **Transactional Outbox** demo on Spring Boot 4, PostgreSQL and Kafka.
 

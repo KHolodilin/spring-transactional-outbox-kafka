@@ -54,4 +54,20 @@ class StructuredLogContextTest {
         assertThat(MDC.get("trace.id")).isEqualTo("abc123");
         assertThat(MDC.get("span.id")).isEqualTo("def456");
     }
+
+    @Test
+    void putOutboxStatusAndKafkaFieldsPopulateMdc() {
+        StructuredLogContext.putOutboxStatus("FAILED", 2, 3);
+        StructuredLogContext.putBatchSize(5);
+        StructuredLogContext.putDurationMs(99);
+        StructuredLogContext.putKafkaFields("orders.events", 1, 42L);
+        StructuredLogContext.putEventType("OrderCreated");
+        StructuredLogContext.putInstanceFields("pod-1");
+
+        assertThat(MDC.get("outbox.status")).isEqualTo("FAILED");
+        assertThat(MDC.get("outbox.batch_size")).isEqualTo("5");
+        assertThat(MDC.get("kafka.topic")).isEqualTo("orders.events");
+        assertThat(MDC.get("event.type")).isEqualTo("OrderCreated");
+        assertThat(MDC.get("locked_by")).isEqualTo("pod-1");
+    }
 }
