@@ -10,13 +10,13 @@
 [![OpenSearch](https://img.shields.io/badge/OpenSearch-centralized%20logging-005EB8?logo=opensearch)](https://opensearch.org/)
 [![Grafana](https://img.shields.io/badge/Grafana-metrics%20%26%20tracing-F46800?logo=grafana)](https://grafana.com/)
 
-Production-oriented **Transactional Outbox** demo on Spring Boot 4, PostgreSQL and Kafka.
-
+Production-oriented **Transactional Outbox** for Spring Boot 4, PostgreSQL, and Kafka, combining low-latency event delivery, durable recovery, and reduced database polling.
 <p align="center">
   <a href="docs/images/hero-architecture.png">
     <img alt="Architecture diagram" src="docs/images/hero-architecture.png" />
   </a>
 </p>
+
 ## Why this project?
 
 There are several well-established ways to implement the Transactional Outbox pattern. Each approach solves the same reliability problem, but with different trade-offs in latency, operational complexity, infrastructure, and database load.
