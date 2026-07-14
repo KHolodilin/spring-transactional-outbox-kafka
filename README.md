@@ -55,15 +55,13 @@ The result is a solution that provides:
 
 ## How it works
 
-The project is built around three core workflows that together provide reliable event delivery and idempotent request processing.
+The project is built around three core workflows:
 
 1. **Normal Flow** — processes newly created outbox events with minimal latency.
 2. **Recovery Flow** — restores unpublished events after crashes or temporary failures.
 3. **Idempotent Request Flow** — prevents duplicate order creation and duplicate outbox events.
 
-The **Normal Flow** and **Recovery Flow** converge into the same publishing pipeline, sharing the Memory Queue and Kafka Batch Publisher. This keeps the publishing logic simple, consistent, and easy to maintain.
-
----
+The **Normal Flow** and **Recovery Flow** converge into the same publishing pipeline, sharing the Memory Queue and Kafka Batch Publisher.
 
 ### Normal Flow
 
@@ -91,13 +89,11 @@ sequenceDiagram
     Publisher->>DB: Update event status
 ```
 
-The order and its outbox event are stored within the same database transaction.
+The business transaction stores the order, the outbox event, and the idempotency record in a single database transaction.
 
-After the transaction commits successfully, only the **event ID** is placed into the Memory Queue. The publisher reads event IDs in batches, loads the corresponding payloads from PostgreSQL, publishes them to Kafka, and updates the event status.
+After the transaction commits, only the **event ID** is placed into the Memory Queue. The publisher reads event IDs in batches, loads the corresponding payloads from PostgreSQL, publishes them to Kafka, and updates the event status.
 
 During normal operation, the application does not continuously poll PostgreSQL for new events.
-
----
 
 ### Recovery Flow
 
@@ -122,11 +118,34 @@ sequenceDiagram
 
 If an event is committed but is not processed through the normal flow, it remains safely stored in PostgreSQL.
 
-The Recovery Worker periodically scans only the **ACTIVE** partition, finds unpublished events, and places their IDs back into the Memory Queue.
+The Recovery Worker periodically scans unpublished events from the **ACTIVE** partition and places their IDs back into the Memory Queue.
 
-Recovery never publishes events directly. It always uses the same publishing pipeline as the normal flow.
+> **One Publishing Pipeline**
+>
+> Recovery never publishes events directly. Both the Normal Flow and Recovery Flow use the same Memory Queue, batch loading logic, Kafka Batch Publisher, and event status update process.
+>
+> This eliminates duplicate publishing logic and keeps the behavior consistent across normal operation and recovery.
 
----
+### Why Active / Archive?
+
+```mermaid
+flowchart LR
+    A["ACTIVE<br/>NEW<br/>PROCESSING<br/>FAILED"]
+    B["Recovery Worker"]
+    C["SENT"]
+    D["ARCHIVE"]
+
+    A -->|Scan unpublished events| B
+    B -->|Re-enqueue event IDs| A
+    A -->|Published| C
+    C --> D
+```
+
+Only unpublished events remain in the **ACTIVE** partition.
+
+Once an event is successfully published, it is moved to the **ARCHIVE** partition and is never scanned by the Recovery Worker again.
+
+As a result, recovery performance depends only on the number of active events instead of the total history stored in the outbox table.
 
 ### Idempotent Request Flow
 
@@ -139,16 +158,11 @@ sequenceDiagram
     Client->>Service: POST /api/v1/orders<br/>Idempotency-Key
 
     Service->>Service: Calculate request hash
-
     Service->>DB: Lookup idempotency key
 
     alt New request
         DB-->>Service: Not found
-
-        Service->>DB: Save order
-        Service->>DB: Save outbox event
-        Service->>DB: Complete idempotency record
-
+        Service->>DB: Business transaction
         Service-->>Client: HTTP 200 OK
 
     else Same key + same request
@@ -163,15 +177,7 @@ sequenceDiagram
 
 Each request is uniquely identified by the combination of **customerId** and **Idempotency-Key**.
 
-For a new request, the service processes the business transaction, creates the outbox event, and stores the response.
-
-If the same request is received again with an identical payload, the previously stored response is returned. If the payload differs, the request is rejected with **HTTP 409 Conflict**.
-
-> **One Publishing Pipeline**
->
-> Normal processing and recovery always use the same Memory Queue and Kafka Batch Publisher.
->
-> This eliminates duplicate publishing logic, keeps retry behavior consistent, and makes the system easier to understand, test, and maintain.
+For a new request, the service executes the business transaction and stores the response. If the same request is received again with an identical payload, the stored response is returned immediately. If the payload differs, the request is rejected with **HTTP 409 Conflict**.
 
 ## Modules
 
