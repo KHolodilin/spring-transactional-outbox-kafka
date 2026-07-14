@@ -179,6 +179,102 @@ Each request is uniquely identified by the combination of **customerId** and **I
 
 For a new request, the service executes the business transaction and stores the response. If the same request is received again with an identical payload, the stored response is returned immediately. If the payload differs, the request is rejected with **HTTP 409 Conflict**.
 
+## Observability
+
+The project includes production-ready observability out of the box, providing complete visibility into the event delivery pipeline.
+
+By combining **metrics**, **structured logging**, and **distributed tracing**, you can quickly understand system behavior, investigate failures, and troubleshoot performance issues.
+
+### 📊 Metrics
+
+*Powered by **Prometheus** and **Grafana***.
+
+Monitor application health, queue utilization, publishing latency, retry activity, recovery operations, and standard Spring Boot, JVM, and PostgreSQL metrics.
+
+**Grafana Dashboard**
+
+![Grafana Dashboard](docs/images/grafana-dashboard.png)
+
+*Monitor queue utilization, publishing latency, recovery activity, JVM health, and application performance in real time.*
+
+In addition to standard metrics, the project exposes custom metrics for the Transactional Outbox pipeline.
+
+| Metric | Description |
+|---------|-------------|
+| `outbox.queue.size` | Current Memory Queue size |
+| `outbox.queue.pressure` | Memory Queue utilization ratio |
+| `outbox.publish.latency` | Kafka publishing latency |
+| `outbox.publish.failures` | Number of failed publish attempts |
+| `outbox.retry.count` | Publisher retry count |
+| `outbox.recovery.count` | Events restored by the Recovery Worker |
+| `outbox.rate_limit.rejects` | HTTP 429 responses |
+
+### 🔍 Structured Logging
+
+*Powered by **Fluent Bit** and **OpenSearch***.
+
+All services produce structured JSON logs, making it easy to investigate failures and trace business operations across the system.
+
+**OpenSearch Dashboards**
+
+![OpenSearch Dashboard](docs/images/opensearch-dashboard.png)
+
+*Search requests, investigate failures, and correlate business events using structured log fields.*
+
+Every log entry includes searchable business and tracing identifiers:
+
+- `correlationId`
+- `customerId`
+- `idempotencyKey`
+- `traceId`
+- `eventId`
+- `instanceId`
+
+The project also provides preconfigured dashboards and useful saved queries.
+
+| Query | Purpose |
+|---------|-------------|
+| Logs by `customerId` | View the complete processing history for a customer |
+| Logs by `correlationId` | Trace a single request across all services |
+| Outbox publish failures | Investigate failed Kafka publishing |
+| Rate limit rejected | Find HTTP 429 responses |
+
+### 🔗 Distributed Tracing
+
+*Powered by **OpenTelemetry** and **Grafana Tempo***.
+
+Follow every request across the complete processing pipeline—from the REST API through the business transaction and Kafka publishing to downstream services.
+
+**Grafana Tempo Trace**
+
+![Distributed Tracing](docs/images/tempo-trace.png)
+
+*Visualize the complete lifecycle of a request, identify latency bottlenecks, and understand interactions between application components.*
+
+Distributed tracing helps you:
+
+- Follow requests across service boundaries
+- Identify latency bottlenecks
+- Understand asynchronous processing
+- Correlate traces with logs and metrics
+
+### 🌐 Local Services
+
+After starting the Docker Compose infrastructure, the following services are available:
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Grafana | http://localhost:3000 | Dashboards (`admin / admin`) |
+| Prometheus | http://localhost:9090 | Metrics collection |
+| Grafana Tempo | http://localhost:3200 | Distributed tracing backend |
+| OpenSearch | http://localhost:9200 | Structured log storage |
+| OpenSearch Dashboards | http://localhost:5601 | Log search and dashboards |
+| PostgreSQL Exporter | http://localhost:9187/metrics | PostgreSQL metrics |
+
+> 💡 **Tip**
+>
+> After starting the application, create a few orders using the REST API, then open Grafana, OpenSearch Dashboards, and Tempo. Viewing metrics, logs, and traces together is the fastest way to understand how events move through the system.
+
 ## Modules
 
 | Module | Role |
