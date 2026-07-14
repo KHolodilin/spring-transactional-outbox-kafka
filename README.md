@@ -182,20 +182,6 @@ If the same request is received again with an identical payload, the previously 
 | `notification-stub` | Demo downstream notification consumer (mock) |
 | `load-tests` | Gatling load tests (baseline `POST /api/v1/orders`) |
 
-## Architecture
-
-```text
-Client -> order-service -> PostgreSQL (orders + outbox)
-                |
-         afterCommit / recovery
-                |
-          Memory Queue
-                |
-         Kafka (key=customerId)
-                |
-        notification-stub
-```
-
 ## Quick start
 
 ### 1. Infrastructure
