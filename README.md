@@ -53,6 +53,76 @@ The result is a solution that provides:
 - ✅ A single, consistent publishing pipeline
 - ✅ Production-ready observability with metrics, structured logging, and distributed tracing
 
+## How it works
+
+The architecture has two execution flows:
+
+- **Normal Flow** handles newly created outbox events.
+- **Recovery Flow** re-enqueues events that remain unpublished after failures.
+
+Both flows use the same Memory Queue and Kafka Batch Publisher.
+
+### Normal Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant Service as Order Service
+    participant DB as PostgreSQL
+    participant Queue as Memory Queue
+    participant Publisher as Kafka Batch Publisher
+    participant Kafka
+
+    Client->>Service: POST /api/v1/orders
+
+    Service->>DB: Save order
+    Service->>DB: Save outbox event<br/>status = NEW, partition = ACTIVE
+    DB-->>Service: Transaction committed
+
+    Service->>Queue: Enqueue eventId
+    Service-->>Client: Return response
+
+    Publisher->>Queue: Read event IDs
+    Publisher->>DB: Load event payloads
+    Publisher->>Kafka: Publish events
+    Publisher->>DB: Update event status
+```
+
+The order and outbox event are stored in the same database transaction.
+
+After the transaction commits, the event ID is placed into the Memory Queue. The publisher reads event IDs in batches, loads the corresponding payloads from PostgreSQL, and sends them to Kafka.
+
+During the normal flow, the application does not continuously poll PostgreSQL for new events.
+
+### Recovery Flow
+
+```mermaid
+sequenceDiagram
+    participant Recovery as Recovery Worker
+    participant DB as PostgreSQL
+    participant Queue as Memory Queue
+    participant Publisher as Kafka Batch Publisher
+    participant Kafka
+
+    Recovery->>DB: Find unpublished ACTIVE events
+    DB-->>Recovery: Event IDs
+
+    Recovery->>Queue: Re-enqueue event IDs
+
+    Publisher->>Queue: Read event IDs
+    Publisher->>DB: Load event payloads
+    Publisher->>Kafka: Publish events
+    Publisher->>DB: Update event status
+```
+
+If an event is committed but is not processed through the normal flow, it remains stored in PostgreSQL.
+
+The Recovery Worker periodically finds unpublished events in the **ACTIVE** partition and places their IDs back into the same Memory Queue.
+
+> **One publishing pipeline**
+>
+> Normal processing and recovery use the same Memory Queue and Kafka Batch Publisher. Recovery does not publish events directly.
+
 ## Modules
 
 | Module | Role |
