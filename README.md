@@ -134,27 +134,29 @@ Recovery never publishes events directly. It always uses the same publishing pip
 sequenceDiagram
     actor Client
     participant Service as Order Service
-    participant Idempotency as Idempotency Store
     participant DB as PostgreSQL
 
     Client->>Service: POST /api/v1/orders<br/>Idempotency-Key
 
     Service->>Service: Calculate request hash
-    Service->>Idempotency: Lookup key
+
+    Service->>DB: Lookup idempotency key
 
     alt New request
-        Idempotency-->>Service: Not found
-        Service->>Idempotency: Create PROCESSING record
-        Service->>DB: Save order and outbox event
-        Service->>Idempotency: Store response (COMPLETED)
-        Service-->>Client: Return created order
+        DB-->>Service: Not found
+
+        Service->>DB: Save order
+        Service->>DB: Save outbox event
+        Service->>DB: Complete idempotency record
+
+        Service-->>Client: HTTP 200 OK
 
     else Same key + same request
-        Idempotency-->>Service: Stored response
+        DB-->>Service: Stored response
         Service-->>Client: Return stored response
 
     else Same key + different request
-        Idempotency-->>Service: Hash mismatch
+        DB-->>Service: Request hash mismatch
         Service-->>Client: HTTP 409 Conflict
     end
 ```
