@@ -17,6 +17,41 @@ Production-oriented **Transactional Outbox** demo on Spring Boot 4, PostgreSQL a
     <img alt="Architecture diagram" src="docs/images/hero-architecture.png" />
   </a>
 </p>
+## Why this project?
+
+There are several well-established ways to implement the Transactional Outbox pattern. Each approach solves the same reliability problem, but with different trade-offs in latency, operational complexity, infrastructure, and database load.
+
+This project targets teams already using **Spring Boot, PostgreSQL, and Kafka** that want low-latency event delivery without continuous database polling or an additional CDC platform.
+
+### Comparison
+
+| Approach | ✅ Pros | ⚠️ Cons |
+|----------|----------|----------|
+| **Database Polling** | ✅ Simple to understand<br>✅ Works with almost any relational database<br>✅ Easy to implement | ❌ Continuously polls the database<br>❌ Additional latency between commit and publishing<br>❌ Database load grows with polling frequency |
+| **PostgreSQL LISTEN / NOTIFY** | ✅ Near real-time notifications<br>✅ Built into PostgreSQL<br>✅ No polling during normal operation | ⚠️ Notifications are not durable<br>⚠️ Recovery scanning is still required after failures<br>⚠️ PostgreSQL-specific solution |
+| **Debezium (CDC)** | ✅ Reliable Change Data Capture<br>✅ No application polling<br>✅ Excellent for large event-driven platforms | ❌ Requires Kafka Connect and Debezium infrastructure<br>❌ Higher operational complexity<br>❌ Event publishing is managed outside the application |
+| **Memory Queue + Recovery (this project)** | ✅ Immediate enqueue after transaction commit<br>✅ No continuous database polling during normal operation<br>✅ PostgreSQL remains the durable source of truth<br>✅ Single publishing pipeline for normal and recovery flows<br>✅ Active / Archive partitioning keeps recovery scans focused only on active events<br>✅ Built-in batching, idempotency, metrics, structured logging, and distributed tracing<br>✅ Multi-pod ready with `FOR UPDATE SKIP LOCKED` leasing | ⚠️ Requires an in-memory queue per application instance<br>⚠️ Recovery worker is still required after unexpected failures |
+
+### Why this approach?
+
+Instead of using PostgreSQL as both a database and a message queue, this project separates those responsibilities.
+
+- **PostgreSQL** provides durable event storage.
+- **Memory Queue** delivers events with minimal latency.
+- **Recovery Worker** restores events after failures.
+- **Kafka Batch Publisher** is shared by both the normal and recovery paths.
+
+During normal operation, the application never continuously polls the database for new events.
+
+After a transaction commits, the event identifier is immediately placed into the in-memory queue. If the application crashes or the queue cannot process the event, the recovery worker scans only the **ACTIVE** partition, re-enqueues unpublished events, and sends them through the **same publishing pipeline**.
+
+The result is a solution that provides:
+
+- ✅ Low-latency event delivery
+- ✅ Minimal PostgreSQL load during normal operation
+- ✅ Constant recovery scan cost using Active / Archive partitioning
+- ✅ A single, consistent publishing pipeline
+- ✅ Production-ready observability with metrics, structured logging, and distributed tracing
 
 ## Modules
 
