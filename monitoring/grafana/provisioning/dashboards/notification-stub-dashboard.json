@@ -90,7 +90,75 @@
           "refId": "A"
         }
       ],
-      "title": "Prometheus Target",
+      "title": "Notification Stub Up",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 10,
+        "x": 4,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "process_cpu_usage{job=\"notification-stub\"} * 100",
+          "legendFormat": "cpu",
+          "refId": "A"
+        }
+      ],
+      "title": "Process CPU Usage",
       "type": "stat"
     },
     {
@@ -109,8 +177,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 10,
-        "x": 4,
+        "w": 5,
+        "x": 14,
         "y": 0
       },
       "id": 2,
@@ -158,8 +226,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 10,
-        "x": 14,
+        "w": 5,
+        "x": 19,
         "y": 0
       },
       "id": 3,
@@ -404,5 +472,5 @@
   "timezone": "browser",
   "title": "Notification Stub",
   "uid": "notification-stub",
-  "version": 2
+  "version": 3
 }

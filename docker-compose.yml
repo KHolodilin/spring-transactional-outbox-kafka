@@ -61,11 +61,19 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_RENDERING_SERVER_URL: http://grafana-image-renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://grafana:3000/
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
       - tempo
+      - grafana-image-renderer
+
+  grafana-image-renderer:
+    image: grafana/grafana-image-renderer:3.12.2
+    ports:
+      - "8082:8081"
 
   tempo:
     image: grafana/tempo:2.8.0

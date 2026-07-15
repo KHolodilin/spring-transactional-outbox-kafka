@@ -37,21 +37,33 @@
           "color": {
             "mode": "thresholds"
           },
-          "min": 0,
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 100
-              },
-              {
-                "color": "red",
-                "value": 1000
+                "color": "green",
+                "value": 1
               }
             ]
           },
@@ -61,15 +73,15 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 0
       },
-      "id": 1,
+      "id": 10,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -86,12 +98,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "outbox_queue_size{job=\"order-service\"}",
-          "legendFormat": "queue size",
+          "expr": "up{job=\"order-service\"}",
+          "legendFormat": "order-service",
           "refId": "A"
         }
       ],
-      "title": "Outbox Queue Size (current)",
+      "title": "Order Service Up",
       "type": "stat"
     },
     {
@@ -104,7 +116,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "max": 1,
+          "max": 100,
           "min": 0,
           "thresholds": {
             "mode": "absolute",
@@ -115,25 +127,25 @@
               },
               {
                 "color": "yellow",
-                "value": 0.8
+                "value": 70
               },
               {
                 "color": "red",
-                "value": 0.95
+                "value": 90
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "percent"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 6,
+        "w": 10,
+        "x": 4,
         "y": 0
       },
-      "id": 2,
+      "id": 11,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -154,12 +166,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "outbox_queue_pressure{job=\"order-service\"}",
-          "legendFormat": "queue pressure",
+          "expr": "process_cpu_usage{job=\"order-service\"} * 100",
+          "legendFormat": "cpu",
           "refId": "A"
         }
       ],
-      "title": "Outbox Queue Pressure (current)",
+      "title": "Process CPU Usage",
       "type": "stat"
     },
     {
@@ -475,5 +487,5 @@
   "timezone": "browser",
   "title": "Transactional Outbox",
   "uid": "transactional-outbox",
-  "version": 3
+  "version": 5
 }
