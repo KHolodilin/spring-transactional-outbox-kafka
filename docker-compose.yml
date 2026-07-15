@@ -61,11 +61,19 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_RENDERING_SERVER_URL: http://grafana-image-renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://grafana:3000/
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
       - tempo
+      - grafana-image-renderer
+
+  grafana-image-renderer:
+    image: grafana/grafana-image-renderer:3.12.2
+    ports:
+      - "8082:8081"
 
   tempo:
     image: grafana/tempo:2.8.0
@@ -136,8 +144,8 @@ services:
   fluent-bit:
     image: fluent/fluent-bit:3.2.10
     volumes:
-      - ./order-service/logs:/var/log/app/order-service:ro
-      - ./notification-stub/logs:/var/log/app/notification-stub:ro
+      - ./logs/order-service:/var/log/app/order-service/order-service:ro
+      - ./logs/notification-stub:/var/log/app/notification-stub/notification-stub:ro
       - ./monitoring/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - ./monitoring/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
     depends_on:

@@ -10,13 +10,270 @@
 [![OpenSearch](https://img.shields.io/badge/OpenSearch-centralized%20logging-005EB8?logo=opensearch)](https://opensearch.org/)
 [![Grafana](https://img.shields.io/badge/Grafana-metrics%20%26%20tracing-F46800?logo=grafana)](https://grafana.com/)
 
-Production-oriented **Transactional Outbox** demo on Spring Boot 4, PostgreSQL and Kafka.
-
+Production-oriented **Transactional Outbox** for Spring Boot 4, PostgreSQL, and Kafka, combining low-latency event delivery, durable recovery, and reduced database polling.
 <p align="center">
   <a href="docs/images/hero-architecture.png">
     <img alt="Architecture diagram" src="docs/images/hero-architecture.png" />
   </a>
 </p>
+
+## Why this project?
+
+There are several well-established ways to implement the Transactional Outbox pattern. Each approach solves the same reliability problem, but with different trade-offs in latency, operational complexity, infrastructure, and database load.
+
+This project targets teams already using **Spring Boot, PostgreSQL, and Kafka** that want low-latency event delivery without continuous database polling or an additional CDC platform.
+
+### Comparison
+
+| Approach | ✅ Pros | ⚠️ Cons |
+|----------|----------|----------|
+| **Database Polling** | ✅ Simple to understand<br>✅ Works with almost any relational database<br>✅ Easy to implement | ❌ Continuously polls the database<br>❌ Additional latency between commit and publishing<br>❌ Database load grows with polling frequency |
+| **PostgreSQL LISTEN / NOTIFY** | ✅ Near real-time notifications<br>✅ Built into PostgreSQL<br>✅ No polling during normal operation | ⚠️ Notifications are not durable<br>⚠️ Recovery scanning is still required after failures<br>⚠️ PostgreSQL-specific solution |
+| **Debezium (CDC)** | ✅ Reliable Change Data Capture<br>✅ No application polling<br>✅ Excellent for large event-driven platforms | ❌ Requires Kafka Connect and Debezium infrastructure<br>❌ Higher operational complexity<br>❌ Event publishing is managed outside the application |
+| **Memory Queue + Recovery (this project)** | ✅ No continuous database polling during normal operation<br>✅ Single publishing pipeline for normal and recovery flows<br>✅ PostgreSQL remains the durable source of truth<br>✅ Recovery scans only unpublished events in the ACTIVE partition | ⚠️ Requires an in-memory queue per application instance<br>⚠️ Recovery worker is still required after unexpected failures |
+
+### Why this approach?
+
+Instead of using PostgreSQL as both a database and a message queue, this project separates those responsibilities.
+
+- **PostgreSQL** provides durable event storage.
+- **Memory Queue** delivers events with minimal latency.
+- **Recovery Worker** restores events after failures.
+- **Kafka Batch Publisher** is shared by both the normal and recovery paths.
+
+During normal operation, the application never continuously polls the database for new events.
+
+After a transaction commits, the event identifier is immediately placed into the in-memory queue. If the application crashes or the queue cannot process the event, the recovery worker scans only the **ACTIVE** partition, re-enqueues unpublished events, and sends them through the **same publishing pipeline**.
+
+The result is a solution that provides:
+
+- ✅ Low-latency event delivery
+- ✅ Minimal PostgreSQL load during normal operation
+- ✅ Constant recovery scan cost using Active / Archive partitioning
+- ✅ A single, consistent publishing pipeline
+- ✅ Production-ready observability with metrics, structured logging, and distributed tracing
+
+## How it works
+
+The project is built around three core workflows:
+
+1. **Normal Flow** — processes newly created outbox events with minimal latency.
+2. **Recovery Flow** — restores unpublished events after crashes or temporary failures.
+3. **Idempotent Request Flow** — prevents duplicate order creation and duplicate outbox events.
+
+The **Normal Flow** and **Recovery Flow** converge into the same publishing pipeline, sharing the Memory Queue and Kafka Batch Publisher.
+
+### Normal Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant Service as Order Service
+    participant DB as PostgreSQL
+    participant Queue as Memory Queue
+    participant Publisher as Kafka Batch Publisher
+    participant Kafka
+
+    Client->>Service: POST /api/v1/orders
+
+    Service->>DB: Save order
+    Service->>DB: Save outbox event (NEW)
+    DB-->>Service: Commit
+
+    Service->>Queue: Enqueue eventId
+    Service-->>Client: HTTP 200 OK
+
+    Publisher->>Queue: Read event IDs
+    Publisher->>DB: Load event payloads
+    Publisher->>Kafka: Publish events
+    Publisher->>DB: Update event status
+```
+
+The business transaction stores the order, the outbox event, and the idempotency record in a single database transaction.
+
+After the transaction commits, only the **event ID** is placed into the Memory Queue. The publisher reads event IDs in batches, loads the corresponding payloads from PostgreSQL, publishes them to Kafka, and updates the event status.
+
+During normal operation, the application does not continuously poll PostgreSQL for new events.
+
+### Recovery Flow
+
+```mermaid
+sequenceDiagram
+    participant Recovery as Recovery Worker
+    participant DB as PostgreSQL
+    participant Queue as Memory Queue
+    participant Publisher as Kafka Batch Publisher
+    participant Kafka
+
+    Recovery->>DB: Find unpublished ACTIVE events
+    DB-->>Recovery: Event IDs
+
+    Recovery->>Queue: Re-enqueue event IDs
+
+    Publisher->>Queue: Read event IDs
+    Publisher->>DB: Load event payloads
+    Publisher->>Kafka: Publish events
+    Publisher->>DB: Update event status
+```
+
+If an event is committed but is not processed through the normal flow, it remains safely stored in PostgreSQL.
+
+The Recovery Worker periodically scans unpublished events from the **ACTIVE** partition and places their IDs back into the Memory Queue.
+
+> **One Publishing Pipeline**
+>
+> Recovery never publishes events directly. Both the Normal Flow and Recovery Flow use the same Memory Queue, batch loading logic, Kafka Batch Publisher, and event status update process.
+>
+> This eliminates duplicate publishing logic and keeps the behavior consistent across normal operation and recovery.
+
+### Why Active / Archive?
+
+```mermaid
+flowchart LR
+    A["ACTIVE<br/>NEW<br/>PROCESSING<br/>FAILED"]
+    B["Recovery Worker"]
+    C["SENT"]
+    D["ARCHIVE"]
+
+    A -->|Scan unpublished events| B
+    B -->|Re-enqueue event IDs| A
+    A -->|Published| C
+    C --> D
+```
+
+Only unpublished events remain in the **ACTIVE** partition.
+
+Once an event is successfully published, it is moved to the **ARCHIVE** partition and is never scanned by the Recovery Worker again.
+
+As a result, recovery performance depends only on the number of active events instead of the total history stored in the outbox table.
+
+### Idempotent Request Flow
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant Service as Order Service
+    participant DB as PostgreSQL
+
+    Client->>Service: POST /api/v1/orders<br/>Idempotency-Key
+
+    Service->>Service: Calculate request hash
+    Service->>DB: Lookup idempotency key
+
+    alt New request
+        DB-->>Service: Not found
+        Service->>DB: Business transaction
+        Service-->>Client: HTTP 200 OK
+
+    else Same key + same request
+        DB-->>Service: Stored response
+        Service-->>Client: Return stored response
+
+    else Same key + different request
+        DB-->>Service: Request hash mismatch
+        Service-->>Client: HTTP 409 Conflict
+    end
+```
+
+Each request is uniquely identified by the combination of **customerId** and **Idempotency-Key**.
+
+For a new request, the service executes the business transaction and stores the response. If the same request is received again with an identical payload, the stored response is returned immediately. If the payload differs, the request is rejected with **HTTP 409 Conflict**.
+
+## Observability
+
+The project includes production-ready observability out of the box, providing complete visibility into the event delivery pipeline.
+
+By combining **metrics**, **structured logging**, and **distributed tracing**, you can quickly understand system behavior, investigate failures, and troubleshoot performance issues.
+
+### 📊 Metrics
+
+*Powered by **Prometheus** and **Grafana***.
+
+Monitor application health, queue utilization, publishing latency, retry activity, recovery operations, and standard Spring Boot, JVM, and PostgreSQL metrics.
+
+**Grafana Dashboard**
+
+![Grafana Dashboard](docs/images/grafana-dashboard.png)
+
+*Monitor queue utilization, publishing latency, recovery activity, JVM health, and application performance in real time.*
+
+In addition to standard metrics, the project exposes custom metrics for the Transactional Outbox pipeline.
+
+| Metric | Description |
+|---------|-------------|
+| `outbox.queue.size` | Current Memory Queue size |
+| `outbox.queue.pressure` | Memory Queue utilization ratio |
+| `outbox.publish.latency` | Kafka publishing latency |
+| `outbox.publish.failures` | Number of failed publish attempts |
+| `outbox.retry.count` | Publisher retry count |
+| `outbox.recovery.count` | Events restored by the Recovery Worker |
+| `outbox.rate_limit.rejects` | HTTP 429 responses |
+
+### 🔍 Structured Logging
+
+*Powered by **Fluent Bit** and **OpenSearch***.
+
+All services produce structured JSON logs, making it easy to investigate failures and trace business operations across the system.
+
+**OpenSearch Dashboards**
+
+![OpenSearch Dashboard](docs/images/opensearch-dashboard.png)
+
+*Search requests, investigate failures, and correlate business events using structured log fields.*
+
+Every log entry includes searchable business and tracing identifiers:
+
+- `correlationId`
+- `customerId`
+- `idempotencyKey`
+- `traceId`
+- `eventId`
+- `instanceId`
+
+The project also provides preconfigured dashboards and useful saved queries.
+
+| Query | Purpose |
+|---------|-------------|
+| Logs by `customerId` | View the complete processing history for a customer |
+| Logs by `correlationId` | Trace a single request across all services |
+| Outbox publish failures | Investigate failed Kafka publishing |
+| Rate limit rejected | Find HTTP 429 responses |
+
+### 🔗 Distributed Tracing
+
+*Powered by **OpenTelemetry** and **Grafana Tempo***.
+
+Follow every request across the complete processing pipeline—from the REST API through the business transaction and Kafka publishing to downstream services.
+
+**Grafana Tempo Trace**
+
+![Distributed Tracing](docs/images/distributed-tracing.png)
+
+*Visualize the complete lifecycle of a request, identify latency bottlenecks, and understand interactions between application components.*
+
+Distributed tracing helps you:
+
+- Follow requests across service boundaries
+- Identify latency bottlenecks
+- Understand asynchronous processing
+- Correlate traces with logs and metrics
+
+### 🌐 Local Services
+
+After starting the Docker Compose infrastructure, the following services are available:
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Grafana | http://localhost:3000 | Dashboards (`admin / admin`) |
+| Prometheus | http://localhost:9090 | Metrics collection |
+| Grafana Tempo | http://localhost:3200 | Distributed tracing backend |
+| OpenSearch | http://localhost:9200 | Structured log storage |
+| OpenSearch Dashboards | http://localhost:5601 | Log search and dashboards |
+| PostgreSQL Exporter | http://localhost:9187/metrics | PostgreSQL metrics |
+
+> 💡 **Tip**
+>
+> After starting the application, create a few orders using the REST API, then open Grafana, OpenSearch Dashboards, and Tempo. Viewing metrics, logs, and traces together is the fastest way to understand how events move through the system.
 
 ## Modules
 
@@ -26,20 +283,6 @@ Production-oriented **Transactional Outbox** demo on Spring Boot 4, PostgreSQL a
 | `outbox-events-contract` | Shared DTOs/enums |
 | `notification-stub` | Demo downstream notification consumer (mock) |
 | `load-tests` | Gatling load tests (baseline `POST /api/v1/orders`) |
-
-## Architecture
-
-```text
-Client -> order-service -> PostgreSQL (orders + outbox)
-                |
-         afterCommit / recovery
-                |
-          Memory Queue
-                |
-         Kafka (key=customerId)
-                |
-        notification-stub
-```
 
 ## Quick start
 
