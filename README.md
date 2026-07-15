@@ -247,7 +247,7 @@ Follow every request across the complete processing pipeline—from the REST API
 
 **Grafana Tempo Trace**
 
-![Distributed Tracing](docs/images/tempo-trace.png)
+![Distributed Tracing](docs/images/distributed-tracing.png)
 
 *Visualize the complete lifecycle of a request, identify latency bottlenecks, and understand interactions between application components.*
 
