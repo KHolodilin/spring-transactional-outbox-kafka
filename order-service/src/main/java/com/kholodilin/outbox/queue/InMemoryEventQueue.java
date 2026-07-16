@@ -19,8 +19,8 @@ import java.util.concurrent.TimeUnit;
  * Per-pod hot queue for outbox event IDs.
  * <p>
  * This is the only entry point for the Kafka publisher (fast path after commit and recovery path).
- * IDs are deduplicated while waiting in the queue; if the queue is full the event stays NEW in
- * PostgreSQL and recovery will pick it up later.
+ * IDs already waiting in the queue or currently in-flight (being published) are rejected;
+ * if the queue is full the event stays NEW in PostgreSQL and recovery will pick it up later.
  */
 @Slf4j
 @Component
@@ -45,10 +45,16 @@ public class InMemoryEventQueue {
     }
 
     /**
-     * Adds an event id to the queue. Returns false when the id is already queued (dedup)
-     * or when the bounded queue is full.
+     * Adds an event id to the queue.
+     *
+     * @return {@code false} when the id is already queued, currently in-flight (being published),
+     *         or the bounded queue is full
      */
     public boolean enqueue(long eventId) {
+        if (inFlight.contains(eventId)) {
+            log.debug("In-flight enqueue ignored eventId={}", eventId);
+            return false;
+        }
         if (!dedup.add(eventId)) {
             log.debug("Duplicate enqueue ignored eventId={}", eventId);
             return false;
@@ -110,11 +116,6 @@ public class InMemoryEventQueue {
     /** @return configured maximum queue capacity */
     public int capacity() {
         return capacity;
-    }
-
-    /** Returns true when the event id is already queued or being published. */
-    public boolean isTracked(long eventId) {
-        return dedup.contains(eventId) || inFlight.contains(eventId);
     }
 
     private void updateMetrics() {
