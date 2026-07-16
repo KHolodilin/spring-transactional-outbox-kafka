@@ -97,6 +97,7 @@ public class InMemoryEventQueue {
         }
     }
 
+    /** @return number of event ids currently waiting in the bounded queue (excludes in-flight) */
     public int size() {
         return queue.size();
     }
@@ -106,6 +107,7 @@ public class InMemoryEventQueue {
         return capacity == 0 ? 0.0 : (double) queue.size() / capacity;
     }
 
+    /** @return configured maximum queue capacity */
     public int capacity() {
         return capacity;
     }

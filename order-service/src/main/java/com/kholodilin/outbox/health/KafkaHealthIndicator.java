@@ -16,6 +16,11 @@ public class KafkaHealthIndicator implements HealthIndicator {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final AppProperties properties;
 
+    /**
+     * Probes Kafka by creating a short-lived producer and listing partitions for the configured topic.
+     *
+     * @return UP when the topic metadata is reachable; DOWN with the exception otherwise
+     */
     @Override
     public Health health() {
         try (Producer<String, Object> producer = kafkaTemplate.getProducerFactory().createProducer()) {

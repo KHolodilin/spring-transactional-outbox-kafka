@@ -16,11 +16,17 @@ import java.io.IOException;
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class HttpRequestMdcFilter extends OncePerRequestFilter {
 
+    /**
+     * @return {@code true} for non-order POST traffic so MDC cleanup is skipped
+     */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return !"POST".equalsIgnoreCase(request.getMethod()) || !request.getRequestURI().endsWith("/api/v1/orders");
     }
 
+    /**
+     * Runs the chain and always clears request-scoped MDC in {@code finally}.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {

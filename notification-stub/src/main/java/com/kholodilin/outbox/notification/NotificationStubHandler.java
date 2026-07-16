@@ -31,6 +31,14 @@ public class NotificationStubHandler {
     private final TraceContextSupport traceContextSupport;
     private final InstanceMdcInitializer instanceMdcInitializer;
 
+    /**
+     * Consumes a Kafka batch of order events and logs a mock notification per record.
+     * <p>
+     * Restores W3C {@code traceparent} for the batch span and again per record so Tempo
+     * continues the publisher's trace. Metrics record batch size and processing time.
+     *
+     * @param records polled consumer records (may be empty)
+     */
     @KafkaListener(
             topics = "${app.kafka.topic}",
             containerFactory = "batchKafkaListenerContainerFactory"

@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,6 +40,15 @@ public class OrderController {
     private final OrderTransactionService orderTransactionService;
     private final RequestHashCalculator requestHashCalculator;
 
+    /**
+     * Creates an order or returns a cached idempotent response.
+     *
+     * @param idempotencyKey client-supplied key ({@code Idempotency-Key} header); scoped per customer
+     * @param request        validated order payload (also included in the request hash)
+     * @return {@code 201} for a new order, {@code 200} when replaying the same key + body;
+     *         {@code 409} is thrown as {@link com.kholodilin.outbox.idempotency.IdempotencyConflictException}
+     *         and mapped by {@link GlobalExceptionHandler}
+     */
     @PostMapping
     public ResponseEntity<CreateOrderResponse> createOrder(
             @RequestHeader(EventConstants.IDEMPOTENCY_KEY_HEADER) String idempotencyKey,

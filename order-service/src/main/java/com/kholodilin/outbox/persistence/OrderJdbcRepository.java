@@ -20,6 +20,14 @@ public class OrderJdbcRepository {
 
     private final JdbcTemplate jdbcTemplate;
 
+    /**
+     * Inserts an order header and returns the generated id.
+     *
+     * @param customerId  hash partition key
+     * @param totalAmount sum of line items
+     * @param now         created_at / updated_at
+     * @return generated {@code orders.id}
+     */
     public long insertOrder(Long customerId, BigDecimal totalAmount, Instant now) {
         Long id = jdbcTemplate.queryForObject(
                 """
@@ -37,6 +45,16 @@ public class OrderJdbcRepository {
         return id;
     }
 
+    /**
+     * Inserts a single order line item (same {@code customer_id} as the parent for partitioning).
+     *
+     * @param orderId    parent order id
+     * @param customerId same customer as the order (partition alignment)
+     * @param productId  product SKU / id
+     * @param quantity   units ordered
+     * @param price      unit price
+     * @param now        created_at
+     */
     public void insertOrderItem(Long orderId, Long customerId, String productId, int quantity, BigDecimal price, Instant now) {
         jdbcTemplate.update(
                 """

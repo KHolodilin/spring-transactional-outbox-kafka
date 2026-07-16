@@ -26,6 +26,16 @@ public class IdempotencyService {
     private final IdempotencyJdbcRepository repository;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Looks up a prior response for the given customer + idempotency key.
+     *
+     * @param customerId     customer scope for the key
+     * @param idempotencyKey client-supplied {@code Idempotency-Key}
+     * @param requestHash    hash of the current request body
+     * @return cached response when the key exists, is {@code COMPLETED}, and the hash matches;
+     *         empty when the key is unknown (caller should create a new order)
+     * @throws IdempotencyConflictException when the key exists with a different hash, or is still {@code PROCESSING}
+     */
     public Optional<CreateOrderResponse> findCachedResponse(Long customerId, String idempotencyKey, String requestHash) {
         Optional<IdempotencyKeyEntity> existing = repository.findByCustomerIdAndKey(customerId, idempotencyKey);
         if (existing.isEmpty()) {

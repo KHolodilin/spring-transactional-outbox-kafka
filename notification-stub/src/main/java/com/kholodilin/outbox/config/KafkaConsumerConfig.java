@@ -21,6 +21,12 @@ import java.util.Map;
 @EnableConfigurationProperties(NotificationStubProperties.class)
 public class KafkaConsumerConfig {
 
+    /**
+     * Builds a consumer factory for {@link EventEnvelope} JSON values without type headers.
+     *
+     * @param properties  stub app config (topic / batch flags used elsewhere)
+     * @param environment resolves {@code spring.kafka.bootstrap-servers} and group id
+     */
     @Bean
     public ConsumerFactory<String, EventEnvelope> consumerFactory(
             NotificationStubProperties properties,
@@ -40,6 +46,12 @@ public class KafkaConsumerConfig {
         return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(), valueDeserializer);
     }
 
+    /**
+     * Batch-oriented listener container matching the publisher's batch throughput model.
+     *
+     * @param consumerFactory factory from {@link #consumerFactory}
+     * @param properties      controls {@code app.kafka.batch-listener}
+     */
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, EventEnvelope> batchKafkaListenerContainerFactory(
             ConsumerFactory<String, EventEnvelope> consumerFactory,

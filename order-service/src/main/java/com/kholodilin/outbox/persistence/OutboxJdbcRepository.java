@@ -51,6 +51,20 @@ public class OutboxJdbcRepository {
     private final ObjectMapper objectMapper;
     private final OutboxTracing outboxTracing;
 
+    /**
+     * Inserts a NEW outbox row and returns its generated id.
+     * <p>
+     * Wrapped in an {@code outbox.save} span. {@code traceParent} may be {@code null}
+     * when tracing is disabled.
+     *
+     * @param orderId     related order id
+     * @param customerId  partition / ordering key for Kafka
+     * @param eventType   business event type
+     * @param payload     JSON body stored as jsonb
+     * @param traceParent W3C traceparent captured at insert time, or {@code null}
+     * @param now         created_at timestamp
+     * @return generated {@code outbox_events.id}
+     */
     public long insertEvent(Long orderId, Long customerId, String eventType, String payload, String traceParent, Instant now) {
         return outboxTracing.observe("outbox.save", () -> {
             Long id = jdbcTemplate.queryForObject(
@@ -75,6 +89,11 @@ public class OutboxJdbcRepository {
     /**
      * Atomically moves eligible rows to PROCESSING and returns their payloads.
      * Rows already claimed by another pod or still leased are skipped.
+     *
+     * @param ids         candidate event ids from the in-memory queue
+     * @param lockedBy    this instance id written to {@code locked_by}
+     * @param lockedUntil lease expiry for the claim
+     * @return rows successfully claimed for publishing (may be a subset of {@code ids})
      */
     public List<OutboxRow> claimByIds(List<Long> ids, String lockedBy, Instant lockedUntil) {
         if (ids.isEmpty()) {
@@ -102,6 +121,14 @@ public class OutboxJdbcRepository {
         );
     }
 
+    /**
+     * Marks claimed rows as SENT (archive partition) and clears the lease.
+     * <p>
+     * Wrapped in an {@code outbox.mark.sent} span. No-op for an empty id list.
+     *
+     * @param ids    outbox event ids that were successfully published
+     * @param sentAt timestamp written to {@code sent_at}
+     */
     public void markSent(List<Long> ids, Instant sentAt) {
         if (ids.isEmpty()) {
             return;
@@ -123,6 +150,16 @@ public class OutboxJdbcRepository {
         });
     }
 
+    /**
+     * Records a failed publish attempt ({@link OutboxStatus#FAILED} or {@link OutboxStatus#DEAD})
+     * and clears the lease so recovery can retry.
+     * <p>
+     * Wrapped in an {@code outbox.retry} span.
+     *
+     * @param id         outbox event id
+     * @param retryCount updated retry counter stored on the row
+     * @param status     next status after the failure
+     */
     public void markFailed(Long id, int retryCount, OutboxStatus status) {
         outboxTracing.observe("outbox.retry", () -> jdbcTemplate.update(
                 """
@@ -136,7 +173,14 @@ public class OutboxJdbcRepository {
         ));
     }
 
-    /** Atomically selects recoverable rows and applies a short-lived lease; returns claimed ids. */
+    /**
+     * Atomically selects recoverable rows and applies a short-lived lease; returns claimed ids.
+     *
+     * @param batchSize   max rows to claim in one recovery tick
+     * @param lockedBy    this instance id
+     * @param lockedUntil lease expiry (cleared again before enqueue)
+     * @return claimed outbox ids, possibly empty
+     */
     public List<Long> claimRecoverableIds(int batchSize, String lockedBy, Instant lockedUntil) {
         return jdbcTemplate.query(
                 """
@@ -164,6 +208,13 @@ public class OutboxJdbcRepository {
         );
     }
 
+    /**
+     * Clears {@code locked_by} / {@code locked_until} for the given ids.
+     * <p>
+     * Used by recovery after claiming ids so the publisher can re-claim immediately.
+     *
+     * @param ids outbox event ids whose lease should be released
+     */
     public void clearLease(List<Long> ids) {
         if (ids.isEmpty()) {
             return;
@@ -177,7 +228,12 @@ public class OutboxJdbcRepository {
         );
     }
 
-    /** Returns ids that are still active and not leased — safe to re-enqueue after a failed claim. */
+    /**
+     * Returns ids that are still active and not leased — safe to re-enqueue after a failed claim.
+     *
+     * @param ids candidate ids that were polled but not claimed
+     * @return subset still eligible for enqueue
+     */
     public List<Long> findReenqueueableIds(List<Long> ids) {
         if (ids.isEmpty()) {
             return List.of();
@@ -197,6 +253,11 @@ public class OutboxJdbcRepository {
         );
     }
 
+    /**
+     * Counts active (non-archive) outbox rows for health / backlog checks.
+     *
+     * @return number of rows with {@code status <} archive threshold
+     */
     public long countActivePending() {
         Long count = jdbcTemplate.queryForObject(
                 """
@@ -209,6 +270,12 @@ public class OutboxJdbcRepository {
         return count == null ? 0L : count;
     }
 
+    /**
+     * Loads a single outbox row by id (any partition / status).
+     *
+     * @param id outbox event id
+     * @return row when present
+     */
     public Optional<OutboxRow> findById(long id) {
         List<OutboxRow> rows = jdbcTemplate.query(
                 """
@@ -222,6 +289,14 @@ public class OutboxJdbcRepository {
         return rows.stream().findFirst();
     }
 
+    /**
+     * Maps a persisted outbox row to the Kafka {@link EventEnvelope} contract.
+     *
+     * @param row           claimed outbox row
+     * @param correlationId optional correlation id extracted from the payload JSON
+     * @return envelope ready for {@link com.kholodilin.outbox.publisher.KafkaBatchPublisher}
+     * @throws IllegalStateException when payload JSON cannot be parsed
+     */
     public EventEnvelope toEnvelope(OutboxRow row, String correlationId) {
         try {
             @SuppressWarnings("unchecked")

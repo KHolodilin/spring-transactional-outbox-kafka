@@ -15,6 +15,11 @@ public class OutboxHealthIndicator implements HealthIndicator {
     private final OutboxJdbcRepository outboxJdbcRepository;
     private final AppProperties properties;
 
+    /**
+     * Compares active pending outbox count against {@code app.health.outbox-pending-critical}.
+     *
+     * @return DOWN when the backlog is at or above the critical threshold
+     */
     @Override
     public Health health() {
         long pending = outboxJdbcRepository.countActivePending();

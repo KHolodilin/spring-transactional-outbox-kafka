@@ -46,6 +46,9 @@ public class BatchPublisherWorker {
     private final AtomicBoolean running = new AtomicBoolean(true);
     private ExecutorService executor;
 
+    /**
+     * Starts the single-threaded publisher loop after the Spring context is ready.
+     */
     @PostConstruct
     public void start() {
         executor = Executors.newSingleThreadExecutor(r -> {
@@ -56,6 +59,9 @@ public class BatchPublisherWorker {
         executor.submit(this::loop);
     }
 
+    /**
+     * Signals the loop to exit and interrupts the publisher thread on context shutdown.
+     */
     @PreDestroy
     public void stop() {
         running.set(false);

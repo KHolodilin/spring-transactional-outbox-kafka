@@ -41,6 +41,13 @@ public class KafkaBatchPublisher {
     private final ObjectProvider<Tracer> tracerProvider;
     private final ObjectProvider<Propagator> propagatorProvider;
 
+    /**
+     * @param kafkaTemplate      Spring Kafka template used for async sends
+     * @param properties         topic and app settings
+     * @param traceContextSupport restores per-envelope {@code traceparent} before send
+     * @param tracerProvider     optional Micrometer tracer for header injection
+     * @param propagatorProvider optional W3C propagator for Kafka headers
+     */
     public KafkaBatchPublisher(
             KafkaTemplate<String, Object> kafkaTemplate,
             AppProperties properties,
@@ -55,6 +62,15 @@ public class KafkaBatchPublisher {
         this.propagatorProvider = propagatorProvider;
     }
 
+    /**
+     * Publishes all envelopes and blocks until every send future completes.
+     * <p>
+     * Each message gets business headers ({@code eventId}, {@code orderId}, …) and,
+     * when tracing is enabled, {@code traceparent} / {@code tracestate}. Failure of any
+     * send fails the whole batch (caller marks rows FAILED / DEAD).
+     *
+     * @param envelopes non-empty batch claimed from the outbox
+     */
     public void publish(List<EventEnvelope> envelopes) {
         String topic = properties.getKafka().getTopic();
         List<CompletableFuture<?>> futures = new ArrayList<>();

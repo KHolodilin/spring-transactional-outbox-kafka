@@ -12,6 +12,12 @@ import java.net.URI;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /**
+     * Maps {@link IdempotencyConflictException} to HTTP 409 Problem Details.
+     *
+     * @param ex conflict thrown by the idempotency check
+     * @return RFC 7807 body with status CONFLICT
+     */
     @ExceptionHandler(IdempotencyConflictException.class)
     public ProblemDetail handleIdempotencyConflict(IdempotencyConflictException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());

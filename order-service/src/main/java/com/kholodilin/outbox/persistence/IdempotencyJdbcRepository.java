@@ -36,6 +36,13 @@ public class IdempotencyJdbcRepository {
 
     private final JdbcTemplate jdbcTemplate;
 
+    /**
+     * Finds an idempotency record by customer + key.
+     *
+     * @param customerId     partition key / customer scope
+     * @param idempotencyKey client {@code Idempotency-Key}
+     * @return entity when present
+     */
     public Optional<IdempotencyKeyEntity> findByCustomerIdAndKey(Long customerId, String idempotencyKey) {
         var list = jdbcTemplate.query(
                 """
@@ -50,6 +57,17 @@ public class IdempotencyJdbcRepository {
         return list.stream().findFirst();
     }
 
+    /**
+     * Inserts a {@link IdempotencyStatus#PROCESSING} row at the start of order creation.
+     * <p>
+     * Concurrent inserts with the same key fail on the unique constraint and surface as a DB error;
+     * callers rely on the pre-check in {@link com.kholodilin.outbox.idempotency.IdempotencyService}.
+     *
+     * @param customerId     customer scope
+     * @param idempotencyKey client key
+     * @param requestHash    SHA-256 of the request body
+     * @param now            created_at / updated_at
+     */
     public void insertProcessing(Long customerId, String idempotencyKey, String requestHash, Instant now) {
         jdbcTemplate.update(
                 """
@@ -65,6 +83,14 @@ public class IdempotencyJdbcRepository {
         );
     }
 
+    /**
+     * Marks the key {@link IdempotencyStatus#COMPLETED} and stores the JSON response for replays.
+     *
+     * @param customerId     customer scope
+     * @param idempotencyKey client key
+     * @param responseBody   serialized {@link com.kholodilin.outbox.events.CreateOrderResponse}
+     * @param now            updated_at
+     */
     public void complete(Long customerId, String idempotencyKey, String responseBody, Instant now) {
         jdbcTemplate.update(
                 """

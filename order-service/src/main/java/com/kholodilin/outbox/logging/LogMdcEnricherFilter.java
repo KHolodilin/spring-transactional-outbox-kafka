@@ -21,6 +21,9 @@ public class LogMdcEnricherFilter extends OncePerRequestFilter {
 
     private final AppProperties appProperties;
 
+    /**
+     * Puts instance id and tracing aliases into MDC for the duration of the request.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {

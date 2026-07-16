@@ -38,6 +38,18 @@ public class OrderTransactionService {
     private final ObjectMapper objectMapper;
     private final TraceContextSupport traceContextSupport;
 
+    /**
+     * Persists the order, items, outbox row, and completed idempotency record in one transaction.
+     * <p>
+     * Captures W3C {@code traceparent} onto the outbox row and registers post-commit enqueue
+     * so the publisher only sees committed events. On any failure the whole unit rolls back
+     * (including the PROCESSING idempotency insert).
+     *
+     * @param request        validated create-order payload
+     * @param idempotencyKey client key stored with the request hash
+     * @param requestHash    SHA-256 of the canonical request body
+     * @return accepted response stored for later idempotent replays
+     */
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {
         Instant now = Instant.now();

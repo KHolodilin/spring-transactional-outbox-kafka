@@ -15,6 +15,11 @@ public class QueueHealthIndicator implements HealthIndicator {
     private final InMemoryEventQueue eventQueue;
     private final AppProperties properties;
 
+    /**
+     * Compares in-memory queue pressure against {@code app.health.queue-pressure-critical}.
+     *
+     * @return DOWN when pressure is at or above the critical threshold
+     */
     @Override
     public Health health() {
         double pressure = eventQueue.pressure();

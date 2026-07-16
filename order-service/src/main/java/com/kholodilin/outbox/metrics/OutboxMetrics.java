@@ -37,27 +37,44 @@ public class OutboxMetrics {
         rateLimitRejects = Counter.builder("outbox.rate_limit.rejects").register(registry);
     }
 
+    /**
+     * Updates gauges reflecting the current in-memory queue occupancy.
+     *
+     * @param size     number of ids waiting in the queue
+     * @param pressure {@code size / capacity} in {@code [0, 1]}
+     */
     public void updateQueue(int size, double pressure) {
         queueSize.set(size);
         queuePressure.set(pressure);
     }
 
+    /**
+     * @return timer used to record Kafka publish batch latency
+     */
     public Timer publishLatency() {
         return publishLatency;
     }
 
+    /** Increments {@code outbox.publish.failures} after a Kafka batch send error. */
     public void incrementPublishFailures() {
         publishFailures.increment();
     }
 
+    /** Increments {@code outbox.retry.count} when a row is marked FAILED / DEAD. */
     public void incrementRetryCount() {
         retryCount.increment();
     }
 
+    /**
+     * Adds {@code count} to {@code outbox.recovery.count} for successfully re-enqueued ids.
+     *
+     * @param count number of ids enqueued by recovery in one tick
+     */
     public void incrementRecoveryCount(int count) {
         recoveryCount.increment(count);
     }
 
+    /** Increments {@code outbox.rate_limit.rejects} when the rate-limit filter returns 429. */
     public void incrementRateLimitRejects() {
         rateLimitRejects.increment();
     }
