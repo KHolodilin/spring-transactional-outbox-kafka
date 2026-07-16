@@ -60,12 +60,22 @@ class IdempotencyJdbcRepositoryTest {
     void insertProcessingWritesProcessingStatus() {
         IdempotencyJdbcRepository repository = new IdempotencyJdbcRepository(jdbcTemplate);
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        when(jdbcTemplate.queryForObject(anyString(), eq(Long.class), any(), any(), any(), any(), any(), any()))
+                .thenReturn(11L);
 
-        repository.insertProcessing(1L, "key", "hash", now);
+        long id = repository.insertProcessing(1L, "key", "hash", now);
 
-        ArgumentCaptor<Object[]> params = ArgumentCaptor.forClass(Object[].class);
-        verify(jdbcTemplate).update(anyString(), params.capture());
-        assertThat(params.getValue()[3]).isEqualTo(IdempotencyStatus.PROCESSING.getCode());
+        assertThat(id).isEqualTo(11L);
+        verify(jdbcTemplate).queryForObject(
+                anyString(),
+                eq(Long.class),
+                eq(1L),
+                eq("key"),
+                eq("hash"),
+                eq(IdempotencyStatus.PROCESSING.getCode()),
+                any(Timestamp.class),
+                any(Timestamp.class)
+        );
     }
 
     @Test

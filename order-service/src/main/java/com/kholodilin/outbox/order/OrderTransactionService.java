@@ -53,13 +53,17 @@ public class OrderTransactionService {
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {
         Instant now = Instant.now();
-        idempotencyJdbcRepository.insertProcessing(request.getCustomerId(), idempotencyKey, requestHash, now);
+        long idempotencyId = idempotencyJdbcRepository.insertProcessing(
+                request.getCustomerId(), idempotencyKey, requestHash, now);
+        log.debug("Idempotency key inserted id={} customerId={} idempotencyKey={}",
+                idempotencyId, request.getCustomerId(), idempotencyKey);
 
         BigDecimal total = request.getItems().stream()
                 .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         long orderId = orderJdbcRepository.insertOrder(request.getCustomerId(), total, now);
+        log.debug("Order inserted orderId={} customerId={}", orderId, request.getCustomerId());
         for (OrderItemRequest item : request.getItems()) {
             orderJdbcRepository.insertOrderItem(
                     orderId,
@@ -81,6 +85,7 @@ public class OrderTransactionService {
                 traceParent,
                 now
         );
+        log.debug("Outbox event inserted orderId={} eventId={}", orderId, eventId);
 
         CreateOrderResponse response = CreateOrderResponse.builder()
                 .orderId(orderId)

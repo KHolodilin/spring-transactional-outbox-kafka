@@ -67,13 +67,16 @@ public class IdempotencyJdbcRepository {
      * @param idempotencyKey client key
      * @param requestHash    SHA-256 of the request body
      * @param now            created_at / updated_at
+     * @return generated {@code idempotency_keys.id}
      */
-    public void insertProcessing(Long customerId, String idempotencyKey, String requestHash, Instant now) {
-        jdbcTemplate.update(
+    public long insertProcessing(Long customerId, String idempotencyKey, String requestHash, Instant now) {
+        Long id = jdbcTemplate.queryForObject(
                 """
                         INSERT INTO idempotency_keys (customer_id, idempotency_key, request_hash, status, created_at, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?)
+                        RETURNING id
                         """,
+                Long.class,
                 customerId,
                 idempotencyKey,
                 requestHash,
@@ -81,6 +84,7 @@ public class IdempotencyJdbcRepository {
                 Timestamp.from(now),
                 Timestamp.from(now)
         );
+        return id;
     }
 
     /**

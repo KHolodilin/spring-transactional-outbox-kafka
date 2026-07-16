@@ -75,6 +75,8 @@ class OrderTransactionServiceTest {
                 .build();
 
         when(orderJdbcRepository.insertOrder(eq(42L), eq(BigDecimal.valueOf(10)), any(Instant.class))).thenReturn(100L);
+        when(idempotencyJdbcRepository.insertProcessing(eq(42L), eq("idem-key"), eq("hash-1"), any(Instant.class)))
+                .thenReturn(9L);
         when(outboxEventFactory.buildOrderCreatedPayload(100L, request)).thenReturn("{\"orderId\":100}");
         when(outboxEventFactory.eventType()).thenReturn("OrderCreated");
         when(traceContextSupport.captureTraceParent()).thenReturn("00-trace");
