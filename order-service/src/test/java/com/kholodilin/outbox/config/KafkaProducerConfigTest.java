@@ -14,14 +14,17 @@ class KafkaProducerConfigTest {
     @Test
     void serializesInstantAsIso8601() throws Exception {
         JsonMapper mapper = KafkaProducerConfig.kafkaObjectMapper();
-        EventEnvelope envelope = EventEnvelope.builder()
-                .eventId(1L)
-                .orderId(10L)
-                .customerId(20L)
-                .eventType("OrderCreated")
-                .payload(Map.of("orderId", 10))
-                .occurredAt(Instant.parse("2026-07-12T10:15:30Z"))
-                .build();
+        EventEnvelope envelope = new EventEnvelope(
+                1L,
+                10L,
+                20L,
+                "OrderCreated",
+                Map.of("orderId", 10),
+                null,
+                Instant.parse("2026-07-12T10:15:30Z"),
+                null,
+                null
+        );
 
         String json = mapper.writeValueAsString(envelope);
 

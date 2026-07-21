@@ -54,23 +54,23 @@ public class OrderTransactionService {
     public CreateOrderResponse createOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {
         Instant now = Instant.now();
         long idempotencyId = idempotencyJdbcRepository.insertProcessing(
-                request.getCustomerId(), idempotencyKey, requestHash, now);
+                request.customerId(), idempotencyKey, requestHash, now);
         log.debug("Idempotency key inserted id={} customerId={} idempotencyKey={}",
-                idempotencyId, request.getCustomerId(), idempotencyKey);
+                idempotencyId, request.customerId(), idempotencyKey);
 
-        BigDecimal total = request.getItems().stream()
-                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+        BigDecimal total = request.items().stream()
+                .map(item -> item.price().multiply(BigDecimal.valueOf(item.quantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        long orderId = orderJdbcRepository.insertOrder(request.getCustomerId(), total, now);
-        log.debug("Order inserted orderId={} customerId={}", orderId, request.getCustomerId());
-        for (OrderItemRequest item : request.getItems()) {
+        long orderId = orderJdbcRepository.insertOrder(request.customerId(), total, now);
+        log.debug("Order inserted orderId={} customerId={}", orderId, request.customerId());
+        for (OrderItemRequest item : request.items()) {
             orderJdbcRepository.insertOrderItem(
                     orderId,
-                    request.getCustomerId(),
-                    item.getProductId(),
-                    item.getQuantity(),
-                    item.getPrice(),
+                    request.customerId(),
+                    item.productId(),
+                    item.quantity(),
+                    item.price(),
                     now
             );
         }
@@ -79,7 +79,7 @@ public class OrderTransactionService {
         String traceParent = traceContextSupport.captureTraceParent();
         long eventId = outboxJdbcRepository.insertEvent(
                 orderId,
-                request.getCustomerId(),
+                request.customerId(),
                 outboxEventFactory.eventType(),
                 payload,
                 traceParent,
@@ -87,16 +87,11 @@ public class OrderTransactionService {
         );
         log.debug("Outbox event inserted orderId={} eventId={}", orderId, eventId);
 
-        CreateOrderResponse response = CreateOrderResponse.builder()
-                .orderId(orderId)
-                .eventId(eventId)
-                .status("ACCEPTED")
-                .createdAt(now)
-                .build();
+        CreateOrderResponse response = new CreateOrderResponse(orderId, eventId, "ACCEPTED", now);
         try {
             // Store response for idempotent replays before the transaction commits.
             idempotencyJdbcRepository.complete(
-                    request.getCustomerId(),
+                    request.customerId(),
                     idempotencyKey,
                     objectMapper.writeValueAsString(response),
                     now
@@ -109,7 +104,7 @@ public class OrderTransactionService {
         StructuredLogContext.putOrderFields(orderId, eventId);
         StructuredLogContext.putEventType(outboxEventFactory.eventType());
         StructuredLogContext.putEventAction("outbox.event.persisted");
-        log.info("Order persisted orderId={} eventId={} customerId={}", orderId, eventId, request.getCustomerId());
+        log.info("Order persisted orderId={} eventId={} customerId={}", orderId, eventId, request.customerId());
         return response;
     }
 }

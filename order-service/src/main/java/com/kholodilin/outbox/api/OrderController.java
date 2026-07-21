@@ -54,12 +54,12 @@ public class OrderController {
             @RequestHeader(EventConstants.IDEMPOTENCY_KEY_HEADER) String idempotencyKey,
             @Valid @RequestBody CreateOrderRequest request
     ) {
-        String correlationId = request.getCorrelationId() != null ? request.getCorrelationId() : UUID.randomUUID().toString();
-        StructuredLogContext.putCorrelation(correlationId, request.getCustomerId(), idempotencyKey);
+        String correlationId = request.correlationId() != null ? request.correlationId() : UUID.randomUUID().toString();
+        StructuredLogContext.putCorrelation(correlationId, request.customerId(), idempotencyKey);
         StructuredLogContext.putEventAction("http.request.accepted");
 
-        log.info("Order request accepted customerId={} idempotencyKey={}", request.getCustomerId(), idempotencyKey);
-        log.debug("Order request body customerId={} items={}", request.getCustomerId(), request.getItems().size());
+        log.info("Order request accepted customerId={} idempotencyKey={}", request.customerId(), idempotencyKey);
+        log.debug("Order request body customerId={} items={}", request.customerId(), request.items().size());
 
         String requestHash = requestHashCalculator.calculate(request);
         log.debug("Request hash calculated hash={}", requestHash);
@@ -67,19 +67,19 @@ public class OrderController {
         // May throw IdempotencyConflictException (409) when the key exists with a different request hash
         // or the original request is still PROCESSING; not caught here — see GlobalExceptionHandler.
         Optional<CreateOrderResponse> cached = idempotencyService.findCachedResponse(
-                request.getCustomerId(),
+                request.customerId(),
                 idempotencyKey,
                 requestHash
         );
         if (cached.isPresent()) {
             CreateOrderResponse response = cached.get();
-            StructuredLogContext.putOrderFields(response.getOrderId(), response.getEventId());
+            StructuredLogContext.putOrderFields(response.orderId(), response.eventId());
             StructuredLogContext.putEventAction("http.request.completed");
             return ResponseEntity.ok(response);
         }
 
         CreateOrderResponse created = orderTransactionService.createOrder(request, idempotencyKey, requestHash);
-        StructuredLogContext.putOrderFields(created.getOrderId(), created.getEventId());
+        StructuredLogContext.putOrderFields(created.orderId(), created.eventId());
         StructuredLogContext.putEventAction("http.request.completed");
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

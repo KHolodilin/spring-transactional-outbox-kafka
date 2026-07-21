@@ -64,15 +64,11 @@ class OrderTransactionServiceTest {
 
     @Test
     void createOrderPersistsDomainDataAndEnqueuesAfterCommit() {
-        CreateOrderRequest request = CreateOrderRequest.builder()
-                .customerId(42L)
-                .correlationId("corr-1")
-                .items(List.of(OrderItemRequest.builder()
-                        .productId("sku-1")
-                        .quantity(2)
-                        .price(BigDecimal.valueOf(5))
-                        .build()))
-                .build();
+        CreateOrderRequest request = new CreateOrderRequest(
+                42L,
+                List.of(new OrderItemRequest("sku-1", 2, BigDecimal.valueOf(5))),
+                "corr-1"
+        );
 
         when(orderJdbcRepository.insertOrder(eq(42L), eq(BigDecimal.valueOf(10)), any(Instant.class))).thenReturn(100L);
         when(idempotencyJdbcRepository.insertProcessing(eq(42L), eq("idem-key"), eq("hash-1"), any(Instant.class)))
@@ -85,9 +81,9 @@ class OrderTransactionServiceTest {
 
         CreateOrderResponse response = service.createOrder(request, "idem-key", "hash-1");
 
-        assertThat(response.getOrderId()).isEqualTo(100L);
-        assertThat(response.getEventId()).isEqualTo(200L);
-        assertThat(response.getStatus()).isEqualTo("ACCEPTED");
+        assertThat(response.orderId()).isEqualTo(100L);
+        assertThat(response.eventId()).isEqualTo(200L);
+        assertThat(response.status()).isEqualTo("ACCEPTED");
         verify(idempotencyJdbcRepository).insertProcessing(eq(42L), eq("idem-key"), eq("hash-1"), any(Instant.class));
         verify(orderJdbcRepository).insertOrderItem(eq(100L), eq(42L), eq("sku-1"), eq(2), eq(BigDecimal.valueOf(5)), any(Instant.class));
         verify(idempotencyJdbcRepository).complete(eq(42L), eq("idem-key"), any(String.class), any(Instant.class));

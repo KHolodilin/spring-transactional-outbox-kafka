@@ -29,10 +29,10 @@ public class OutboxEventFactory {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("orderId", orderId);
-            payload.put("customerId", request.getCustomerId());
-            payload.put("items", request.getItems());
-            if (request.getCorrelationId() != null) {
-                payload.put("correlationId", request.getCorrelationId());
+            payload.put("customerId", request.customerId());
+            payload.put("items", request.items());
+            if (request.correlationId() != null) {
+                payload.put("correlationId", request.correlationId());
             }
             return objectMapper.writeValueAsString(payload);
         } catch (Exception ex) {

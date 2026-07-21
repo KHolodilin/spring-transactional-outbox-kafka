@@ -18,11 +18,11 @@ class OutboxEventFactoryTest {
 
     @Test
     void buildsOrderCreatedPayload() throws Exception {
-        CreateOrderRequest request = CreateOrderRequest.builder()
-                .customerId(10L)
-                .items(List.of(OrderItemRequest.builder().productId("sku-1").quantity(1).price(BigDecimal.ONE).build()))
-                .correlationId("corr")
-                .build();
+        CreateOrderRequest request = new CreateOrderRequest(
+                10L,
+                List.of(new OrderItemRequest("sku-1", 1, BigDecimal.ONE)),
+                "corr"
+        );
         String json = factory.buildOrderCreatedPayload(99L, request);
         @SuppressWarnings("unchecked")
         Map<String, Object> payload = JsonMapper.builder().build().readValue(json, Map.class);

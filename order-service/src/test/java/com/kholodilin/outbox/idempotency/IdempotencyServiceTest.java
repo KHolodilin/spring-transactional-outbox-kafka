@@ -37,18 +37,14 @@ class IdempotencyServiceTest {
         IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
                 .requestHash("hash")
                 .status(IdempotencyStatus.COMPLETED)
-                .responseBody(objectMapper.writeValueAsString(CreateOrderResponse.builder()
-                        .orderId(1L)
-                        .eventId(2L)
-                        .status("ACCEPTED")
-                        .createdAt(Instant.now())
-                        .build()))
+                .responseBody(objectMapper.writeValueAsString(
+                        new CreateOrderResponse(1L, 2L, "ACCEPTED", Instant.now())))
                 .build();
         when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
 
         Optional<CreateOrderResponse> response = service.findCachedResponse(1L, "key", "hash");
         assertThat(response).isPresent();
-        assertThat(response.get().getOrderId()).isEqualTo(1L);
+        assertThat(response.get().orderId()).isEqualTo(1L);
     }
 
     @Test

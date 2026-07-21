@@ -23,10 +23,10 @@ public abstract class AbstractIntegrationTest {
         OutboxStatus lastStatus = null;
         while (System.currentTimeMillis() < deadline) {
             Optional<OutboxRow> row = outboxJdbcRepository.findById(eventId);
-            if (row.isPresent() && row.get().getStatus() == OutboxStatus.SENT) {
+            if (row.isPresent() && row.get().status() == OutboxStatus.SENT) {
                 return;
             }
-            lastStatus = row.map(OutboxRow::getStatus).orElse(null);
+            lastStatus = row.map(OutboxRow::status).orElse(null);
             try {
                 Thread.sleep(200);
             } catch (InterruptedException ex) {
@@ -36,7 +36,7 @@ public abstract class AbstractIntegrationTest {
         }
         Optional<OutboxRow> row = outboxJdbcRepository.findById(eventId);
         Integer lastStatusCode = lastStatus == null ? null : lastStatus.getCode();
-        int retryCount = row.map(OutboxRow::getRetryCount).orElse(-1);
+        int retryCount = row.map(OutboxRow::retryCount).orElse(-1);
         throw new AssertionError(
                 "Outbox event " + eventId + " was not marked SENT within 20s (lastStatus="
                         + lastStatusCode + ", retryCount=" + retryCount + ")"

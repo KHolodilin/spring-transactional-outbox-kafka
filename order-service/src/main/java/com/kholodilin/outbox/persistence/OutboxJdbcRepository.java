@@ -34,16 +34,16 @@ public class OutboxJdbcRepository {
     private static final RowMapper<OutboxRow> ROW_MAPPER = new RowMapper<>() {
         @Override
         public OutboxRow mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return OutboxRow.builder()
-                    .id(rs.getLong("id"))
-                    .orderId(rs.getLong("order_id"))
-                    .customerId(rs.getLong("customer_id"))
-                    .eventType(rs.getString("event_type"))
-                    .payload(rs.getString("payload"))
-                    .status(OutboxStatus.fromCode(rs.getInt("status")))
-                    .retryCount(rs.getInt("retry_count"))
-                    .traceParent(rs.getString("trace_parent"))
-                    .build();
+            return new OutboxRow(
+                    rs.getLong("id"),
+                    rs.getLong("order_id"),
+                    rs.getLong("customer_id"),
+                    rs.getString("event_type"),
+                    rs.getString("payload"),
+                    OutboxStatus.fromCode(rs.getInt("status")),
+                    rs.getInt("retry_count"),
+                    rs.getString("trace_parent")
+            );
         }
     };
 
@@ -300,19 +300,20 @@ public class OutboxJdbcRepository {
     public EventEnvelope toEnvelope(OutboxRow row, String correlationId) {
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> payload = objectMapper.readValue(row.getPayload(), Map.class);
-            return EventEnvelope.builder()
-                    .eventId(row.getId())
-                    .orderId(row.getOrderId())
-                    .customerId(row.getCustomerId())
-                    .eventType(row.getEventType())
-                    .payload(payload)
-                    .correlationId(correlationId)
-                    .traceParent(row.getTraceParent())
-                    .occurredAt(Instant.now())
-                    .build();
+            Map<String, Object> payload = objectMapper.readValue(row.payload(), Map.class);
+            return new EventEnvelope(
+                    row.id(),
+                    row.orderId(),
+                    row.customerId(),
+                    row.eventType(),
+                    payload,
+                    correlationId,
+                    Instant.now(),
+                    row.traceParent(),
+                    null
+            );
         } catch (Exception ex) {
-            throw new IllegalStateException("Failed to parse outbox payload for id=" + row.getId(), ex);
+            throw new IllegalStateException("Failed to parse outbox payload for id=" + row.id(), ex);
         }
     }
 }

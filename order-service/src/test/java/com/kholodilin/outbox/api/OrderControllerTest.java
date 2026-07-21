@@ -53,12 +53,7 @@ class OrderControllerTest {
     @Test
     void returnsCachedResponseWhenIdempotentReplay() {
         CreateOrderRequest request = sampleRequest("corr-1");
-        CreateOrderResponse cached = CreateOrderResponse.builder()
-                .orderId(1L)
-                .eventId(2L)
-                .status("ACCEPTED")
-                .createdAt(Instant.now())
-                .build();
+        CreateOrderResponse cached = new CreateOrderResponse(1L, 2L, "ACCEPTED", Instant.now());
         when(requestHashCalculator.calculate(request)).thenReturn("hash");
         when(idempotencyService.findCachedResponse(42L, "idem", "hash")).thenReturn(Optional.of(cached));
 
@@ -71,12 +66,7 @@ class OrderControllerTest {
     @Test
     void createsOrderWhenNoCachedResponse() {
         CreateOrderRequest request = sampleRequest(null);
-        CreateOrderResponse created = CreateOrderResponse.builder()
-                .orderId(10L)
-                .eventId(20L)
-                .status("ACCEPTED")
-                .createdAt(Instant.now())
-                .build();
+        CreateOrderResponse created = new CreateOrderResponse(10L, 20L, "ACCEPTED", Instant.now());
         when(requestHashCalculator.calculate(request)).thenReturn("hash");
         when(idempotencyService.findCachedResponse(42L, "idem", "hash")).thenReturn(Optional.empty());
         when(orderTransactionService.createOrder(request, "idem", "hash")).thenReturn(created);
@@ -89,14 +79,10 @@ class OrderControllerTest {
     }
 
     private static CreateOrderRequest sampleRequest(String correlationId) {
-        return CreateOrderRequest.builder()
-                .customerId(42L)
-                .correlationId(correlationId)
-                .items(List.of(OrderItemRequest.builder()
-                        .productId("sku")
-                        .quantity(1)
-                        .price(BigDecimal.ONE)
-                        .build()))
-                .build();
+        return new CreateOrderRequest(
+                42L,
+                List.of(new OrderItemRequest("sku", 1, BigDecimal.ONE)),
+                correlationId
+        );
     }
 }

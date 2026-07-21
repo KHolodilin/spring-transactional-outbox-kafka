@@ -119,14 +119,15 @@ class BatchPublisherWorkerTest {
     }
 
     private OutboxRow sampleRow(int retryCount) {
-        return OutboxRow.builder()
-                .id(1L)
-                .orderId(10L)
-                .customerId(20L)
-                .eventType("OrderCreated")
-                .payload("{\"orderId\":10}")
-                .status(OutboxStatus.PROCESSING)
-                .retryCount(retryCount)
-                .build();
+        return new OutboxRow(
+                1L,
+                10L,
+                20L,
+                "OrderCreated",
+                "{\"orderId\":10}",
+                OutboxStatus.PROCESSING,
+                retryCount,
+                null
+        );
     }
 }

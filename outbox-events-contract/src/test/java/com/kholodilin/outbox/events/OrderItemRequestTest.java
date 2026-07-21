@@ -10,14 +10,10 @@ class OrderItemRequestTest {
 
     @Test
     void builderStoresLineItemFields() {
-        OrderItemRequest item = OrderItemRequest.builder()
-                .productId("sku-1")
-                .quantity(3)
-                .price(BigDecimal.valueOf(9.99))
-                .build();
+        OrderItemRequest item = new OrderItemRequest("sku-1", 3, BigDecimal.valueOf(9.99));
 
-        assertThat(item.getProductId()).isEqualTo("sku-1");
-        assertThat(item.getQuantity()).isEqualTo(3);
-        assertThat(item.getPrice()).isEqualByComparingTo("9.99");
+        assertThat(item.productId()).isEqualTo("sku-1");
+        assertThat(item.quantity()).isEqualTo(3);
+        assertThat(item.price()).isEqualByComparingTo("9.99");
     }
 }

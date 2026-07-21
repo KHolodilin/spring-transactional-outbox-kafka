@@ -11,19 +11,15 @@ class CreateOrderRequestTest {
 
     @Test
     void builderStoresCustomerAndItems() {
-        CreateOrderRequest request = CreateOrderRequest.builder()
-                .customerId(42L)
-                .correlationId("corr")
-                .items(List.of(OrderItemRequest.builder()
-                        .productId("sku")
-                        .quantity(2)
-                        .price(BigDecimal.TEN)
-                        .build()))
-                .build();
+        CreateOrderRequest request = new CreateOrderRequest(
+                42L,
+                List.of(new OrderItemRequest("sku", 2, BigDecimal.TEN)),
+                "corr"
+        );
 
-        assertThat(request.getCustomerId()).isEqualTo(42L);
-        assertThat(request.getCorrelationId()).isEqualTo("corr");
-        assertThat(request.getItems()).hasSize(1);
-        assertThat(request.getItems().get(0).getPrice()).isEqualByComparingTo(BigDecimal.TEN);
+        assertThat(request.customerId()).isEqualTo(42L);
+        assertThat(request.correlationId()).isEqualTo("corr");
+        assertThat(request.items()).hasSize(1);
+        assertThat(request.items().get(0).price()).isEqualByComparingTo(BigDecimal.TEN);
     }
 }

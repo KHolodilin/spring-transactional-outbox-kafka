@@ -74,16 +74,16 @@ public class NotificationStubHandler {
     private void logEvent(ConsumerRecord<String, EventEnvelope> record) {
         EventEnvelope event = record.value();
         instanceMdcInitializer.enrich();
-        StructuredLogContext.putCorrelation(event.getCorrelationId(), event.getCustomerId());
-        StructuredLogContext.putOrderFields(event.getOrderId(), event.getEventId());
-        StructuredLogContext.putEventType(event.getEventType());
+        StructuredLogContext.putCorrelation(event.correlationId(), event.customerId());
+        StructuredLogContext.putOrderFields(event.orderId(), event.eventId());
+        StructuredLogContext.putEventType(event.eventType());
         StructuredLogContext.putKafkaFields(record.topic(), record.partition(), record.offset());
         StructuredLogContext.putNotificationFields("log", "sent");
         StructuredLogContext.putEventAction("notification.processed");
         log.info("Notification stub sent orderId={} customerId={} eventId={}",
-                event.getOrderId(), event.getCustomerId(), event.getEventId());
+                event.orderId(), event.customerId(), event.eventId());
         log.debug("Notification stub event details eventType={} correlationId={} payload={}",
-                event.getEventType(), event.getCorrelationId(), event.getPayload());
+                event.eventType(), event.correlationId(), event.payload());
         instanceMdcInitializer.clearConsumerContext();
     }
 
