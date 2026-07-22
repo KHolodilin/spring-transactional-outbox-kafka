@@ -4,6 +4,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.OrderItemRequest;
+import com.kholodilin.outbox.idempotency.IdempotencyService;
 import com.kholodilin.outbox.persistence.IdempotencyJdbcRepository;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
@@ -19,12 +20,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Optional;
 
 /**
  * Writes order domain data and the outbox row in a single database transaction.
  * <p>
  * The outbox event is enqueued only after commit ({@link com.kholodilin.outbox.outbox.OutboxEnqueueListener})
  * so Kafka never sees events that were rolled back with the business transaction.
+ * <p>
+ * Idempotency claim uses {@code INSERT … ON CONFLICT DO NOTHING RETURNING id} in this same transaction;
+ * on conflict the existing row is loaded and resolved to a cached response or a 409 conflict.
  */
 @Slf4j
 @Service
@@ -34,6 +39,7 @@ public class OrderTransactionService {
     private final OrderJdbcRepository orderJdbcRepository;
     private final OutboxJdbcRepository outboxJdbcRepository;
     private final IdempotencyJdbcRepository idempotencyJdbcRepository;
+    private final IdempotencyService idempotencyService;
     private final OutboxEventFactory outboxEventFactory;
     private final OutboxEnqueueListener outboxEnqueueListener;
     private final ObjectMapper objectMapper;
@@ -41,28 +47,37 @@ public class OrderTransactionService {
     private final OutboxMetrics metrics;
 
     /**
-     * Persists the order, items, outbox row, and completed idempotency record in one transaction.
+     * Claims the idempotency key and either creates a new order or returns a cached replay.
      * <p>
      * Captures W3C {@code traceparent} onto the outbox row and registers post-commit enqueue
-     * so the publisher only sees committed events. On any failure the whole unit rolls back
-     * (including the PROCESSING idempotency insert).
+     * so the publisher only sees committed events. On any failure while creating, the whole unit
+     * rolls back (including the PROCESSING idempotency insert).
      *
      * @param request        validated create-order payload
      * @param idempotencyKey client key stored with the request hash
      * @param requestHash    SHA-256 of the canonical request body
-     * @return accepted response stored for later idempotent replays
+     * @return outcome with response body and whether a new order was created
      */
     @Transactional
-    public CreateOrderResponse createOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {
+    public OrderCreateOutcome createOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {
         return metrics.orderTransaction().record(() -> persistOrder(request, idempotencyKey, requestHash));
     }
 
-    private CreateOrderResponse persistOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {
+    private OrderCreateOutcome persistOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {
         Instant now = Instant.now();
-        long idempotencyId = idempotencyJdbcRepository.insertProcessing(
+        Optional<Long> claimedId = idempotencyJdbcRepository.tryInsertProcessing(
                 request.customerId(), idempotencyKey, requestHash, now);
+
+        if (claimedId.isEmpty()) {
+            CreateOrderResponse cached = idempotencyService.findCachedResponse(
+                            request.customerId(), idempotencyKey, requestHash)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Idempotency key conflicted but no usable row was found"));
+            return new OrderCreateOutcome(cached, false);
+        }
+
         log.debug("Idempotency key inserted id={} customerId={} idempotencyKey={}",
-                idempotencyId, request.customerId(), idempotencyKey);
+                claimedId.get(), request.customerId(), idempotencyKey);
 
         BigDecimal total = request.items().stream()
                 .map(item -> item.price().multiply(BigDecimal.valueOf(item.quantity())))
@@ -111,6 +126,6 @@ public class OrderTransactionService {
         StructuredLogContext.putEventType(outboxEventFactory.eventType());
         StructuredLogContext.putEventAction("outbox.event.persisted");
         log.info("Order persisted orderId={} eventId={} customerId={}", orderId, eventId, request.customerId());
-        return response;
+        return new OrderCreateOutcome(response, true);
     }
 }

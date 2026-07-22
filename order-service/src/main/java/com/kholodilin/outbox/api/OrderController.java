@@ -3,8 +3,8 @@ package com.kholodilin.outbox.api;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.EventConstants;
-import com.kholodilin.outbox.idempotency.IdempotencyService;
 import com.kholodilin.outbox.logging.StructuredLogContext;
+import com.kholodilin.outbox.order.OrderCreateOutcome;
 import com.kholodilin.outbox.order.OrderTransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,18 +17,18 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Optional;
 import java.util.UUID;
 
 /**
  * HTTP entry point for order creation with idempotency support.
  * <p>
- * Flow: rate limit (filter) → idempotency lookup → transactional write → 201/200/409.
+ * Flow: rate limit (filter) → transactional claim/create → 201/200/409.
  * <p>
- * Idempotency outcomes are handled in {@link IdempotencyService#findCachedResponse}:
- * same key + same body hash → 200 with stored response; no prior key → continue to create (201);
- * same key + different body hash (or key still PROCESSING) → {@link com.kholodilin.outbox.idempotency.IdempotencyConflictException}
- * mapped to HTTP 409 by {@link GlobalExceptionHandler}.
+ * Idempotency is claimed inside {@link OrderTransactionService#createOrder} via
+ * {@code INSERT … ON CONFLICT DO NOTHING}; same key + same body hash → 200 with stored response;
+ * new key → create (201); same key + different body hash (or key still PROCESSING) →
+ * {@link com.kholodilin.outbox.idempotency.IdempotencyConflictException} mapped to HTTP 409 by
+ * {@link GlobalExceptionHandler}.
  */
 @Slf4j
 @RestController
@@ -36,7 +36,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderController {
 
-    private final IdempotencyService idempotencyService;
     private final OrderTransactionService orderTransactionService;
     private final RequestHashCalculator requestHashCalculator;
 
@@ -66,21 +65,13 @@ public class OrderController {
 
         // May throw IdempotencyConflictException (409) when the key exists with a different request hash
         // or the original request is still PROCESSING; not caught here — see GlobalExceptionHandler.
-        Optional<CreateOrderResponse> cached = idempotencyService.findCachedResponse(
-                request.customerId(),
-                idempotencyKey,
-                requestHash
-        );
-        if (cached.isPresent()) {
-            CreateOrderResponse response = cached.get();
-            StructuredLogContext.putOrderFields(response.orderId(), response.eventId());
-            StructuredLogContext.putEventAction("http.request.completed");
-            return ResponseEntity.ok(response);
-        }
-
-        CreateOrderResponse created = orderTransactionService.createOrder(request, idempotencyKey, requestHash);
-        StructuredLogContext.putOrderFields(created.orderId(), created.eventId());
+        OrderCreateOutcome outcome = orderTransactionService.createOrder(request, idempotencyKey, requestHash);
+        CreateOrderResponse response = outcome.response();
+        StructuredLogContext.putOrderFields(response.orderId(), response.eventId());
         StructuredLogContext.putEventAction("http.request.completed");
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        if (outcome.created()) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        }
+        return ResponseEntity.ok(response);
     }
 }

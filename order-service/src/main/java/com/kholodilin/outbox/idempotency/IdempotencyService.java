@@ -13,10 +13,11 @@ import org.springframework.stereotype.Service;
 import java.util.Optional;
 
 /**
- * Read-only idempotency check before starting a new database transaction.
+ * Resolves an existing idempotency row after {@code INSERT … ON CONFLICT DO NOTHING} returned no id.
  * <p>
- * Same key + same body hash → return stored response (HTTP 200).
+ * Same key + same body hash + {@code COMPLETED} → return stored response (HTTP 200).
  * Same key + different hash → {@link IdempotencyConflictException} (HTTP 409).
+ * Same key still {@code PROCESSING} → {@link IdempotencyConflictException} (HTTP 409).
  */
 @Slf4j
 @Service
@@ -27,13 +28,13 @@ public class IdempotencyService {
     private final ObjectMapper objectMapper;
 
     /**
-     * Looks up a prior response for the given customer + idempotency key.
+     * Maps an already-persisted idempotency row to a cached response or a conflict.
      *
      * @param customerId     customer scope for the key
      * @param idempotencyKey client-supplied {@code Idempotency-Key}
      * @param requestHash    hash of the current request body
      * @return cached response when the key exists, is {@code COMPLETED}, and the hash matches;
-     *         empty when the key is unknown (caller should create a new order)
+     *         empty when the key is missing or not in a reusable {@code COMPLETED} state
      * @throws IdempotencyConflictException when the key exists with a different hash, or is still {@code PROCESSING}
      */
     public Optional<CreateOrderResponse> findCachedResponse(Long customerId, String idempotencyKey, String requestHash) {

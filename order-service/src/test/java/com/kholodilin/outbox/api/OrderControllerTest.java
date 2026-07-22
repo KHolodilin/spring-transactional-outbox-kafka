@@ -3,7 +3,7 @@ package com.kholodilin.outbox.api;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.OrderItemRequest;
-import com.kholodilin.outbox.idempotency.IdempotencyService;
+import com.kholodilin.outbox.order.OrderCreateOutcome;
 import com.kholodilin.outbox.order.OrderTransactionService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,19 +18,13 @@ import org.springframework.http.ResponseEntity;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class OrderControllerTest {
-
-    @Mock
-    private IdempotencyService idempotencyService;
 
     @Mock
     private OrderTransactionService orderTransactionService;
@@ -42,7 +36,7 @@ class OrderControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new OrderController(idempotencyService, orderTransactionService, requestHashCalculator);
+        controller = new OrderController(orderTransactionService, requestHashCalculator);
     }
 
     @AfterEach
@@ -55,7 +49,8 @@ class OrderControllerTest {
         CreateOrderRequest request = sampleRequest("corr-1");
         CreateOrderResponse cached = new CreateOrderResponse(1L, 2L, "ACCEPTED", Instant.now());
         when(requestHashCalculator.calculate(request)).thenReturn("hash");
-        when(idempotencyService.findCachedResponse(42L, "idem", "hash")).thenReturn(Optional.of(cached));
+        when(orderTransactionService.createOrder(request, "idem", "hash"))
+                .thenReturn(new OrderCreateOutcome(cached, false));
 
         ResponseEntity<CreateOrderResponse> response = controller.createOrder("idem", request);
 
@@ -64,12 +59,12 @@ class OrderControllerTest {
     }
 
     @Test
-    void createsOrderWhenNoCachedResponse() {
+    void createsOrderWhenClaimSucceeds() {
         CreateOrderRequest request = sampleRequest(null);
         CreateOrderResponse created = new CreateOrderResponse(10L, 20L, "ACCEPTED", Instant.now());
         when(requestHashCalculator.calculate(request)).thenReturn("hash");
-        when(idempotencyService.findCachedResponse(42L, "idem", "hash")).thenReturn(Optional.empty());
-        when(orderTransactionService.createOrder(request, "idem", "hash")).thenReturn(created);
+        when(orderTransactionService.createOrder(request, "idem", "hash"))
+                .thenReturn(new OrderCreateOutcome(created, true));
 
         ResponseEntity<CreateOrderResponse> response = controller.createOrder("idem", request);
 

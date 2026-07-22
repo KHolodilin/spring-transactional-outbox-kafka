@@ -58,25 +58,27 @@ public class IdempotencyJdbcRepository {
     }
 
     /**
-     * Inserts a {@link IdempotencyStatus#PROCESSING} row at the start of order creation.
+     * Tries to insert a {@link IdempotencyStatus#PROCESSING} row.
      * <p>
-     * Concurrent inserts with the same key fail on the unique constraint and surface as a DB error;
-     * callers rely on the pre-check in {@link com.kholodilin.outbox.idempotency.IdempotencyService}.
+     * Uses {@code ON CONFLICT DO NOTHING} so a concurrent claim does not raise a unique-violation
+     * error. An empty result means the key already exists — callers should {@link #findByCustomerIdAndKey}
+     * in the same transaction and resolve cache / conflict.
      *
      * @param customerId     customer scope
      * @param idempotencyKey client key
      * @param requestHash    SHA-256 of the request body
      * @param now            created_at / updated_at
-     * @return generated {@code idempotency_keys.id}
+     * @return generated id when this call won the insert; empty on conflict
      */
-    public long insertProcessing(Long customerId, String idempotencyKey, String requestHash, Instant now) {
-        Long id = jdbcTemplate.queryForObject(
+    public Optional<Long> tryInsertProcessing(Long customerId, String idempotencyKey, String requestHash, Instant now) {
+        var ids = jdbcTemplate.query(
                 """
                         INSERT INTO idempotency_keys (customer_id, idempotency_key, request_hash, status, created_at, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT (customer_id, idempotency_key) DO NOTHING
                         RETURNING id
                         """,
-                Long.class,
+                (rs, rowNum) -> rs.getLong(1),
                 customerId,
                 idempotencyKey,
                 requestHash,
@@ -84,7 +86,7 @@ public class IdempotencyJdbcRepository {
                 Timestamp.from(now),
                 Timestamp.from(now)
         );
-        return id;
+        return ids.stream().findFirst();
     }
 
     /**

@@ -57,18 +57,19 @@ class IdempotencyJdbcRepositoryTest {
     }
 
     @Test
-    void insertProcessingWritesProcessingStatus() {
+    void tryInsertProcessingReturnsIdWhenInsertWins() {
         IdempotencyJdbcRepository repository = new IdempotencyJdbcRepository(jdbcTemplate);
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
-        when(jdbcTemplate.queryForObject(anyString(), eq(Long.class), any(), any(), any(), any(), any(), any()))
-                .thenReturn(11L);
+        when(jdbcTemplate.query(anyString(), any(RowMapper.class), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(11L));
 
-        long id = repository.insertProcessing(1L, "key", "hash", now);
+        Optional<Long> id = repository.tryInsertProcessing(1L, "key", "hash", now);
 
-        assertThat(id).isEqualTo(11L);
-        verify(jdbcTemplate).queryForObject(
-                anyString(),
-                eq(Long.class),
+        assertThat(id).contains(11L);
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(
+                sql.capture(),
+                any(RowMapper.class),
                 eq(1L),
                 eq("key"),
                 eq("hash"),
@@ -76,6 +77,18 @@ class IdempotencyJdbcRepositoryTest {
                 any(Timestamp.class),
                 any(Timestamp.class)
         );
+        assertThat(sql.getValue()).contains("ON CONFLICT");
+        assertThat(sql.getValue()).contains("DO NOTHING");
+    }
+
+    @Test
+    void tryInsertProcessingReturnsEmptyOnConflict() {
+        IdempotencyJdbcRepository repository = new IdempotencyJdbcRepository(jdbcTemplate);
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        when(jdbcTemplate.query(anyString(), any(RowMapper.class), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+
+        assertThat(repository.tryInsertProcessing(1L, "key", "hash", now)).isEmpty();
     }
 
     @Test
