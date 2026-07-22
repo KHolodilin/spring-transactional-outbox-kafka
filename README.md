@@ -17,13 +17,13 @@ Production-oriented **Transactional Outbox** for Spring Boot 4, PostgreSQL, and 
   </a>
 </p>
 
-## Why this project?
+## 💡 Why this project?
 
 There are several well-established ways to implement the Transactional Outbox pattern. Each approach solves the same reliability problem, but with different trade-offs in latency, operational complexity, infrastructure, and database load.
 
 This project targets teams already using **Spring Boot, PostgreSQL, and Kafka** that want low-latency event delivery without continuous database polling or an additional CDC platform.
 
-### Comparison
+### ⚖️ Comparison
 
 | Approach | ✅ Pros | ⚠️ Cons |
 |----------|----------|----------|
@@ -32,7 +32,7 @@ This project targets teams already using **Spring Boot, PostgreSQL, and Kafka** 
 | **Debezium (CDC)** | ✅ Reliable Change Data Capture<br>✅ No application polling<br>✅ Excellent for large event-driven platforms | ❌ Requires Kafka Connect and Debezium infrastructure<br>❌ Higher operational complexity<br>❌ Event publishing is managed outside the application |
 | **Memory Queue + Recovery (this project)** | ✅ No continuous database polling during normal operation<br>✅ Single publishing pipeline for normal and recovery flows<br>✅ PostgreSQL remains the durable source of truth<br>✅ Recovery scans only unpublished events in the ACTIVE partition | ⚠️ Requires an in-memory queue per application instance<br>⚠️ Recovery worker is still required after unexpected failures |
 
-### Why this approach?
+### 🎯 Why this approach?
 
 Instead of using PostgreSQL as both a database and a message queue, this project separates those responsibilities.
 
@@ -53,7 +53,7 @@ The result is a solution that provides:
 - ✅ A single, consistent publishing pipeline
 - ✅ Production-ready observability with metrics, structured logging, and distributed tracing
 
-## How it works
+## 🔄 How it works
 
 The project is built around three core workflows:
 
@@ -63,7 +63,7 @@ The project is built around three core workflows:
 
 The **Normal Flow** and **Recovery Flow** converge into the same publishing pipeline, sharing the Memory Queue and Kafka Batch Publisher.
 
-### Normal Flow
+### ✅ Normal Flow
 
 ```mermaid
 sequenceDiagram
@@ -95,7 +95,7 @@ After the transaction commits, only the **event ID** is placed into the Memory Q
 
 During normal operation, the application does not continuously poll PostgreSQL for new events.
 
-### Recovery Flow
+### 🔁 Recovery Flow
 
 ```mermaid
 sequenceDiagram
@@ -126,7 +126,7 @@ The Recovery Worker periodically scans unpublished events from the **ACTIVE** pa
 >
 > This eliminates duplicate publishing logic and keeps the behavior consistent across normal operation and recovery.
 
-### Why Active / Archive?
+### 📦 Why Active / Archive?
 
 ```mermaid
 flowchart LR
@@ -147,7 +147,7 @@ Once an event is successfully published, it is moved to the **ARCHIVE** partitio
 
 As a result, recovery performance depends only on the number of active events instead of the total history stored in the outbox table.
 
-### Idempotent Request Flow
+### 🔑 Idempotent Request Flow
 
 ```mermaid
 sequenceDiagram
@@ -179,7 +179,7 @@ Each request is uniquely identified by the combination of **customerId** and **I
 
 For a new request, the service executes the business transaction and stores the response. If the same request is received again with an identical payload, the stored response is returned immediately. If the payload differs, the request is rejected with **HTTP 409 Conflict**.
 
-## Observability
+## 🔭 Observability
 
 The project includes production-ready observability out of the box, providing complete visibility into the event delivery pipeline.
 
@@ -279,7 +279,7 @@ After starting the Docker Compose infrastructure, the following services are ava
 
 Run the complete Transactional Outbox example locally and publish your first event in a few minutes.
 
-### 1. Start the infrastructure
+### 🐳 1. Start the infrastructure
 
 ```bash
 docker compose up -d
@@ -303,7 +303,7 @@ Check that all containers are running:
 docker compose ps
 ```
 
-### 2. Build the project
+### 🔨 2. Build the project
 
 ```bash
 mvn clean verify
@@ -311,7 +311,7 @@ mvn clean verify
 
 This command compiles all modules and runs the automated test suite.
 
-### 3. Start the application services
+### ▶️ 3. Start the application services
 
 Run the Order Service:
 
@@ -334,7 +334,7 @@ The services will be available at:
 | Order Service | http://localhost:8080 |
 | Notification Stub | http://localhost:8081 |
 
-### 4. Create an order
+### 🛒 4. Create an order
 
 Send a request with a unique `Idempotency-Key`:
 
@@ -365,7 +365,7 @@ All three records are committed in the same PostgreSQL transaction.
 
 After the commit, the outbox event ID is placed into the Memory Queue, published to Kafka, and consumed by the Notification Stub.
 
-### 5. Verify idempotency
+### ♻️ 5. Verify idempotency
 
 Repeat the same request with the same `Idempotency-Key` and payload:
 
@@ -394,7 +394,7 @@ Using the same key with a different request payload returns:
 HTTP 409 Conflict
 ```
 
-### 6. Explore metrics, logs, and traces
+### 🧭 6. Explore metrics, logs, and traces
 
 Open the local observability services:
 
@@ -420,7 +420,7 @@ curl http://localhost:8080/actuator/prometheus
 curl http://localhost:8081/actuator/prometheus
 ```
 
-### Stop the environment
+### 🛑 Stop the environment
 
 Stop the application services with `Ctrl+C`, then shut down the Docker Compose infrastructure:
 
@@ -433,8 +433,58 @@ To remove containers together with local volumes and stored data:
 ```bash
 docker compose down -v
 ```
+## ⚡ Load Testing
 
-## Docs
+The project includes a ready-to-run **Gatling** benchmark for validating the complete event delivery pipeline under sustained load.
+
+The benchmark exercises the entire flow—from the REST API through PostgreSQL, the Transactional Outbox, the Memory Queue, Kafka, and the Notification Stub.
+
+### ▶️ Run the benchmark
+
+```bash
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation
+```
+
+For a quick smoke test:
+
+```bash
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation \
+  -DstageDurationSeconds=15 \
+  -DrampSeconds=5 \
+  -Drps1=10 \
+  -Drps2=10 \
+  -Drps3=10
+```
+
+### 📈 Benchmark Metrics
+
+The benchmark measures the following characteristics:
+
+| Metric | Description |
+|--------|-------------|
+| Throughput | Requests processed per second (RPS) |
+| Average Latency | Mean HTTP response time |
+| P95 Latency | Response time for 95% of requests |
+| Error Rate | Percentage of failed requests |
+| Kafka Publish Rate | Events published to Kafka |
+| Recovery Activity | Events restored by the Recovery Worker |
+
+### 📉 Analyze the Results
+
+During the benchmark you can monitor the system in real time using the built-in observability stack:
+
+- **Grafana** — throughput, latency, queue utilization, JVM and PostgreSQL metrics
+- **OpenSearch** — structured application logs
+- **Grafana Tempo** — distributed traces
+- **Gatling HTML Report** — detailed benchmark statistics
+
+> 💡 **Tip**
+>
+> Running the benchmark while observing Grafana dashboards provides the clearest picture of how the Transactional Outbox pipeline behaves under load.
+
+## 📚 Docs
 
 - [Technical Specification v2](docs/spring-transactional-outbox-kafka-Technical-Specification-v2.md) 
 - [Distributed Tracing Spec](docs/spring-transactional-outbox-kafka-Distributed-Tracing-Spec.md)
