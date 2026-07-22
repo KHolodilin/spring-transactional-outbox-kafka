@@ -6,6 +6,7 @@ import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.OrderItemRequest;
 import com.kholodilin.outbox.persistence.IdempotencyJdbcRepository;
 import com.kholodilin.outbox.logging.StructuredLogContext;
+import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.outbox.OutboxEnqueueListener;
 import com.kholodilin.outbox.outbox.OutboxEventFactory;
 import com.kholodilin.outbox.persistence.OrderJdbcRepository;
@@ -37,6 +38,7 @@ public class OrderTransactionService {
     private final OutboxEnqueueListener outboxEnqueueListener;
     private final ObjectMapper objectMapper;
     private final TraceContextSupport traceContextSupport;
+    private final OutboxMetrics metrics;
 
     /**
      * Persists the order, items, outbox row, and completed idempotency record in one transaction.
@@ -52,6 +54,10 @@ public class OrderTransactionService {
      */
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {
+        return metrics.orderTransaction().record(() -> persistOrder(request, idempotencyKey, requestHash));
+    }
+
+    private CreateOrderResponse persistOrder(CreateOrderRequest request, String idempotencyKey, String requestHash) {
         Instant now = Instant.now();
         long idempotencyId = idempotencyJdbcRepository.insertProcessing(
                 request.customerId(), idempotencyKey, requestHash, now);

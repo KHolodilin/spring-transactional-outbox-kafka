@@ -10,11 +10,14 @@ import com.kholodilin.outbox.persistence.IdempotencyJdbcRepository;
 import com.kholodilin.outbox.persistence.OrderJdbcRepository;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.tracing.TraceContextSupport;
+import com.kholodilin.outbox.metrics.OutboxMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -48,9 +51,12 @@ class OrderTransactionServiceTest {
     private TraceContextSupport traceContextSupport;
 
     private OrderTransactionService service;
+    private OutboxMetrics metrics;
 
     @BeforeEach
     void setUp() {
+        metrics = new OutboxMetrics(new SimpleMeterRegistry());
+        ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         service = new OrderTransactionService(
                 orderJdbcRepository,
                 outboxJdbcRepository,
@@ -58,7 +64,8 @@ class OrderTransactionServiceTest {
                 outboxEventFactory,
                 outboxEnqueueListener,
                 JsonMapper.builder().build(),
-                traceContextSupport
+                traceContextSupport,
+                metrics
         );
     }
 

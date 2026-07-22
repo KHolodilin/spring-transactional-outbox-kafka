@@ -520,6 +520,58 @@
       ],
       "title": "Read Throughput (rows / sec)",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "spanNulls": true,
+            "fillOpacity": 15,
+            "showPoints": "never"
+          },
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(pg_stat_activity_count{datname=\"outbox\",wait_event_type!=\"\"}) by (wait_event_type)",
+          "legendFormat": "{{wait_event_type}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Sessions by Wait Event Type",
+      "type": "timeseries"
     }
   ],
   "refresh": "10s",
@@ -539,5 +591,5 @@
   "timezone": "browser",
   "title": "PostgreSQL",
   "uid": "postgresql",
-  "version": 1
+  "version": 3
 }

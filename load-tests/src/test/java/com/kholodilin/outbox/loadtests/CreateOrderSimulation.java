@@ -40,7 +40,8 @@ public class CreateOrderSimulation extends Simulation {
 
     private final HttpProtocolBuilder httpProtocol = http.baseUrl(BASE_URL)
             .contentTypeHeader("application/json")
-            .acceptHeader("application/json");
+            .acceptHeader("application/json")
+            .shareConnections();
 
     private final Iterator<Map<String, Object>> feeder = Stream.generate(() -> {
                 long customerId = longProp("customerId", 42L);

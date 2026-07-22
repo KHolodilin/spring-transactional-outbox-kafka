@@ -5,6 +5,8 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox}
     username: ${DB_USER:outbox}
     password: ${DB_PASSWORD:outbox}
+    hikari:
+      maximum-pool-size: 30
   jpa:
     hibernate:
       ddl-auto: validate
@@ -34,6 +36,14 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        hikaricp.connections.acquire: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+        hikaricp.connections.acquire: 0.95, 0.99
   tracing:
     enabled: ${TRACING_ENABLED:true}
     sampling:
@@ -96,3 +106,6 @@ app:
 
 server:
   port: 8080
+  tomcat:
+    mbeanregistry:
+      enabled: true

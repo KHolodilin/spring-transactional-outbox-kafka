@@ -19,7 +19,10 @@ class OutboxMetricsTest {
         metrics.incrementRetryCount();
         metrics.incrementRecoveryCount(2);
         metrics.incrementRateLimitRejects();
+        metrics.incrementEnqueue();
+        metrics.incrementDequeue(3);
         metrics.publishLatency().record(java.time.Duration.ofMillis(10));
+        metrics.orderTransaction().record(java.time.Duration.ofMillis(20));
 
         assertThat(registry.find("outbox.queue.size").gauge().value()).isEqualTo(5.0);
         assertThat(registry.find("outbox.queue.pressure").gauge().value()).isEqualTo(0.25);
@@ -27,6 +30,9 @@ class OutboxMetricsTest {
         assertThat(registry.find("outbox.retry.count").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("outbox.recovery.count").counter().count()).isEqualTo(2.0);
         assertThat(registry.find("outbox.rate_limit.rejects").counter().count()).isEqualTo(1.0);
+        assertThat(registry.find("outbox.queue.enqueue").counter().count()).isEqualTo(1.0);
+        assertThat(registry.find("outbox.queue.dequeue").counter().count()).isEqualTo(3.0);
         assertThat(registry.find("outbox.publish.latency").timer().count()).isEqualTo(1);
+        assertThat(registry.find("order.transaction").timer().count()).isEqualTo(1);
     }
 }

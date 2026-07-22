@@ -79,6 +79,7 @@ public class InMemoryEventQueue {
             updateMetrics();
             return false;
         }
+        metrics.incrementEnqueue();
         log.debug("Enqueued eventId={} queueSize={}", eventId, queue.size());
         updateMetrics();
         return true;
@@ -90,6 +91,7 @@ public class InMemoryEventQueue {
         if (eventId != null) {
             dedup.remove(eventId);
             inFlight.add(eventId);
+            metrics.incrementDequeue(1);
             updateMetrics();
         }
         return eventId;
@@ -103,6 +105,7 @@ public class InMemoryEventQueue {
             dedup.remove(eventId);
             inFlight.add(eventId);
         }
+        metrics.incrementDequeue(batch.size());
         updateMetrics();
         log.debug("Drained batch size={} remaining={}", batch.size(), queue.size());
         return batch;

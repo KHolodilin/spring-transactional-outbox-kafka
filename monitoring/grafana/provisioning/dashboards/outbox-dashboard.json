@@ -8,6 +8,12 @@
   "id": null,
   "links": [
     {
+      "title": "Orders Technical",
+      "type": "link",
+      "url": "/d/orders-technical/orders-technical",
+      "icon": "external link"
+    },
+    {
       "title": "Notification Stub",
       "type": "link",
       "url": "/d/notification-stub/notification-stub",
