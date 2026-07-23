@@ -37,6 +37,8 @@ jobs:
       - name: Gatling smoke (start infra)
         run: |
           docker compose up -d postgres kafka
+          # Topic is not auto-created; wait until kafka-init provisions orders.events.
+          docker compose up --abort-on-container-exit --exit-code-from kafka-init kafka-init
           docker compose ps
 
       - name: Gatling smoke (start order-service)
@@ -61,7 +63,7 @@ jobs:
             -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation \
             -DbaseUrl=http://localhost:8080 \
             -DstageDurationSeconds=15 -DrampSeconds=5 \
-            -Drps1=10 -Drps2=10 -Drps3=10
+            -Drps1=10 -Drps2=10 -Drps3=10 -Drps4=10
 
       - name: Gatling smoke (stop order-service)
         if: always()

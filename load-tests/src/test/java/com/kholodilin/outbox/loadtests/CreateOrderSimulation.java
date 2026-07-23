@@ -21,7 +21,7 @@ import static io.gatling.javaapi.http.HttpDsl.*;
  *   <li>{@code baseUrl} (default {@code http://localhost:8080})</li>
  *   <li>{@code rampSeconds} (default {@code 60})</li>
  *   <li>{@code stageDurationSeconds} (default {@code 300})</li>
- *   <li>{@code rps1}/{@code rps2}/{@code rps3} (defaults {@code 50/100/200})</li>
+ *   <li>{@code rps1}/{@code rps2}/{@code rps3}/{@code rps4} (defaults {@code 50/100/150/200})</li>
  * </ul>
  */
 public class CreateOrderSimulation extends Simulation {
@@ -33,7 +33,8 @@ public class CreateOrderSimulation extends Simulation {
 
     private static final double RPS_1 = doubleProp("rps1", 50);
     private static final double RPS_2 = doubleProp("rps2", 100);
-    private static final double RPS_3 = doubleProp("rps3", 200);
+    private static final double RPS_3 = doubleProp("rps3", 150);
+    private static final double RPS_4 = doubleProp("rps4", 200);
 
     private static final double MAX_FAILED_PERCENT = doubleProp("maxFailedPercent", 0.5);
     private static final int P95_MS = intProp("p95Ms", 200);
@@ -82,7 +83,9 @@ public class CreateOrderSimulation extends Simulation {
                         rampUsersPerSec(RPS_1).to(RPS_2).during(ramp),
                         constantUsersPerSec(RPS_2).during(stage),
                         rampUsersPerSec(RPS_2).to(RPS_3).during(ramp),
-                        constantUsersPerSec(RPS_3).during(stage)
+                        constantUsersPerSec(RPS_3).during(stage),
+                        rampUsersPerSec(RPS_3).to(RPS_4).during(ramp),
+                        constantUsersPerSec(RPS_4).during(stage)
                 )
         ).protocols(httpProtocol)
                 .assertions(
