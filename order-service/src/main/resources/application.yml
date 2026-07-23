@@ -78,7 +78,7 @@ app:
   outbox:
     memory-queue:
       capacity: 10000
-      batch-size: 100
+      batch-size: 250
       batch-wait: 50ms
       usage-threshold: 0.8
     publisher:

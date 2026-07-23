@@ -560,9 +560,55 @@
           "legendFormat": "P95",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "editorMode": "code",
+          "expr": "(histogram_quantile(0.99, sum by (le) (rate(outbox_publish_latency_seconds_bucket{job=\"order-service\"}[5m]))) > 0) or avg(outbox_publish_latency_seconds{job=\"order-service\",quantile=\"0.99\"})",
+          "legendFormat": "P99",
+          "range": true,
+          "refId": "B"
         }
       ],
-      "title": "Outbox Delivery Latency P95",
+      "title": "Kafka Publish Duration P95/P99",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "spanNulls": true, "fillOpacity": 15, "showPoints": "never" },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 48 },
+      "id": 16,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "editorMode": "code",
+          "expr": "(rate(outbox_publish_batch_size_sum{job=\"order-service\"}[1m]) / clamp_min(rate(outbox_publish_batch_size_count{job=\"order-service\"}[1m]), 1e-9))",
+          "legendFormat": "mean batch size",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "editorMode": "code",
+          "expr": "(histogram_quantile(0.95, sum by (le) (rate(outbox_publish_batch_size_bucket{job=\"order-service\"}[5m]))) > 0) or avg(outbox_publish_batch_size{job=\"order-service\",quantile=\"0.95\"})",
+          "legendFormat": "P95",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Publisher Batch Size",
       "type": "timeseries"
     },
     {
@@ -576,7 +622,37 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 48 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 48 },
+      "id": 17,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "editorMode": "code",
+          "expr": "rate(outbox_publish_events_total{job=\"order-service\"}[1m]) or vector(0)",
+          "legendFormat": "events/s",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Publisher Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "spanNulls": true, "fillOpacity": 15, "showPoints": "never" },
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 48 },
       "id": 15,
       "options": {
         "legend": { "displayMode": "list", "placement": "bottom" },
@@ -622,5 +698,5 @@
   "timezone": "browser",
   "title": "Orders Technical",
   "uid": "orders-technical",
-  "version": 2
+  "version": 3
 }

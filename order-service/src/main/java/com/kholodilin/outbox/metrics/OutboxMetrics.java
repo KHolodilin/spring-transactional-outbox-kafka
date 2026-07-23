@@ -1,6 +1,7 @@
 package com.kholodilin.outbox.metrics;
 
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -8,6 +9,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -22,6 +24,8 @@ public class OutboxMetrics {
     private final AtomicReference<Double> queuePressure = new AtomicReference<>(0.0);
     private Timer publishLatency;
     private Timer orderTransaction;
+    private DistributionSummary publishBatchSize;
+    private Counter publishEvents;
     private Counter publishFailures;
     private Counter retryCount;
     private Counter recoveryCount;
@@ -41,6 +45,11 @@ public class OutboxMetrics {
                 .publishPercentileHistogram()
                 .publishPercentiles(0.5, 0.95, 0.99)
                 .register(registry);
+        publishBatchSize = DistributionSummary.builder("outbox.publish.batch.size")
+                .publishPercentileHistogram()
+                .publishPercentiles(0.5, 0.95, 0.99)
+                .register(registry);
+        publishEvents = Counter.builder("outbox.publish.events").register(registry);
         publishFailures = Counter.builder("outbox.publish.failures").register(registry);
         retryCount = Counter.builder("outbox.retry.count").register(registry);
         recoveryCount = Counter.builder("outbox.recovery.count").register(registry);
@@ -72,6 +81,21 @@ public class OutboxMetrics {
      */
     public Timer orderTransaction() {
         return orderTransaction;
+    }
+
+    /**
+     * Records a successful Kafka batch: send duration, batch size, and event count.
+     *
+     * @param eventCount number of events in the published batch
+     * @param durationNs wall time of {@code KafkaBatchPublisher.publish}
+     */
+    public void recordPublishedBatch(int eventCount, long durationNs) {
+        if (eventCount <= 0) {
+            return;
+        }
+        publishLatency.record(durationNs, TimeUnit.NANOSECONDS);
+        publishBatchSize.record(eventCount);
+        publishEvents.increment(eventCount);
     }
 
     /** Increments {@code outbox.publish.failures} after a Kafka batch send error. */

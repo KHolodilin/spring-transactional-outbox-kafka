@@ -110,7 +110,6 @@ public class BatchPublisherWorker {
                         envelopes.add(outboxJdbcRepository.toEnvelope(row, correlationId));
                     }
 
-                    long start = System.nanoTime();
                     try {
                         String batchTraceParent = claimed.stream()
                                 .map(OutboxRow::traceParent)
@@ -118,10 +117,12 @@ public class BatchPublisherWorker {
                                 .findFirst()
                                 .orElse(null);
                         outboxTracing.observeWithTraceParent(batchTraceParent, "outbox.batch.publish", () -> {
+                            long start = System.nanoTime();
                             kafkaBatchPublisher.getObject().publish(envelopes);
+                            long durationNs = System.nanoTime() - start;
+                            metrics.recordPublishedBatch(envelopes.size(), durationNs);
                             outboxJdbcRepository.markSent(sentIds(claimed), Instant.now());
-                            metrics.publishLatency().record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);
-                            long durationMs = (System.nanoTime() - start) / 1_000_000;
+                            long durationMs = durationNs / 1_000_000;
                             StructuredLogContext.putDurationMs(durationMs);
                             StructuredLogContext.putEventAction("outbox.batch.published");
                             log.info("Kafka batch published size={} durationMs={}",

@@ -39,7 +39,32 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 10
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+  kafka-init:
+    image: apache/kafka:3.9.1
+    depends_on:
+      - kafka
+    network_mode: "service:kafka"
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Waiting for Kafka..."
+        for i in $$(seq 1 30); do
+          if /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then
+            break
+          fi
+          sleep 2
+        done
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+          --create --if-not-exists \
+          --topic orders.events \
+          --partitions 10 \
+          --replication-factor 1
+        echo "Topic orders.events is ready (10 partitions)"
 
   prometheus:
     image: prom/prometheus:v3.5.0
