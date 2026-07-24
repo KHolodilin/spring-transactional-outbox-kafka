@@ -81,6 +81,14 @@ class IdempotencyServiceTest {
     }
 
     @Test
+    void returnsEmptyWhenCompletedWithoutResponseBody() {
+        when(repository.findByCustomerIdAndKey(1L, "key"))
+                .thenReturn(Optional.of(row("hash", IdempotencyStatus.COMPLETED, null)));
+
+        assertThat(service.findCachedResponse(1L, "key", "hash")).isEmpty();
+    }
+
+    @Test
     void throwsWhenStoredResponseCannotBeDeserialized() {
         when(repository.findByCustomerIdAndKey(1L, "key"))
                 .thenReturn(Optional.of(row("hash", IdempotencyStatus.COMPLETED, "not-json")));
