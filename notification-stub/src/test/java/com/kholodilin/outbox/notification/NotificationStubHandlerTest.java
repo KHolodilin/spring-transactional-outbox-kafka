@@ -55,7 +55,6 @@ class NotificationStubHandlerTest {
                 Map.of("orderId", 2),
                 "corr",
                 null,
-                null,
                 null
         );
         ConsumerRecord<String, EventEnvelope> record = new ConsumerRecord<>("orders.events", 0, 5L, "3", envelope);
@@ -80,7 +79,6 @@ class NotificationStubHandlerTest {
                 7L,
                 "OrderCreated",
                 Map.of("orderId", 6),
-                null,
                 null,
                 null,
                 null

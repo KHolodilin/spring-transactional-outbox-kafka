@@ -8,7 +8,7 @@ import lombok.Setter;
 
 import java.time.Duration;
 
-/** Batch publisher lease, retry, and poll interval. */
+/** Batch publisher lease and retry settings. */
 @Getter
 @Setter
 @Builder
@@ -23,8 +23,4 @@ public class PublisherProperties {
     /** Failed publish attempts after which a row is moved to {@code DEAD}. */
     @Builder.Default
     private int maxRetries = 5;
-
-    /** Reserved poll interval for future publisher tuning. */
-    @Builder.Default
-    private Duration pollInterval = Duration.ofMillis(100);
 }

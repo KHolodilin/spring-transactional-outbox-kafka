@@ -22,7 +22,6 @@ class KafkaProducerConfigTest {
                 Map.of("orderId", 10),
                 null,
                 Instant.parse("2026-07-12T10:15:30Z"),
-                null,
                 null
         );
 

@@ -14,9 +14,6 @@ public final class EventConstants {
     /** Event type emitted when a new order is accepted. */
     public static final String EVENT_TYPE_ORDER_CREATED = "OrderCreated";
 
-    /** Kafka record key field — all events for one customer land in the same partition. */
-    public static final String PARTITION_KEY_FIELD = "customerId";
-
     /** Kafka / tracing header with the outbox event id. */
     public static final String HEADER_EVENT_ID = "eventId";
 

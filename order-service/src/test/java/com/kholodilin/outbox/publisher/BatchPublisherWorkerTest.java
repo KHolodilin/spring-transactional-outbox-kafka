@@ -143,7 +143,7 @@ class BatchPublisherWorkerTest {
     void loopPublishesClaimedBatchAndAcknowledges() throws Exception {
         OutboxRow row = sampleRow(0);
         EventEnvelope envelope = new EventEnvelope(
-                1L, 10L, 20L, "OrderCreated", Map.of("orderId", 10), "corr", Instant.now(), "00-trace", null);
+                1L, 10L, 20L, "OrderCreated", Map.of("orderId", 10), "corr", Instant.now(), "00-trace");
         AtomicInteger polls = new AtomicInteger();
         when(eventQueue.poll(anyLong())).thenAnswer(invocation -> {
             if (polls.getAndIncrement() == 0) {
@@ -187,7 +187,7 @@ class BatchPublisherWorkerTest {
     void loopMarksFailedWhenPublishThrows() throws Exception {
         OutboxRow row = sampleRow(1);
         EventEnvelope envelope = new EventEnvelope(
-                1L, 10L, 20L, "OrderCreated", Map.of(), null, Instant.now(), null, null);
+                1L, 10L, 20L, "OrderCreated", Map.of(), null, Instant.now(), null);
         AtomicInteger polls = new AtomicInteger();
         when(eventQueue.poll(anyLong())).thenAnswer(invocation -> {
             if (polls.getAndIncrement() == 0) {

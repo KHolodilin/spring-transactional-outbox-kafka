@@ -6,7 +6,7 @@ spring:
     username: ${DB_USER:outbox}
     password: ${DB_PASSWORD:outbox}
     hikari:
-      maximum-pool-size: 90
+      maximum-pool-size: 50
       connection-init-sql: SET TIME ZONE 'UTC'
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
@@ -48,9 +48,6 @@ management:
       export:
         otlp:
           endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
-  observations:
-    jdbc:
-      enabled: true
 
 logging:
   level:
@@ -77,7 +74,6 @@ app:
     publisher:
       lease-duration: 30s
       max-retries: 5
-      poll-interval: 100ms
     recovery:
       enabled: true
       interval: 10s
