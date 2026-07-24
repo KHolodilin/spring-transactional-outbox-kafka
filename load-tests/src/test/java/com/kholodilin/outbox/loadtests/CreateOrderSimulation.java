@@ -22,11 +22,14 @@ import static io.gatling.javaapi.http.HttpDsl.*;
  *   <li>{@code rampSeconds} (default {@code 60})</li>
  *   <li>{@code stageDurationSeconds} (default {@code 300})</li>
  *   <li>{@code rps1}/{@code rps2}/{@code rps3}/{@code rps4} (defaults {@code 50/100/150/200})</li>
+ *   <li>{@code profile=warmup}: warmupRps → pause → loadRps for loadSeconds
+ *       (defaults: 50 RPS / 30s, pause 15s, then 100 RPS / 120s)</li>
  * </ul>
  */
 public class CreateOrderSimulation extends Simulation {
 
     private static final String BASE_URL = System.getProperty("baseUrl", "http://localhost:8080");
+    private static final String PROFILE = System.getProperty("profile", "steps");
 
     private static final int RAMP_SECONDS = intProp("rampSeconds", 60);
     private static final int STAGE_DURATION_SECONDS = intProp("stageDurationSeconds", 300);
@@ -35,6 +38,13 @@ public class CreateOrderSimulation extends Simulation {
     private static final double RPS_2 = doubleProp("rps2", 100);
     private static final double RPS_3 = doubleProp("rps3", 150);
     private static final double RPS_4 = doubleProp("rps4", 200);
+
+    private static final double WARMUP_RPS = doubleProp("warmupRps", 50);
+    private static final int WARMUP_SECONDS = intProp("warmupSeconds", 30);
+    private static final int PAUSE_SECONDS = intProp("pauseSeconds", 15);
+    private static final double LOAD_RPS = doubleProp("loadRps", 100);
+    private static final int LOAD_SECONDS = intProp("loadSeconds", 120);
+    private static final int WARMUP_RAMP_SECONDS = intProp("warmupRampSeconds", 10);
 
     private static final double MAX_FAILED_PERCENT = doubleProp("maxFailedPercent", 0.5);
     private static final int P95_MS = intProp("p95Ms", 200);
@@ -73,6 +83,24 @@ public class CreateOrderSimulation extends Simulation {
             );
 
     public CreateOrderSimulation() {
+        if ("warmup".equalsIgnoreCase(PROFILE)) {
+            Duration ramp = Duration.ofSeconds(WARMUP_RAMP_SECONDS);
+            setUp(
+                    scn.injectOpen(
+                            rampUsersPerSec(0).to(WARMUP_RPS).during(ramp),
+                            constantUsersPerSec(WARMUP_RPS).during(Duration.ofSeconds(WARMUP_SECONDS)),
+                            nothingFor(Duration.ofSeconds(PAUSE_SECONDS)),
+                            rampUsersPerSec(0).to(LOAD_RPS).during(ramp),
+                            constantUsersPerSec(LOAD_RPS).during(Duration.ofSeconds(LOAD_SECONDS))
+                    )
+            ).protocols(httpProtocol)
+                    .assertions(
+                            global().failedRequests().percent().lt(MAX_FAILED_PERCENT),
+                            global().responseTime().percentile3().lt(P95_MS)
+                    );
+            return;
+        }
+
         Duration ramp = Duration.ofSeconds(RAMP_SECONDS);
         Duration stage = Duration.ofSeconds(STAGE_DURATION_SECONDS);
 

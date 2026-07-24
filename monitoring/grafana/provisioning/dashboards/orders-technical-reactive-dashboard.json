@@ -169,8 +169,8 @@
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "editorMode": "code",
-          "expr": "reactor_netty_event_loop_worker_count{job=\"order-service-reactive\"}",
-          "legendFormat": "tomcat busy",
+          "expr": "jvm_threads_live_threads{job=\"order-service-reactive\"}",
+          "legendFormat": "jvm threads",
           "range": true,
           "refId": "B"
         }
@@ -199,16 +199,16 @@
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "editorMode": "code",
-          "expr": "reactor_netty_event_loop_worker_count{job=\"order-service-reactive\"} or reactor_netty_event_loop_pending_tasks{job=\"order-service-reactive\"}",
-          "legendFormat": "busy",
+          "expr": "sum(reactor_netty_eventloop_pending_tasks{job=\"order-service-reactive\"})",
+          "legendFormat": "event-loop pending",
           "range": true,
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "editorMode": "code",
-          "expr": "reactor_netty_connection_provider_total_connections{job=\"order-service-reactive\"} or reactor_netty_connection_provider_pending_connections{job=\"order-service-reactive\"}",
-          "legendFormat": "max",
+          "expr": "sum(reactor_netty_http_server_connections_active{job=\"order-service-reactive\"}) or sum(reactor_netty_http_server_connections{job=\"order-service-reactive\"})",
+          "legendFormat": "http connections",
           "range": true,
           "refId": "B"
         }
@@ -237,15 +237,15 @@
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "editorMode": "code",
-          "expr": "r2dbc_pool_acquired_size{job=\"order-service-reactive\"}",
-          "legendFormat": "active",
+          "expr": "r2dbc_pool_acquired_connections{job=\"order-service-reactive\"}",
+          "legendFormat": "acquired",
           "range": true,
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "editorMode": "code",
-          "expr": "r2dbc_pool_max_allocated_size{job=\"order-service-reactive\"}",
+          "expr": "r2dbc_pool_max_allocated_connections{job=\"order-service-reactive\"}",
           "legendFormat": "max",
           "range": true,
           "refId": "B"
@@ -275,7 +275,7 @@
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "editorMode": "code",
-          "expr": "r2dbc_pool_pending_acquire_size{job=\"order-service-reactive\"}",
+          "expr": "r2dbc_pool_pending_connections{job=\"order-service-reactive\"}",
           "legendFormat": "pending",
           "range": true,
           "refId": "A"
@@ -290,7 +290,7 @@
         "defaults": {
           "color": { "mode": "palette-classic" },
           "custom": { "spanNulls": true, "fillOpacity": 15, "showPoints": "never" },
-          "unit": "s",
+          "unit": "short",
           "min": 0
         },
         "overrides": []
@@ -305,21 +305,21 @@
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "editorMode": "code",
-          "expr": "(histogram_quantile(0.95, sum by (le) (rate(r2dbc_pool_acquired_size_bucket{job=\"order-service-reactive\"}[5m]))) > 0) or avg(r2dbc_pool_acquired_size{job=\"order-service-reactive\",quantile=\"0.95\"}) or (rate(r2dbc_pool_acquired_size_sum{job=\"order-service-reactive\"}[5m]) / clamp_min(rate(r2dbc_pool_acquired_size_count{job=\"order-service-reactive\"}[5m]), 1e-9))",
-          "legendFormat": "P95",
+          "expr": "r2dbc_pool_allocated_connections{job=\"order-service-reactive\"}",
+          "legendFormat": "allocated",
           "range": true,
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "editorMode": "code",
-          "expr": "(histogram_quantile(0.99, sum by (le) (rate(r2dbc_pool_acquired_size_bucket{job=\"order-service-reactive\"}[5m]))) > 0) or avg(r2dbc_pool_acquired_size{job=\"order-service-reactive\",quantile=\"0.99\"}) or r2dbc_pool_acquired_size_max{job=\"order-service-reactive\"}",
-          "legendFormat": "P99",
+          "expr": "r2dbc_pool_idle_connections{job=\"order-service-reactive\"}",
+          "legendFormat": "idle",
           "range": true,
           "refId": "B"
         }
       ],
-      "title": "R2DBC Pool Size (proxy)",
+      "title": "R2DBC Pool Allocated / Idle",
       "type": "timeseries"
     },
     {
@@ -343,10 +343,18 @@
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "editorMode": "code",
-          "expr": "(histogram_quantile(0.95, sum by (le) (rate(order_transaction_seconds_bucket{job=\"order-service-reactive\"}[5m]))) > 0) or avg(order_transaction_seconds{job=\"order-service-reactive\",quantile=\"0.95\"}) or (rate(order_transaction_seconds_sum{job=\"order-service-reactive\"}[5m]) / clamp_min(rate(order_transaction_seconds_count{job=\"order-service-reactive\"}[5m]), 1e-9))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(order_transaction_seconds_bucket{job=\"order-service-reactive\"}[5m])))",
           "legendFormat": "P95",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "editorMode": "code",
+          "expr": "rate(order_transaction_seconds_sum{job=\"order-service-reactive\"}[5m]) / clamp_min(rate(order_transaction_seconds_count{job=\"order-service-reactive\"}[5m]), 1e-9)",
+          "legendFormat": "mean",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Transaction Duration P95",

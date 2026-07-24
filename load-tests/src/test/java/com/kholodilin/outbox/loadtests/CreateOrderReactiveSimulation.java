@@ -17,10 +17,12 @@ import static io.gatling.javaapi.http.HttpDsl.*;
  * Load test for {@code order-service-reactive} ({@code POST /api/v1/orders} on port 8083).
  * <p>
  * Same knobs as {@link CreateOrderSimulation}; default {@code baseUrl} is {@code http://localhost:8083}.
+ * Use {@code -Dprofile=warmup} for warmup → pause → steady load.
  */
 public class CreateOrderReactiveSimulation extends Simulation {
 
     private static final String BASE_URL = System.getProperty("baseUrl", "http://localhost:8083");
+    private static final String PROFILE = System.getProperty("profile", "steps");
 
     private static final int RAMP_SECONDS = intProp("rampSeconds", 60);
     private static final int STAGE_DURATION_SECONDS = intProp("stageDurationSeconds", 300);
@@ -29,6 +31,13 @@ public class CreateOrderReactiveSimulation extends Simulation {
     private static final double RPS_2 = doubleProp("rps2", 100);
     private static final double RPS_3 = doubleProp("rps3", 150);
     private static final double RPS_4 = doubleProp("rps4", 200);
+
+    private static final double WARMUP_RPS = doubleProp("warmupRps", 50);
+    private static final int WARMUP_SECONDS = intProp("warmupSeconds", 30);
+    private static final int PAUSE_SECONDS = intProp("pauseSeconds", 15);
+    private static final double LOAD_RPS = doubleProp("loadRps", 100);
+    private static final int LOAD_SECONDS = intProp("loadSeconds", 120);
+    private static final int WARMUP_RAMP_SECONDS = intProp("warmupRampSeconds", 10);
 
     private static final double MAX_FAILED_PERCENT = doubleProp("maxFailedPercent", 0.5);
     private static final int P95_MS = intProp("p95Ms", 200);
@@ -67,6 +76,24 @@ public class CreateOrderReactiveSimulation extends Simulation {
             );
 
     public CreateOrderReactiveSimulation() {
+        if ("warmup".equalsIgnoreCase(PROFILE)) {
+            Duration ramp = Duration.ofSeconds(WARMUP_RAMP_SECONDS);
+            setUp(
+                    scn.injectOpen(
+                            rampUsersPerSec(0).to(WARMUP_RPS).during(ramp),
+                            constantUsersPerSec(WARMUP_RPS).during(Duration.ofSeconds(WARMUP_SECONDS)),
+                            nothingFor(Duration.ofSeconds(PAUSE_SECONDS)),
+                            rampUsersPerSec(0).to(LOAD_RPS).during(ramp),
+                            constantUsersPerSec(LOAD_RPS).during(Duration.ofSeconds(LOAD_SECONDS))
+                    )
+            ).protocols(httpProtocol)
+                    .assertions(
+                            global().failedRequests().percent().lt(MAX_FAILED_PERCENT),
+                            global().responseTime().percentile3().lt(P95_MS)
+                    );
+            return;
+        }
+
         Duration ramp = Duration.ofSeconds(RAMP_SECONDS);
         Duration stage = Duration.ofSeconds(STAGE_DURATION_SECONDS);
 
