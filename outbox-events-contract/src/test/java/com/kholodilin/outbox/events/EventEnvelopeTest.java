@@ -20,8 +20,7 @@ class EventEnvelopeTest {
                 Map.of("orderId", 2),
                 "corr",
                 now,
-                "00-trace",
-                null
+                "00-trace"
         );
 
         assertThat(envelope.eventId()).isEqualTo(1L);

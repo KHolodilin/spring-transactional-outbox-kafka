@@ -309,8 +309,7 @@ public class OutboxJdbcRepository {
                     payload,
                     correlationId,
                     Instant.now(),
-                    row.traceParent(),
-                    null
+                    row.traceParent()
             );
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to parse outbox payload for id=" + row.id(), ex);

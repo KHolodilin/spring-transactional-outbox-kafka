@@ -5,12 +5,10 @@ import tools.jackson.databind.ObjectMapper;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableAsync;
 
 /** Spring beans shared by the order service (JSON mapper, Kafka producer template). */
 @Configuration
 @EnableConfigurationProperties(AppProperties.class)
-@EnableAsync
 public class AppConfig {
 
     /**

@@ -27,9 +27,6 @@ import java.util.function.Supplier;
  * Micrometer {@link Propagator} and starts a child span under the original parent —
  * continuing the same {@code traceId}.
  * <p>
- * Optional {@link #captureTraceState()} covers the W3C {@code tracestate} vendor bag; it is
- * available for Kafka header propagation even when the DB column stores only {@code traceparent}.
- * <p>
  * <b>Exceptions.</b>
  * No try/catch around {@code action}. Failures bubble to the publisher/recovery caller so
  * retry / FAILED / DEAD status handling stays unchanged. {@link Span#end()} always runs in
@@ -46,7 +43,6 @@ import java.util.function.Supplier;
 public class TraceContextSupport {
 
     private static final String TRACE_PARENT_KEY = "traceparent";
-    private static final String TRACE_STATE_KEY = "tracestate";
 
     private final ObjectProvider<Tracer> tracerProvider;
     private final ObjectProvider<Propagator> propagatorProvider;
@@ -78,30 +74,6 @@ public class TraceContextSupport {
         Map<String, String> carrier = new HashMap<>();
         propagator.inject(current.context(), carrier, Map::put);
         return carrier.get(TRACE_PARENT_KEY);
-    }
-
-    /**
-     * Serializes optional W3C {@code tracestate} from the active span.
-     * <p>
-     * Used when propagating context into Kafka headers alongside {@code traceparent}.
-     * Not required for the DB column; returns {@code null} under the same conditions as
-     * {@link #captureTraceParent()}.
-     *
-     * @return W3C tracestate string, or {@code null} when absent
-     */
-    public String captureTraceState() {
-        Tracer tracer = tracerProvider.getIfAvailable();
-        Propagator propagator = propagatorProvider.getIfAvailable();
-        if (tracer == null || propagator == null) {
-            return null;
-        }
-        Span current = tracer.currentSpan();
-        if (current == null) {
-            return null;
-        }
-        Map<String, String> carrier = new HashMap<>();
-        propagator.inject(current.context(), carrier, Map::put);
-        return carrier.get(TRACE_STATE_KEY);
     }
 
     /**

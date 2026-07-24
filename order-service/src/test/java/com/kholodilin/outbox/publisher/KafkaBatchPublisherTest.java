@@ -146,7 +146,6 @@ class KafkaBatchPublisherTest {
                 Map.of("orderId", 10),
                 "corr-99",
                 Instant.parse("2026-07-12T10:00:00Z"),
-                null,
                 null
         );
 
@@ -187,8 +186,7 @@ class KafkaBatchPublisherTest {
                 Map.of("orderId", 10),
                 null,
                 Instant.parse("2026-07-12T10:00:00Z"),
-                traceParent,
-                null
+                traceParent
         );
     }
 }

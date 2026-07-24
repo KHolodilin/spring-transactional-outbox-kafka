@@ -34,10 +34,6 @@ public record EventEnvelope(
 
         /** W3C traceparent restored from outbox row; not serialized in the Kafka JSON body. */
         @JsonIgnore
-        String traceParent,
-
-        /** Optional W3C tracestate; not serialized in the Kafka JSON body. */
-        @JsonIgnore
-        String traceState
+        String traceParent
 ) {
 }

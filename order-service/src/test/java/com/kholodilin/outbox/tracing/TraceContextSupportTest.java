@@ -87,27 +87,13 @@ class TraceContextSupportTest {
     }
 
     @Test
-    void captureTraceStateReturnsInjectedValue() {
-        when(tracer.currentSpan()).thenReturn(currentSpan);
-        when(currentSpan.context()).thenReturn(traceContext);
-        doAnswer(invocation -> {
-            Map<String, String> carrier = invocation.getArgument(1);
-            carrier.put("tracestate", "vendor=1");
-            return null;
-        }).when(propagator).inject(eq(traceContext), any(), any());
-
-        assertThat(traceContextSupport.captureTraceState()).isEqualTo("vendor=1");
-    }
-
-    @Test
-    void captureTraceStateReturnsNullWhenDisabled() {
+    void captureTraceParentReturnsNullWhenTracingDisabled() {
         ObjectProvider<Tracer> emptyTracer = org.mockito.Mockito.mock(ObjectProvider.class);
         ObjectProvider<Propagator> emptyPropagator = org.mockito.Mockito.mock(ObjectProvider.class);
         when(emptyTracer.getIfAvailable()).thenReturn(null);
         when(emptyPropagator.getIfAvailable()).thenReturn(null);
         TraceContextSupport disabled = new TraceContextSupport(emptyTracer, emptyPropagator);
 
-        assertThat(disabled.captureTraceState()).isNull();
         assertThat(disabled.captureTraceParent()).isNull();
     }
 
