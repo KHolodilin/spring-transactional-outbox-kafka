@@ -14,21 +14,14 @@ import static io.gatling.javaapi.core.CoreDsl.*;
 import static io.gatling.javaapi.http.HttpDsl.*;
 
 /**
- * Baseline load test for {@code POST /api/v1/orders}.
+ * Load test for {@code order-service-reactive} ({@code POST /api/v1/orders} on port 8083).
  * <p>
- * Configure with system properties:
- * <ul>
- *   <li>{@code baseUrl} (default {@code http://localhost:8080})</li>
- *   <li>{@code rampSeconds} (default {@code 60})</li>
- *   <li>{@code stageDurationSeconds} (default {@code 300})</li>
- *   <li>{@code rps1}/{@code rps2}/{@code rps3}/{@code rps4} (defaults {@code 50/100/150/200})</li>
- *   <li>{@code profile=warmup}: warmupRps → pause → loadRps for loadSeconds
- *       (defaults: 50 RPS / 30s, pause 15s, then 100 RPS / 120s)</li>
- * </ul>
+ * Same knobs as {@link CreateOrderSimulation}; default {@code baseUrl} is {@code http://localhost:8083}.
+ * Use {@code -Dprofile=warmup} for warmup → pause → steady load.
  */
-public class CreateOrderSimulation extends Simulation {
+public class CreateOrderReactiveSimulation extends Simulation {
 
-    private static final String BASE_URL = System.getProperty("baseUrl", "http://localhost:8080");
+    private static final String BASE_URL = System.getProperty("baseUrl", "http://localhost:8083");
     private static final String PROFILE = System.getProperty("profile", "steps");
 
     private static final int RAMP_SECONDS = intProp("rampSeconds", 60);
@@ -66,7 +59,7 @@ public class CreateOrderSimulation extends Simulation {
             })
             .iterator();
 
-    private final ScenarioBuilder scn = scenario("CreateOrder")
+    private final ScenarioBuilder scn = scenario("CreateOrderReactive")
             .feed(feeder)
             .exec(
                     http("POST /api/v1/orders")
@@ -82,7 +75,7 @@ public class CreateOrderSimulation extends Simulation {
                             .check(status().in(200, 201))
             );
 
-    public CreateOrderSimulation() {
+    public CreateOrderReactiveSimulation() {
         if ("warmup".equalsIgnoreCase(PROFILE)) {
             Duration ramp = Duration.ofSeconds(WARMUP_RAMP_SECONDS);
             setUp(
@@ -137,4 +130,3 @@ public class CreateOrderSimulation extends Simulation {
         return value == null ? defaultValue : Double.parseDouble(value);
     }
 }
-

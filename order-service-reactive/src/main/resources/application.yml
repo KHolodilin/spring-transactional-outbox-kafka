@@ -1,15 +1,20 @@
 spring:
   application:
-    name: order-service
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox}
+    name: order-service-reactive
+  # Boot 4 skips JDBC DataSourceAutoConfiguration when R2DBC ConnectionFactory exists.
+  # Liquibase still needs JDBC — give it an explicit URL (creates a short-lived DataSource).
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox_reactive}
     username: ${DB_USER:outbox}
     password: ${DB_PASSWORD:outbox}
-    hikari:
-      maximum-pool-size: 70
-      connection-init-sql: SET TIME ZONE 'UTC'
+    pool:
+      initial-size: 5
+      max-size: 70
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox_reactive}
+    user: ${DB_USER:outbox}
+    password: ${DB_PASSWORD:outbox}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
     template:
@@ -33,10 +38,8 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
-        hikaricp.connections.acquire: true
       percentiles:
         http.server.requests: 0.5, 0.95, 0.99
-        hikaricp.connections.acquire: 0.95, 0.99
   tracing:
     enabled: ${TRACING_ENABLED:true}
     sampling:
@@ -94,7 +97,4 @@ app:
     outbox-pending-critical: 10000
 
 server:
-  port: 8080
-  tomcat:
-    mbeanregistry:
-      enabled: true
+  port: 8083
