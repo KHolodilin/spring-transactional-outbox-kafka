@@ -7,3 +7,9 @@ logs/
 .project
 .settings/
 .DS_Store
+
+# Local smoke / process leftovers
+*-smoke.out
+*-smoke.err
+*.pid
+

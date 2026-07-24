@@ -1,0 +1,100 @@
+spring:
+  application:
+    name: order-service-reactive
+  # Boot 4 skips JDBC DataSourceAutoConfiguration when R2DBC ConnectionFactory exists.
+  # Liquibase still needs JDBC — give it an explicit URL (creates a short-lived DataSource).
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox_reactive}
+    username: ${DB_USER:outbox}
+    password: ${DB_PASSWORD:outbox}
+    pool:
+      initial-size: 5
+      max-size: 50
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox_reactive}
+    user: ${DB_USER:outbox}
+    password: ${DB_PASSWORD:outbox}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    template:
+      observation-enabled: true
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      acks: all
+      properties:
+        spring.json.add.type.headers: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+  tracing:
+    enabled: ${TRACING_ENABLED:true}
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}
+    propagation:
+      type: w3c
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  level:
+    root: INFO
+    com.kholodilin.outbox: INFO
+
+deployment:
+  environment: ${DEPLOYMENT_ENV:local}
+
+app:
+  instance-id: ${HOSTNAME:local-${random.uuid}}
+  logging:
+    json:
+      enabled: true
+      path: ${LOG_JSON_PATH:./logs}
+  kafka:
+    topic: orders.events
+  outbox:
+    memory-queue:
+      capacity: 10000
+      batch-size: 250
+      batch-wait: 50ms
+      usage-threshold: 0.8
+    publisher:
+      lease-duration: 30s
+      max-retries: 5
+    recovery:
+      enabled: true
+      interval: 10s
+      batch-size: 500
+  rate-limit:
+    throttle-multiplier: 0.5
+    global:
+      capacity: 1000
+      refill-per-second: 100
+    per-customer:
+      capacity: 100
+      refill-per-second: 10
+    per-ip:
+      capacity: 50
+      refill-per-second: 5
+  health:
+    queue-pressure-critical: 0.95
+    outbox-pending-critical: 10000
+
+server:
+  port: 8083

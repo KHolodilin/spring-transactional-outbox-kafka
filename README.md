@@ -458,6 +458,18 @@ mvn -pl load-tests gatling:test \
   -Drps3=10
 ```
 
+### Servlet vs reactive A/B
+
+Peer service **`order-service-reactive`** (WebFlux/R2DBC, port **8083**, DB **`outbox_reactive`**) can be compared with servlet `order-service` using sequential Gatling runs. See [docs/ab-load-comparison.md](docs/ab-load-comparison.md).
+
+```bash
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderReactiveSimulation \
+  -DbaseUrl=http://localhost:8083 \
+  -DstageDurationSeconds=15 -DrampSeconds=5 \
+  -Drps1=10 -Drps2=10 -Drps3=10 -Drps4=10
+```
+
 ### 📈 Benchmark Metrics
 
 The benchmark measures the following characteristics:
