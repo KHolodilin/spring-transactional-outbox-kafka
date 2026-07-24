@@ -2,9 +2,6 @@ spring:
   datasource:
     url: jdbc:tc:postgresql:16-alpine:///outbox
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
-  jpa:
-    hibernate:
-      ddl-auto: validate
   liquibase:
     enabled: true
 

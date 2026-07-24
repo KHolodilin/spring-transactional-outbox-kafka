@@ -41,6 +41,13 @@ public class KafkaBatchPublisher {
     private final ObjectProvider<Tracer> tracerProvider;
     private final ObjectProvider<Propagator> propagatorProvider;
 
+    /**
+     * @param kafkaTemplate      Spring Kafka template used for async sends
+     * @param properties         topic and app settings
+     * @param traceContextSupport restores per-envelope {@code traceparent} before send
+     * @param tracerProvider     optional Micrometer tracer for header injection
+     * @param propagatorProvider optional W3C propagator for Kafka headers
+     */
     public KafkaBatchPublisher(
             KafkaTemplate<String, Object> kafkaTemplate,
             AppProperties properties,
@@ -55,35 +62,44 @@ public class KafkaBatchPublisher {
         this.propagatorProvider = propagatorProvider;
     }
 
+    /**
+     * Publishes all envelopes and blocks until every send future completes.
+     * <p>
+     * Each message gets business headers ({@code eventId}, {@code orderId}, …) and,
+     * when tracing is enabled, {@code traceparent} / {@code tracestate}. Failure of any
+     * send fails the whole batch (caller marks rows FAILED / DEAD).
+     *
+     * @param envelopes non-empty batch claimed from the outbox
+     */
     public void publish(List<EventEnvelope> envelopes) {
         String topic = properties.getKafka().getTopic();
         List<CompletableFuture<?>> futures = new ArrayList<>();
         for (EventEnvelope envelope : envelopes) {
-            traceContextSupport.runWithTraceParent(envelope.getTraceParent(), "outbox.publish", () -> {
-                String key = String.valueOf(envelope.getCustomerId());
+            traceContextSupport.runWithTraceParent(envelope.traceParent(), "outbox.publish", () -> {
+                String key = String.valueOf(envelope.customerId());
                 ProducerRecord<String, Object> record = new ProducerRecord<>(topic, key, envelope);
                 addBusinessHeaders(record, envelope);
                 addTraceHeaders(record);
                 StructuredLogContext.putKafkaFields(topic, null, null);
-                StructuredLogContext.putOrderFields(envelope.getOrderId(), envelope.getEventId());
-                log.debug("Publishing to Kafka topic={} key={} eventId={}", topic, key, envelope.getEventId());
+                StructuredLogContext.putOrderFields(envelope.orderId(), envelope.eventId());
+                log.debug("Publishing to Kafka topic={} key={} eventId={}", topic, key, envelope.eventId());
                 futures.add(kafkaTemplate.send(record));
             });
         }
         CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
         for (EventEnvelope envelope : envelopes) {
-            log.debug("Kafka publish completed eventId={} partitionKey={}", envelope.getEventId(), envelope.getCustomerId());
+            log.debug("Kafka publish completed eventId={} partitionKey={}", envelope.eventId(), envelope.customerId());
         }
     }
 
     private void addBusinessHeaders(ProducerRecord<String, Object> record, EventEnvelope envelope) {
-        record.headers().add(new RecordHeader(EventConstants.HEADER_EVENT_ID, toBytes(envelope.getEventId())));
-        record.headers().add(new RecordHeader(EventConstants.HEADER_ORDER_ID, toBytes(envelope.getOrderId())));
-        record.headers().add(new RecordHeader(EventConstants.HEADER_CUSTOMER_ID, toBytes(envelope.getCustomerId())));
-        if (envelope.getCorrelationId() != null) {
+        record.headers().add(new RecordHeader(EventConstants.HEADER_EVENT_ID, toBytes(envelope.eventId())));
+        record.headers().add(new RecordHeader(EventConstants.HEADER_ORDER_ID, toBytes(envelope.orderId())));
+        record.headers().add(new RecordHeader(EventConstants.HEADER_CUSTOMER_ID, toBytes(envelope.customerId())));
+        if (envelope.correlationId() != null) {
             record.headers().add(new RecordHeader(
                     EventConstants.HEADER_CORRELATION_ID,
-                    envelope.getCorrelationId().getBytes(StandardCharsets.UTF_8)
+                    envelope.correlationId().getBytes(StandardCharsets.UTF_8)
             ));
         }
     }

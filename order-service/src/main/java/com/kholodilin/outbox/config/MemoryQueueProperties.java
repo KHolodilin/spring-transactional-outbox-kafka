@@ -22,7 +22,7 @@ public class MemoryQueueProperties {
 
     /** Maximum ids drained into one publisher batch after the first poll. */
     @Builder.Default
-    private int batchSize = 100;
+    private int batchSize = 250;
 
     /** Time to wait for the first id before the publisher loop continues. */
     @Builder.Default

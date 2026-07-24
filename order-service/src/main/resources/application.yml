@@ -5,14 +5,9 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox}
     username: ${DB_USER:outbox}
     password: ${DB_PASSWORD:outbox}
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    open-in-view: false
-    properties:
-      hibernate:
-        jdbc:
-          time_zone: UTC
+    hikari:
+      maximum-pool-size: 90
+      connection-init-sql: SET TIME ZONE 'UTC'
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
   kafka:
@@ -34,6 +29,14 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        hikaricp.connections.acquire: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+        hikaricp.connections.acquire: 0.95, 0.99
   tracing:
     enabled: ${TRACING_ENABLED:true}
     sampling:
@@ -68,7 +71,7 @@ app:
   outbox:
     memory-queue:
       capacity: 10000
-      batch-size: 100
+      batch-size: 250
       batch-wait: 50ms
       usage-threshold: 0.8
     publisher:
@@ -96,3 +99,6 @@ app:
 
 server:
   port: 8080
+  tomcat:
+    mbeanregistry:
+      enabled: true

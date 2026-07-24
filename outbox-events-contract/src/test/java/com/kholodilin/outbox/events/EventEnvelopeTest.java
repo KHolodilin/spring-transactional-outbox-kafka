@@ -12,20 +12,21 @@ class EventEnvelopeTest {
     @Test
     void builderPopulatesFields() {
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
-        EventEnvelope envelope = EventEnvelope.builder()
-                .eventId(1L)
-                .orderId(2L)
-                .customerId(3L)
-                .eventType(EventConstants.EVENT_TYPE_ORDER_CREATED)
-                .payload(Map.of("orderId", 2))
-                .correlationId("corr")
-                .occurredAt(now)
-                .traceParent("00-trace")
-                .build();
+        EventEnvelope envelope = new EventEnvelope(
+                1L,
+                2L,
+                3L,
+                EventConstants.EVENT_TYPE_ORDER_CREATED,
+                Map.of("orderId", 2),
+                "corr",
+                now,
+                "00-trace",
+                null
+        );
 
-        assertThat(envelope.getEventId()).isEqualTo(1L);
-        assertThat(envelope.getEventType()).isEqualTo(EventConstants.EVENT_TYPE_ORDER_CREATED);
-        assertThat(envelope.getTraceParent()).isEqualTo("00-trace");
-        assertThat(envelope.getOccurredAt()).isEqualTo(now);
+        assertThat(envelope.eventId()).isEqualTo(1L);
+        assertThat(envelope.eventType()).isEqualTo(EventConstants.EVENT_TYPE_ORDER_CREATED);
+        assertThat(envelope.traceParent()).isEqualTo("00-trace");
+        assertThat(envelope.occurredAt()).isEqualTo(now);
     }
 }

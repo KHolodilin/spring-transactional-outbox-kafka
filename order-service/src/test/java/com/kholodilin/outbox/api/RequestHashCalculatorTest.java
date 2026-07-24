@@ -30,18 +30,19 @@ class RequestHashCalculatorTest {
     @Test
     void differentRequestProducesDifferentHash() {
         CreateOrderRequest first = sampleRequest();
-        CreateOrderRequest second = CreateOrderRequest.builder()
-                .customerId(2L)
-                .items(List.of(OrderItemRequest.builder().productId("p1").quantity(1).price(BigDecimal.TEN).build()))
-                .build();
+        CreateOrderRequest second = new CreateOrderRequest(
+                2L,
+                List.of(new OrderItemRequest("p1", 1, BigDecimal.TEN)),
+                null
+        );
         assertThat(calculator.calculate(first)).isNotEqualTo(calculator.calculate(second));
     }
 
     private CreateOrderRequest sampleRequest() {
-        return CreateOrderRequest.builder()
-                .customerId(1L)
-                .items(List.of(OrderItemRequest.builder().productId("p1").quantity(2).price(BigDecimal.valueOf(10)).build()))
-                .correlationId("corr-1")
-                .build();
+        return new CreateOrderRequest(
+                1L,
+                List.of(new OrderItemRequest("p1", 2, BigDecimal.valueOf(10))),
+                "corr-1"
+        );
     }
 }

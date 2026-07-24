@@ -31,6 +31,15 @@ public class RecoveryWorker {
     private final OutboxMetrics metrics;
     private final OutboxTracing outboxTracing;
 
+    /**
+     * Periodically claims unpublished active outbox rows and re-enqueues their ids.
+     * <p>
+     * No-op when recovery is disabled or there is nothing to claim.
+     * {@link InMemoryEventQueue#enqueue} rejects ids already queued or in-flight.
+     * Automatic {@code @Scheduled} spans are suppressed by
+     * {@link com.kholodilin.outbox.tracing.RecoveryTracingConfig}; a dedicated
+     * {@code outbox.recovery} span is opened only when work is performed.
+     */
     @Scheduled(fixedDelayString = "${app.outbox.recovery.interval:10s}")
     public void recover() {
         if (!properties.getOutbox().getRecovery().isEnabled()) {
@@ -60,9 +69,6 @@ public class RecoveryWorker {
 
         int enqueued = 0;
         for (Long id : ids) {
-            if (eventQueue.isTracked(id)) {
-                continue;
-            }
             if (eventQueue.enqueue(id)) {
                 enqueued++;
             }

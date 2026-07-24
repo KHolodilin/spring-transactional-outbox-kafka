@@ -42,7 +42,7 @@ class RecoveryIT extends AbstractIntegrationTest {
         assertThat(outboxJdbcRepository.findById(eventId))
                 .isPresent()
                 .get()
-                .extracting(OutboxRow::getCustomerId)
+                .extracting(OutboxRow::customerId)
                 .isEqualTo(55L);
     }
 }

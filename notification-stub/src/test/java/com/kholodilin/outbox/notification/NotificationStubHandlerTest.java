@@ -47,14 +47,17 @@ class NotificationStubHandlerTest {
     void processesBatchAndRecordsMetrics() {
         stubTraceContext();
         NotificationStubHandler handler = newHandler();
-        EventEnvelope envelope = EventEnvelope.builder()
-                .eventId(1L)
-                .orderId(2L)
-                .customerId(3L)
-                .eventType("OrderCreated")
-                .correlationId("corr")
-                .payload(Map.of("orderId", 2))
-                .build();
+        EventEnvelope envelope = new EventEnvelope(
+                1L,
+                2L,
+                3L,
+                "OrderCreated",
+                Map.of("orderId", 2),
+                "corr",
+                null,
+                null,
+                null
+        );
         ConsumerRecord<String, EventEnvelope> record = new ConsumerRecord<>("orders.events", 0, 5L, "3", envelope);
         record.headers().add(new RecordHeader(
                 EventConstants.HEADER_TRACEPARENT,
@@ -71,13 +74,17 @@ class NotificationStubHandlerTest {
     void processesRecordWithoutTraceParentHeader() {
         stubTraceContext();
         NotificationStubHandler handler = newHandler();
-        EventEnvelope envelope = EventEnvelope.builder()
-                .eventId(5L)
-                .orderId(6L)
-                .customerId(7L)
-                .eventType("OrderCreated")
-                .payload(Map.of("orderId", 6))
-                .build();
+        EventEnvelope envelope = new EventEnvelope(
+                5L,
+                6L,
+                7L,
+                "OrderCreated",
+                Map.of("orderId", 6),
+                null,
+                null,
+                null,
+                null
+        );
         ConsumerRecord<String, EventEnvelope> record = new ConsumerRecord<>("orders.events", 1, 9L, "7", envelope);
 
         handler.handleBatch(List.of(record));

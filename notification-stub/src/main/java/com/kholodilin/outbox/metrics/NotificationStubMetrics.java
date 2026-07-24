@@ -25,6 +25,12 @@ public class NotificationStubMetrics {
         batchProcessing = Timer.builder("notification.batch.processing").register(registry);
     }
 
+    /**
+     * Records batch/event counters and times {@code processing}.
+     *
+     * @param batchSize  number of records in the poll
+     * @param processing work whose wall time is recorded on {@code notification.batch.processing}
+     */
     public void recordBatch(int batchSize, Runnable processing) {
         batchesReceived.increment();
         eventsReceived.increment(batchSize);

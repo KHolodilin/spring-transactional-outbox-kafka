@@ -19,6 +19,11 @@ import java.util.Map;
 @Configuration
 public class KafkaProducerConfig {
 
+    /**
+     * Builds a producer factory with String keys and Jackson JSON values (no type headers).
+     *
+     * @param environment resolves {@code spring.kafka.*} bootstrap and ack settings
+     */
     @Bean
     public ProducerFactory<String, Object> producerFactory(Environment environment) {
         Map<String, Object> config = new HashMap<>();
@@ -34,11 +39,18 @@ public class KafkaProducerConfig {
         return new DefaultKafkaProducerFactory<>(config, new StringSerializer(), valueSerializer);
     }
 
+    /**
+     * @param producerFactory factory from {@link #producerFactory(Environment)}
+     * @return template used by {@link com.kholodilin.outbox.publisher.KafkaBatchPublisher}
+     */
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
 
+    /**
+     * Jackson mapper for Kafka values: ISO-8601 dates, no timestamps.
+     */
     public static JsonMapper kafkaObjectMapper() {
         return JsonMapper.builder()
                 .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)

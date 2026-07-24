@@ -18,14 +18,21 @@ public class OutboxEventFactory {
 
     private final ObjectMapper objectMapper;
 
+    /**
+     * Serializes the order-created payload JSON stored in {@code outbox_events.payload}.
+     *
+     * @param orderId generated order id
+     * @param request original create request (items, customer, optional correlation id)
+     * @return JSON string suitable for jsonb storage and later Kafka envelope mapping
+     */
     public String buildOrderCreatedPayload(long orderId, CreateOrderRequest request) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("orderId", orderId);
-            payload.put("customerId", request.getCustomerId());
-            payload.put("items", request.getItems());
-            if (request.getCorrelationId() != null) {
-                payload.put("correlationId", request.getCorrelationId());
+            payload.put("customerId", request.customerId());
+            payload.put("items", request.items());
+            if (request.correlationId() != null) {
+                payload.put("correlationId", request.correlationId());
             }
             return objectMapper.writeValueAsString(payload);
         } catch (Exception ex) {
@@ -33,6 +40,10 @@ public class OutboxEventFactory {
         }
     }
 
+    /**
+     * @return canonical event type written to {@code outbox_events.event_type}
+     *         ({@link EventConstants#EVENT_TYPE_ORDER_CREATED})
+     */
     public String eventType() {
         return EventConstants.EVENT_TYPE_ORDER_CREATED;
     }

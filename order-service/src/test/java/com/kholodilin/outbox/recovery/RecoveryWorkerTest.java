@@ -81,13 +81,13 @@ class RecoveryWorkerTest {
             return null;
         }).when(outboxTracing).observe(anyString(), any(Runnable.class));
         when(outboxJdbcRepository.claimRecoverableIds(anyInt(), anyString(), any(Instant.class))).thenReturn(List.of(1L, 2L));
-        when(eventQueue.isTracked(1L)).thenReturn(true);
-        when(eventQueue.isTracked(2L)).thenReturn(false);
+        when(eventQueue.enqueue(1L)).thenReturn(false);
         when(eventQueue.enqueue(2L)).thenReturn(true);
 
         worker.recover();
 
         verify(outboxJdbcRepository).clearLease(List.of(1L, 2L));
+        verify(eventQueue).enqueue(1L);
         verify(eventQueue).enqueue(2L);
     }
 }

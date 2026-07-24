@@ -17,11 +17,19 @@ public class InstanceMdcInitializer {
         StructuredLogContext.putInstanceFields(properties.getInstanceId());
     }
 
+    /**
+     * Re-applies instance id and tracing aliases before logging a batch or record.
+     * <p>
+     * Needed because Kafka listener threads may not inherit the {@code @PostConstruct} MDC.
+     */
     public void enrich() {
         StructuredLogContext.putInstanceFields(properties.getInstanceId());
         StructuredLogContext.enrichTracingAliases();
     }
 
+    /**
+     * Clears consumer-scoped MDC keys and restores the instance id for the next record.
+     */
     public void clearConsumerContext() {
         StructuredLogContext.clearConsumerContext();
         StructuredLogContext.putInstanceFields(properties.getInstanceId());

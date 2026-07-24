@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -57,6 +58,17 @@ class OutboxTracingTest {
         tracing.observeWithTraceParent("trace", "span", () -> ran.set(true));
 
         assertThat(ran).isTrue();
+    }
+
+    @Test
+    void observeWithTraceParentSupplierDelegates() {
+        OutboxTracing tracing = new OutboxTracing(tracerProvider, traceContextSupport);
+        when(traceContextSupport.runWithTraceParent(org.mockito.ArgumentMatchers.eq("trace"), org.mockito.ArgumentMatchers.eq("span"), org.mockito.ArgumentMatchers.any(java.util.function.Supplier.class)))
+                .thenReturn("delegated");
+
+        String result = tracing.observeWithTraceParent("trace", "span", () -> "ignored");
+
+        assertThat(result).isEqualTo("delegated");
     }
 
     @Test

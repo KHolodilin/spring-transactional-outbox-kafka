@@ -32,6 +32,15 @@ public class RequestHashCalculator {
                 .build();
     }
 
+    /**
+     * Computes a hex-encoded SHA-256 of the canonical JSON form of {@code request}.
+     * <p>
+     * Map keys are ordered so semantically equal bodies produce the same hash regardless
+     * of JSON field order.
+     *
+     * @param request create-order body (including {@code correlationId} when present)
+     * @return lowercase hex SHA-256 digest
+     */
     public String calculate(CreateOrderRequest request) {
         try {
             String canonicalJson = canonicalMapper.writeValueAsString(request);

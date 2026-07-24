@@ -9,6 +9,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class OrderServiceApplication {
 
+    /**
+     * Boots the order-service Spring context (API, outbox, publisher, recovery).
+     *
+     * @param args standard Spring Boot arguments
+     */
     public static void main(String[] args) {
         SpringApplication.run(OrderServiceApplication.class, args);
     }

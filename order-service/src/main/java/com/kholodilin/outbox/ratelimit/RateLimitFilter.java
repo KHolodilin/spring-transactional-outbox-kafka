@@ -51,11 +51,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
         globalBucket = createBucket(properties.getRateLimit().getGlobal());
     }
 
+    /**
+     * @return {@code true} unless this is {@code POST /api/v1/orders}
+     */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return !"POST".equalsIgnoreCase(request.getMethod()) || !request.getRequestURI().endsWith("/api/v1/orders");
     }
 
+    /**
+     * Applies global, per-IP, and per-customer token buckets before the controller runs.
+     * <p>
+     * Returns HTTP 429 Problem Details when any bucket cannot afford the (possibly
+     * inflated) token cost under adaptive backpressure.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {

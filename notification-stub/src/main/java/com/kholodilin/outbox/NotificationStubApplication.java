@@ -9,6 +9,11 @@ import org.springframework.kafka.annotation.EnableKafka;
 @EnableKafka
 public class NotificationStubApplication {
 
+    /**
+     * Boots the notification-stub Spring context (Kafka consumer demo).
+     *
+     * @param args standard Spring Boot arguments
+     */
     public static void main(String[] args) {
         SpringApplication.run(NotificationStubApplication.class, args);
     }

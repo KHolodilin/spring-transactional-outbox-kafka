@@ -76,15 +76,15 @@ class InMemoryEventQueueTest {
     }
 
     @Test
-    void tracksInFlightIdsUntilAcknowledged() throws Exception {
+    void rejectsEnqueueWhileInFlightUntilAcknowledged() throws Exception {
         queue.enqueue(1L);
         queue.poll(100);
 
-        assertThat(queue.isTracked(1L)).isTrue();
+        assertThat(queue.enqueue(1L)).isFalse();
 
         queue.acknowledge(List.of(1L));
 
-        assertThat(queue.isTracked(1L)).isFalse();
+        assertThat(queue.enqueue(1L)).isTrue();
     }
 
     @Test

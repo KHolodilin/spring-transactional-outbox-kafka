@@ -21,6 +21,14 @@ public class OutboxEnqueueListener {
 
     private final InMemoryEventQueue eventQueue;
 
+    /**
+     * Schedules enqueue of {@code eventId} for after the current transaction commits.
+     * <p>
+     * If no synchronization is active (tests / non-transactional callers), enqueues immediately.
+     * A full queue or duplicate id logs a warning; recovery will pick the row up later.
+     *
+     * @param eventId primary key of the persisted {@code outbox_events} row
+     */
     public void enqueueAfterCommit(long eventId) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             eventQueue.enqueue(eventId);

@@ -8,12 +8,19 @@ public final class StructuredLogContext {
     private StructuredLogContext() {
     }
 
+    /** Sets {@code event.action} for OpenSearch / JSON log filtering. */
     public static void putEventAction(String eventAction) {
         if (eventAction != null) {
             MDC.put("event.action", eventAction);
         }
     }
 
+    /**
+     * Sets correlation and customer fields from a consumed event.
+     *
+     * @param correlationId optional correlation id from the envelope
+     * @param customerId    customer id (also written as {@code customer.id})
+     */
     public static void putCorrelation(String correlationId, Long customerId) {
         if (correlationId != null) {
             MDC.put("correlationId", correlationId);
@@ -25,6 +32,12 @@ public final class StructuredLogContext {
         }
     }
 
+    /**
+     * Sets order / outbox identifiers for a single consumed event.
+     *
+     * @param orderId  business order id
+     * @param outboxId outbox / event id
+     */
     public static void putOrderFields(Long orderId, Long outboxId) {
         if (orderId != null) {
             MDC.put("order.id", String.valueOf(orderId));
@@ -34,12 +47,19 @@ public final class StructuredLogContext {
         }
     }
 
+    /** Sets {@code event.type} from the envelope. */
     public static void putEventType(String eventType) {
         if (eventType != null) {
             MDC.put("event.type", eventType);
         }
     }
 
+    /**
+     * Sets mock notification channel / delivery status (demo fields only).
+     *
+     * @param channel e.g. {@code log}
+     * @param status  e.g. {@code sent}
+     */
     public static void putNotificationFields(String channel, String status) {
         if (channel != null) {
             MDC.put("notification.channel", channel);
@@ -49,14 +69,23 @@ public final class StructuredLogContext {
         }
     }
 
+    /** Sets {@code duration.ms} for batch processing time. */
     public static void putDurationMs(long durationMs) {
         MDC.put("duration.ms", String.valueOf(durationMs));
     }
 
+    /** Sets {@code outbox.batch_size} for the current Kafka poll batch. */
     public static void putBatchSize(int batchSize) {
         MDC.put("outbox.batch_size", String.valueOf(batchSize));
     }
 
+    /**
+     * Sets Kafka coordinates for the current consumer record.
+     *
+     * @param topic     topic name
+     * @param partition partition id
+     * @param offset    record offset
+     */
     public static void putKafkaFields(String topic, Integer partition, Long offset) {
         if (topic != null) {
             MDC.put("kafka.topic", topic);
@@ -69,12 +98,16 @@ public final class StructuredLogContext {
         }
     }
 
+    /** Sets {@code instance.id} from stub configuration. */
     public static void putInstanceFields(String instanceId) {
         if (instanceId != null) {
             MDC.put("instance.id", instanceId);
         }
     }
 
+    /**
+     * Copies Micrometer {@code traceId}/{@code spanId} into dotted aliases for OpenSearch.
+     */
     public static void enrichTracingAliases() {
         String traceId = MDC.get("traceId");
         if (traceId != null) {
@@ -86,6 +119,11 @@ public final class StructuredLogContext {
         }
     }
 
+    /**
+     * Clears per-record / per-batch consumer MDC keys after processing.
+     * <p>
+     * Callers typically re-apply instance fields afterwards.
+     */
     public static void clearConsumerContext() {
         MDC.remove("correlationId");
         MDC.remove("customerId");

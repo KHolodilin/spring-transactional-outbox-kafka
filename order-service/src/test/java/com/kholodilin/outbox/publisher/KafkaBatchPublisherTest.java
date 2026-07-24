@@ -138,15 +138,17 @@ class KafkaBatchPublisherTest {
 
     @Test
     void addsCorrelationIdHeaderWhenPresent() {
-        EventEnvelope envelope = EventEnvelope.builder()
-                .eventId(1L)
-                .orderId(10L)
-                .customerId(42L)
-                .eventType(EventConstants.EVENT_TYPE_ORDER_CREATED)
-                .payload(Map.of("orderId", 10))
-                .correlationId("corr-99")
-                .occurredAt(Instant.parse("2026-07-12T10:00:00Z"))
-                .build();
+        EventEnvelope envelope = new EventEnvelope(
+                1L,
+                10L,
+                42L,
+                EventConstants.EVENT_TYPE_ORDER_CREATED,
+                Map.of("orderId", 10),
+                "corr-99",
+                Instant.parse("2026-07-12T10:00:00Z"),
+                null,
+                null
+        );
 
         publisher.publish(List.of(envelope));
 
@@ -177,14 +179,16 @@ class KafkaBatchPublisherTest {
     }
 
     private EventEnvelope sampleEnvelope(String traceParent) {
-        return EventEnvelope.builder()
-                .eventId(1L)
-                .orderId(10L)
-                .customerId(42L)
-                .eventType(EventConstants.EVENT_TYPE_ORDER_CREATED)
-                .payload(Map.of("orderId", 10))
-                .traceParent(traceParent)
-                .occurredAt(Instant.parse("2026-07-12T10:00:00Z"))
-                .build();
+        return new EventEnvelope(
+                1L,
+                10L,
+                42L,
+                EventConstants.EVENT_TYPE_ORDER_CREATED,
+                Map.of("orderId", 10),
+                null,
+                Instant.parse("2026-07-12T10:00:00Z"),
+                traceParent,
+                null
+        );
     }
 }

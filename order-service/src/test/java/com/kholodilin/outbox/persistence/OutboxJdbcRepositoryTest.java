@@ -47,34 +47,31 @@ class OutboxJdbcRepositoryTest {
 
     @Test
     void toEnvelopeBuildsKafkaMessage() {
-        OutboxRow row = OutboxRow.builder()
-                .id(1L)
-                .orderId(99L)
-                .customerId(10L)
-                .eventType("OrderCreated")
-                .payload("{\"orderId\":99,\"customerId\":10}")
-                .status(OutboxStatus.NEW)
-                .retryCount(0)
-                .traceParent("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
-                .build();
+        OutboxRow row = new OutboxRow(
+                1L,
+                99L,
+                10L,
+                "OrderCreated",
+                "{\"orderId\":99,\"customerId\":10}",
+                OutboxStatus.NEW,
+                0,
+                "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+        );
 
         EventEnvelope envelope = repository.toEnvelope(row, "corr-1");
 
-        assertThat(envelope.getEventId()).isEqualTo(1L);
-        assertThat(envelope.getOrderId()).isEqualTo(99L);
-        assertThat(envelope.getCustomerId()).isEqualTo(10L);
-        assertThat(envelope.getEventType()).isEqualTo("OrderCreated");
-        assertThat(envelope.getCorrelationId()).isEqualTo("corr-1");
-        assertThat(envelope.getTraceParent()).isEqualTo("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
-        assertThat(envelope.getPayload()).containsEntry("orderId", 99);
+        assertThat(envelope.eventId()).isEqualTo(1L);
+        assertThat(envelope.orderId()).isEqualTo(99L);
+        assertThat(envelope.customerId()).isEqualTo(10L);
+        assertThat(envelope.eventType()).isEqualTo("OrderCreated");
+        assertThat(envelope.correlationId()).isEqualTo("corr-1");
+        assertThat(envelope.traceParent()).isEqualTo("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
+        assertThat(envelope.payload()).containsEntry("orderId", 99);
     }
 
     @Test
     void toEnvelopeFailsOnInvalidPayload() {
-        OutboxRow row = OutboxRow.builder()
-                .id(1L)
-                .payload("not-json")
-                .build();
+        OutboxRow row = new OutboxRow(1L, null, null, null, "not-json", null, 0, null);
 
         assertThatThrownBy(() -> repository.toEnvelope(row, "corr"))
                 .isInstanceOf(IllegalStateException.class)
@@ -127,8 +124,7 @@ class OutboxJdbcRepositoryTest {
 
     @Test
     void findByIdReturnsFirstRow() {
-        OutboxRow row = OutboxRow.builder().id(1L).orderId(2L).customerId(3L).eventType("OrderCreated")
-                .payload("{}").status(OutboxStatus.NEW).retryCount(0).build();
+        OutboxRow row = new OutboxRow(1L, 2L, 3L, "OrderCreated", "{}", OutboxStatus.NEW, 0, null);
         when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(1L))).thenReturn(List.of(row));
 
         Optional<OutboxRow> found = repository.findById(1L);
@@ -192,7 +188,7 @@ class OutboxJdbcRepositoryTest {
         List<OutboxRow> rows = repository.claimByIds(List.of(9L), "pod", Instant.now());
 
         assertThat(rows).hasSize(1);
-        assertThat(rows.get(0).getId()).isEqualTo(9L);
+        assertThat(rows.get(0).id()).isEqualTo(9L);
     }
 
     @Test

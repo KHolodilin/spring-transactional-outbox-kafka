@@ -27,8 +27,8 @@ class KafkaConsumerConfigTest {
 
         EventEnvelope envelope = mapper.readValue(json, EventEnvelope.class);
 
-        assertThat(envelope.getEventId()).isEqualTo(1L);
-        assertThat(envelope.getOccurredAt()).isEqualTo(Instant.parse("2026-07-12T10:15:30Z"));
-        assertThat(envelope.getPayload()).containsEntry("orderId", 10);
+        assertThat(envelope.eventId()).isEqualTo(1L);
+        assertThat(envelope.occurredAt()).isEqualTo(Instant.parse("2026-07-12T10:15:30Z"));
+        assertThat(envelope.payload()).containsEntry("orderId", 10);
     }
 }

@@ -13,6 +13,9 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableAsync
 public class AppConfig {
 
+    /**
+     * Shared Jackson 3 {@link ObjectMapper} for HTTP bodies, idempotency JSON, and outbox payloads.
+     */
     @Bean
     public ObjectMapper objectMapper() {
         return JsonMapper.builder().build();

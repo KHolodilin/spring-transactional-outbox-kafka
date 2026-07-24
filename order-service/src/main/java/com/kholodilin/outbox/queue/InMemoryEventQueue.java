@@ -19,8 +19,20 @@ import java.util.concurrent.TimeUnit;
  * Per-pod hot queue for outbox event IDs.
  * <p>
  * This is the only entry point for the Kafka publisher (fast path after commit and recovery path).
- * IDs are deduplicated while waiting in the queue; if the queue is full the event stays NEW in
- * PostgreSQL and recovery will pick it up later.
+ * IDs already waiting in the queue or currently in-flight (being published) are rejected;
+ * if the queue is full the event stays NEW in PostgreSQL and recovery will pick it up later.
+ * <p>
+ * <b>Remark on concurrency / atomicity.</b>
+ * {@code queue}, {@code dedup}, and {@code inFlight} are not updated under one critical section,
+ * so narrow TOCTOU windows remain (e.g. between {@code inFlight.contains} and {@code dedup.add},
+ * or between {@code dedup.remove} and {@code inFlight.add} on poll). That is a known trade-off,
+ * not an oversight.
+ * <p>
+ * We deliberately keep this design: the in-memory layer is coalescing and backpressure only.
+ * Correctness of publish / retry lives in PostgreSQL ({@code claimByIds}, lease, status).
+ * A duplicate id in the queue at worst causes an extra claim attempt that the DB rejects.
+ * A global {@code ReentrantLock} or atomic {@code ABSENT → QUEUED → IN_FLIGHT} map would close
+ * the windows but add complexity without changing the source of truth — so it was not adopted.
  */
 @Slf4j
 @Component
@@ -45,10 +57,16 @@ public class InMemoryEventQueue {
     }
 
     /**
-     * Adds an event id to the queue. Returns false when the id is already queued (dedup)
-     * or when the bounded queue is full.
+     * Adds an event id to the queue.
+     *
+     * @return {@code false} when the id is already queued, currently in-flight (being published),
+     *         or the bounded queue is full
      */
     public boolean enqueue(long eventId) {
+        if (inFlight.contains(eventId)) {
+            log.debug("In-flight enqueue ignored eventId={}", eventId);
+            return false;
+        }
         if (!dedup.add(eventId)) {
             log.debug("Duplicate enqueue ignored eventId={}", eventId);
             return false;
@@ -61,6 +79,7 @@ public class InMemoryEventQueue {
             updateMetrics();
             return false;
         }
+        metrics.incrementEnqueue();
         log.debug("Enqueued eventId={} queueSize={}", eventId, queue.size());
         updateMetrics();
         return true;
@@ -72,6 +91,7 @@ public class InMemoryEventQueue {
         if (eventId != null) {
             dedup.remove(eventId);
             inFlight.add(eventId);
+            metrics.incrementDequeue(1);
             updateMetrics();
         }
         return eventId;
@@ -85,6 +105,7 @@ public class InMemoryEventQueue {
             dedup.remove(eventId);
             inFlight.add(eventId);
         }
+        metrics.incrementDequeue(batch.size());
         updateMetrics();
         log.debug("Drained batch size={} remaining={}", batch.size(), queue.size());
         return batch;
@@ -97,6 +118,7 @@ public class InMemoryEventQueue {
         }
     }
 
+    /** @return number of event ids currently waiting in the bounded queue (excludes in-flight) */
     public int size() {
         return queue.size();
     }
@@ -106,13 +128,9 @@ public class InMemoryEventQueue {
         return capacity == 0 ? 0.0 : (double) queue.size() / capacity;
     }
 
+    /** @return configured maximum queue capacity */
     public int capacity() {
         return capacity;
-    }
-
-    /** Returns true when the event id is already queued or being published. */
-    public boolean isTracked(long eventId) {
-        return dedup.contains(eventId) || inFlight.contains(eventId);
     }
 
     private void updateMetrics() {

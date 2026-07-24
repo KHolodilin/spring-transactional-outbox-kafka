@@ -17,13 +17,13 @@ Production-oriented **Transactional Outbox** for Spring Boot 4, PostgreSQL, and 
   </a>
 </p>
 
-## Why this project?
+## 💡 Why this project?
 
 There are several well-established ways to implement the Transactional Outbox pattern. Each approach solves the same reliability problem, but with different trade-offs in latency, operational complexity, infrastructure, and database load.
 
 This project targets teams already using **Spring Boot, PostgreSQL, and Kafka** that want low-latency event delivery without continuous database polling or an additional CDC platform.
 
-### Comparison
+### ⚖️ Comparison
 
 | Approach | ✅ Pros | ⚠️ Cons |
 |----------|----------|----------|
@@ -32,7 +32,7 @@ This project targets teams already using **Spring Boot, PostgreSQL, and Kafka** 
 | **Debezium (CDC)** | ✅ Reliable Change Data Capture<br>✅ No application polling<br>✅ Excellent for large event-driven platforms | ❌ Requires Kafka Connect and Debezium infrastructure<br>❌ Higher operational complexity<br>❌ Event publishing is managed outside the application |
 | **Memory Queue + Recovery (this project)** | ✅ No continuous database polling during normal operation<br>✅ Single publishing pipeline for normal and recovery flows<br>✅ PostgreSQL remains the durable source of truth<br>✅ Recovery scans only unpublished events in the ACTIVE partition | ⚠️ Requires an in-memory queue per application instance<br>⚠️ Recovery worker is still required after unexpected failures |
 
-### Why this approach?
+### 🎯 Why this approach?
 
 Instead of using PostgreSQL as both a database and a message queue, this project separates those responsibilities.
 
@@ -53,7 +53,7 @@ The result is a solution that provides:
 - ✅ A single, consistent publishing pipeline
 - ✅ Production-ready observability with metrics, structured logging, and distributed tracing
 
-## How it works
+## 🔄 How it works
 
 The project is built around three core workflows:
 
@@ -63,7 +63,7 @@ The project is built around three core workflows:
 
 The **Normal Flow** and **Recovery Flow** converge into the same publishing pipeline, sharing the Memory Queue and Kafka Batch Publisher.
 
-### Normal Flow
+### ✅ Normal Flow
 
 ```mermaid
 sequenceDiagram
@@ -95,7 +95,7 @@ After the transaction commits, only the **event ID** is placed into the Memory Q
 
 During normal operation, the application does not continuously poll PostgreSQL for new events.
 
-### Recovery Flow
+### 🔁 Recovery Flow
 
 ```mermaid
 sequenceDiagram
@@ -126,7 +126,7 @@ The Recovery Worker periodically scans unpublished events from the **ACTIVE** pa
 >
 > This eliminates duplicate publishing logic and keeps the behavior consistent across normal operation and recovery.
 
-### Why Active / Archive?
+### 📦 Why Active / Archive?
 
 ```mermaid
 flowchart LR
@@ -147,7 +147,7 @@ Once an event is successfully published, it is moved to the **ARCHIVE** partitio
 
 As a result, recovery performance depends only on the number of active events instead of the total history stored in the outbox table.
 
-### Idempotent Request Flow
+### 🔑 Idempotent Request Flow
 
 ```mermaid
 sequenceDiagram
@@ -179,7 +179,7 @@ Each request is uniquely identified by the combination of **customerId** and **I
 
 For a new request, the service executes the business transaction and stores the response. If the same request is received again with an identical payload, the stored response is returned immediately. If the payload differs, the request is rejected with **HTTP 409 Conflict**.
 
-## Observability
+## 🔭 Observability
 
 The project includes production-ready observability out of the box, providing complete visibility into the event delivery pipeline.
 
@@ -275,55 +275,68 @@ After starting the Docker Compose infrastructure, the following services are ava
 >
 > After starting the application, create a few orders using the REST API, then open Grafana, OpenSearch Dashboards, and Tempo. Viewing metrics, logs, and traces together is the fastest way to understand how events move through the system.
 
-## Modules
+## 🚀 Quick Start
 
-| Module | Role |
-|--------|------|
-| `order-service` | `POST /api/v1/orders`, transactional outbox, Kafka publisher |
-| `outbox-events-contract` | Shared DTOs/enums |
-| `notification-stub` | Demo downstream notification consumer (mock) |
-| `load-tests` | Gatling load tests (baseline `POST /api/v1/orders`) |
+Run the complete Transactional Outbox example locally and publish your first event in a few minutes.
 
-## Quick start
-
-### 1. Infrastructure
+### 🐳 1. Start the infrastructure
 
 ```bash
 docker compose up -d
 ```
 
-### 2. Build
+Docker Compose starts the required infrastructure:
+
+- PostgreSQL
+- Kafka
+- Prometheus
+- Grafana
+- Grafana Tempo
+- OpenSearch
+- OpenSearch Dashboards
+- Fluent Bit
+- PostgreSQL Exporter
+
+Check that all containers are running:
+
+```bash
+docker compose ps
+```
+
+### 🔨 2. Build the project
 
 ```bash
 mvn clean verify
 ```
 
-### 3. Run services
+This command compiles all modules and runs the automated test suite.
+
+### ▶️ 3. Start the application services
+
+Run the Order Service:
 
 ```bash
-mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
-mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
+mvn -pl order-service spring-boot:run \
+  -Dspring-boot.run.profiles=dev
 ```
 
-### 4. Load testing (Gatling)
-
-Baseline simulation lives in `load-tests` module.
+In a separate terminal, run the Notification Stub:
 
 ```bash
-# default baseline: 50/100/200 RPS stages, p95<200ms, errors<0.5%
-mvn -pl load-tests gatling:test -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation
+mvn -pl notification-stub spring-boot:run \
+  -Dspring-boot.run.profiles=dev
 ```
 
-Smoke run example (useful in CI):
+The services will be available at:
 
-```bash
-mvn -pl load-tests gatling:test \
-  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation \
-  -DstageDurationSeconds=15 -DrampSeconds=5 \
-  -Drps1=10 -Drps2=10 -Drps3=10
-```
+| Service | URL |
+|---------|-----|
+| Order Service | http://localhost:8080 |
+| Notification Stub | http://localhost:8081 |
 
-## API example
+### 🛒 4. Create an order
+
+Send a request with a unique `Idempotency-Key`:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/orders \
@@ -331,147 +344,149 @@ curl -X POST http://localhost:8080/api/v1/orders \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -d '{
     "customerId": 42,
-    "items": [{"productId": "sku-1", "quantity": 2, "price": 10.50}],
-    "correlationId": "demo-1"
+    "items": [
+      {
+        "productId": "sku-1",
+        "quantity": 2,
+        "price": 10.50
+      }
+    ],
+    "correlationId": "quick-start-demo"
   }'
 ```
 
-## Configuration
+The request creates:
 
-Key settings in `order-service/src/main/resources/application.yml`:
+1. An order
+2. An idempotency record
+3. A transactional outbox event
 
-| Prefix | Examples |
-|--------|----------|
-| `app.outbox.memory-queue` | capacity, batch-size, usage-threshold |
-| `app.outbox.publisher` | lease-duration, max-retries |
-| `app.outbox.recovery` | enabled, interval, batch-size |
-| `app.rate-limit` | global / per-customer / per-ip |
-| `app.kafka.topic` | `orders.events` |
+All three records are committed in the same PostgreSQL transaction.
 
-Kafka messages use **partition key = `customerId`**.
+After the commit, the outbox event ID is placed into the Memory Queue, published to Kafka, and consumed by the Notification Stub.
 
-## Observability
+### ♻️ 5. Verify idempotency
 
-The local stack includes **Prometheus**, **Grafana**, **Grafana Tempo**, **OpenSearch**, **OpenSearch Dashboards**, and **Fluent Bit** (via Docker Compose). Applications run on the host and export metrics through Actuator, traces through OTLP, and structured JSON logs to module-local `logs/` directories.
-
-| Service | URL | Notes |
-|---------|-----|-------|
-| Prometheus | http://localhost:9090 | scrapes apps on host + `postgres-exporter` |
-| Grafana | http://localhost:3000 | login `admin` / `admin` (dev only) |
-| Grafana Tempo | http://localhost:3200 | OTLP HTTP ingest on `:4318` |
-| OpenSearch | http://localhost:9200 | centralized JSON logs (`spring-outbox-logs-local-*`) |
-| OpenSearch Dashboards | http://localhost:5601 | classic dashboard + PPL queries |
-| postgres-exporter | http://localhost:9187/metrics | standard PostgreSQL metrics |
-
-### 1. Start infrastructure (including monitoring)
+Repeat the same request with the same `Idempotency-Key` and payload:
 
 ```bash
-docker compose up -d
+curl -X POST http://localhost:8080/api/v1/orders \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -d '{
+    "customerId": 42,
+    "items": [
+      {
+        "productId": "sku-1",
+        "quantity": 2,
+        "price": 10.50
+      }
+    ],
+    "correlationId": "quick-start-demo"
+  }'
 ```
 
-Index template and saved objects (dashboards, PPL queries) are applied automatically by `opensearch-init` and `opensearch-dashboards-init`.
+The service returns the previously stored response without creating another order or outbox event.
 
-### 2. Run services and generate traffic
-
-```bash
-mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
-mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
-JSON logs (when running via `mvn -pl …`):
+Using the same key with a different request payload returns:
 
 ```text
-order-service/logs/order-service/app.json
-notification-stub/logs/notification-stub/app.json
+HTTP 409 Conflict
 ```
 
-Fluent Bit tails those paths from the host. Full guide: [docs/logging.md](docs/logging.md).
+### 🧭 6. Explore metrics, logs, and traces
 
-Verify metrics endpoints:
+Open the local observability services:
+
+| Service | URL | What to check |
+|---------|-----|---------------|
+| Grafana | http://localhost:3000 | Queue size, publishing latency, retries, recovery and JVM metrics |
+| Prometheus | http://localhost:9090 | Application and PostgreSQL metrics |
+| OpenSearch Dashboards | http://localhost:5601 | Structured application logs |
+| Grafana Tempo | http://localhost:3200 | Distributed trace storage |
+| OpenSearch | http://localhost:9200 | Indexed JSON logs |
+
+Grafana credentials for the local environment:
+
+```text
+Username: admin
+Password: admin
+```
+
+You can also verify the application metrics directly:
 
 ```bash
-curl -s http://localhost:8080/actuator/prometheus | head
-curl -s http://localhost:8081/actuator/prometheus | head
+curl http://localhost:8080/actuator/prometheus
+curl http://localhost:8081/actuator/prometheus
 ```
 
-Create an order (see API example above), then open Grafana — dashboards **Transactional Outbox**, **Notification Stub**, **PostgreSQL**, and **Distributed Tracing** are provisioned automatically.
+### 🛑 Stop the environment
 
-### Centralized logging (OpenSearch)
-
-Structured JSON logs include `correlationId`, `customerId`, `idempotencyKey`, `event.action`, `trace.id`, `service.name`, and more.
-
-**OpenSearch Dashboards** (http://localhost:5601):
-
-| Where | What |
-|-------|------|
-| **Dashboards** → *Transactional Outbox Overview* | classic saved searches (Discover-style) |
-| **Observability → Logs → Queries** | PPL saved queries (results on **Events** tab) |
-
-Notable saved queries:
-
-| Query | Purpose |
-|-------|---------|
-| **Logs by customerId** | all logs for one customer — edit `customerId = '42'` in the query |
-| **Log volume by customerId** | stats table: log count per customerId |
-| **Outbox publish failures** | `event.action = outbox.publish.failed` |
-| **Rate limit rejected** | HTTP 429 from rate limiter |
-| **Logs by correlationId** | filter by correlationId prefix |
-
-Example PPL:
-
-```sql
-source = spring-outbox-logs-local-* | where customerId = '42' | sort - @timestamp
-```
-
-In Discover/KQL: `customerId:"42"` or `customer.id:42`.
-
-### Distributed tracing (Tempo)
-
-With `dev` profile, both services export traces via Spring Boot 4 OTLP config (`management.opentelemetry.tracing.export.otlp.endpoint`, default `http://localhost:4318/v1/traces`, 100% sampling).
-
-1. Start `docker compose up -d` (includes Tempo).
-2. Run `order-service` and `notification-stub` with profile `dev`.
-3. `POST /api/v1/orders` (see API example).
-4. Grafana → **Distributed Tracing** dashboard → browse recent traces or paste a `traceId` from logs (`traceId=...` in logback output).
-
-End-to-end trace path: HTTP → outbox save → batch publish → Kafka consumer.
-
-Disable tracing without code changes:
+Stop the application services with `Ctrl+C`, then shut down the Docker Compose infrastructure:
 
 ```bash
-TRACING_ENABLED=false mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
+docker compose down
 ```
 
-Production sampling defaults to `10%` (`TRACING_SAMPLING=0.1` in `application-prod.yml`).
+To remove containers together with local volumes and stored data:
 
-Prometheus targets: http://localhost:9090/targets (`order-service`, `notification-stub`, `postgres` should be **UP** while the stack is running).
+```bash
+docker compose down -v
+```
+## ⚡ Load Testing
 
-### Custom outbox metrics (`order-service`)
+The project includes a ready-to-run **Gatling** benchmark for validating the complete event delivery pipeline under sustained load.
+
+The benchmark exercises the entire flow—from the REST API through PostgreSQL, the Transactional Outbox, the Memory Queue, Kafka, and the Notification Stub.
+
+### ▶️ Run the benchmark
+
+```bash
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation
+```
+
+For a quick smoke test:
+
+```bash
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation \
+  -DstageDurationSeconds=15 \
+  -DrampSeconds=5 \
+  -Drps1=10 \
+  -Drps2=10 \
+  -Drps3=10
+```
+
+### 📈 Benchmark Metrics
+
+The benchmark measures the following characteristics:
 
 | Metric | Description |
 |--------|-------------|
-| `outbox.queue.size` | In-memory queue size |
-| `outbox.queue.pressure` | Queue fill ratio (0–1) |
-| `outbox.publish.latency` | Kafka publish duration |
-| `outbox.publish.failures` | Failed publish attempts |
-| `outbox.retry.count` | Publisher retries |
-| `outbox.recovery.count` | Events re-enqueued by recovery worker |
-| `outbox.rate_limit.rejects` | HTTP 429 responses |
+| Throughput | Requests processed per second (RPS) |
+| Average Latency | Mean HTTP response time |
+| P95 Latency | Response time for 95% of requests |
+| Error Rate | Percentage of failed requests |
+| Kafka Publish Rate | Events published to Kafka |
+| Recovery Activity | Events restored by the Recovery Worker |
 
-## Failure scenarios (local)
+### 📉 Analyze the Results
 
-| Scenario | Expected behavior |
-|----------|-------------------|
-| Crash after commit | Recovery worker re-enqueues NEW events |
-| Queue full | Event stays NEW, recovery picks it up |
-| Kafka unavailable | Retry -> FAILED -> recovery -> DEAD after max retries |
-| Duplicate HTTP request | Idempotent 200 response |
-| Duplicate enqueue | Memory queue dedup |
+During the benchmark you can monitor the system in real time using the built-in observability stack:
 
-## Docs
+- **Grafana** — throughput, latency, queue utilization, JVM and PostgreSQL metrics
+- **OpenSearch** — structured application logs
+- **Grafana Tempo** — distributed traces
+- **Gatling HTML Report** — detailed benchmark statistics
 
-- [Technical Specification v2](docs/spring-transactional-outbox-kafka-Technical-Specification-v2.md)
-- [Implementation Plan](docs/spring-transactional-outbox-kafka-Implementation-Plan.md)
+> 💡 **Tip**
+>
+> Running the benchmark while observing Grafana dashboards provides the clearest picture of how the Transactional Outbox pipeline behaves under load.
+
+## 📚 Docs
+
+- [Technical Specification v2](docs/spring-transactional-outbox-kafka-Technical-Specification-v2.md) 
 - [Distributed Tracing Spec](docs/spring-transactional-outbox-kafka-Distributed-Tracing-Spec.md)
 - [OpenSearch Logging Spec](docs/spring-transactional-outbox-kafka-OpenSearch-Logging-Spec.md)
 - [Logging guide](docs/logging.md)
