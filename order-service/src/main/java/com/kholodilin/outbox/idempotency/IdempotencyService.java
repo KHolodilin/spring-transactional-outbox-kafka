@@ -5,7 +5,7 @@ import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.IdempotencyStatus;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.persistence.IdempotencyJdbcRepository;
-import com.kholodilin.outbox.persistence.entity.IdempotencyKeyEntity;
+import com.kholodilin.outbox.persistence.IdempotencyKeyRow;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,17 +38,17 @@ public class IdempotencyService {
      * @throws IdempotencyConflictException when the key exists with a different hash, or is still {@code PROCESSING}
      */
     public Optional<CreateOrderResponse> findCachedResponse(Long customerId, String idempotencyKey, String requestHash) {
-        Optional<IdempotencyKeyEntity> existing = repository.findByCustomerIdAndKey(customerId, idempotencyKey);
+        Optional<IdempotencyKeyRow> existing = repository.findByCustomerIdAndKey(customerId, idempotencyKey);
         if (existing.isEmpty()) {
             return Optional.empty();
         }
-        IdempotencyKeyEntity record = existing.get();
-        if (!record.getRequestHash().equals(requestHash)) {
+        IdempotencyKeyRow row = existing.get();
+        if (!row.requestHash().equals(requestHash)) {
             throw new IdempotencyConflictException("Idempotency key reused with different request body");
         }
-        if (record.getStatus() == IdempotencyStatus.COMPLETED && record.getResponseBody() != null) {
+        if (row.status() == IdempotencyStatus.COMPLETED && row.responseBody() != null) {
             try {
-                CreateOrderResponse response = objectMapper.readValue(record.getResponseBody(), CreateOrderResponse.class);
+                CreateOrderResponse response = objectMapper.readValue(row.responseBody(), CreateOrderResponse.class);
                 StructuredLogContext.putEventAction("idempotency.response.reused");
                 log.info("Idempotent response returned customerId={} idempotencyKey={}", customerId, idempotencyKey);
                 return Optional.of(response);
@@ -56,7 +56,7 @@ public class IdempotencyService {
                 throw new IllegalStateException("Failed to deserialize idempotent response", ex);
             }
         }
-        if (record.getStatus() == IdempotencyStatus.PROCESSING) {
+        if (row.status() == IdempotencyStatus.PROCESSING) {
             throw new IdempotencyConflictException("Request with this idempotency key is already being processed");
         }
         return Optional.empty();

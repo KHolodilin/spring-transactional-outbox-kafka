@@ -4,7 +4,7 @@ import tools.jackson.databind.json.JsonMapper;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.IdempotencyStatus;
 import com.kholodilin.outbox.persistence.IdempotencyJdbcRepository;
-import com.kholodilin.outbox.persistence.entity.IdempotencyKeyEntity;
+import com.kholodilin.outbox.persistence.IdempotencyKeyRow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,13 +34,12 @@ class IdempotencyServiceTest {
 
     @Test
     void returnsCachedCompletedResponse() throws Exception {
-        IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
-                .requestHash("hash")
-                .status(IdempotencyStatus.COMPLETED)
-                .responseBody(objectMapper.writeValueAsString(
-                        new CreateOrderResponse(1L, 2L, "ACCEPTED", Instant.now())))
-                .build();
-        when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
+        IdempotencyKeyRow row = row(
+                "hash",
+                IdempotencyStatus.COMPLETED,
+                objectMapper.writeValueAsString(new CreateOrderResponse(1L, 2L, "ACCEPTED", Instant.now()))
+        );
+        when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(row));
 
         Optional<CreateOrderResponse> response = service.findCachedResponse(1L, "key", "hash");
         assertThat(response).isPresent();
@@ -49,11 +48,8 @@ class IdempotencyServiceTest {
 
     @Test
     void throwsOnHashConflict() {
-        IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
-                .requestHash("other")
-                .status(IdempotencyStatus.COMPLETED)
-                .build();
-        when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
+        when(repository.findByCustomerIdAndKey(1L, "key"))
+                .thenReturn(Optional.of(row("other", IdempotencyStatus.COMPLETED, null)));
 
         assertThatThrownBy(() -> service.findCachedResponse(1L, "key", "hash"))
                 .isInstanceOf(IdempotencyConflictException.class);
@@ -61,11 +57,8 @@ class IdempotencyServiceTest {
 
     @Test
     void throwsWhenRequestIsStillProcessing() {
-        IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
-                .requestHash("hash")
-                .status(IdempotencyStatus.PROCESSING)
-                .build();
-        when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
+        when(repository.findByCustomerIdAndKey(1L, "key"))
+                .thenReturn(Optional.of(row("hash", IdempotencyStatus.PROCESSING, null)));
 
         assertThatThrownBy(() -> service.findCachedResponse(1L, "key", "hash"))
                 .isInstanceOf(IdempotencyConflictException.class)
@@ -81,26 +74,23 @@ class IdempotencyServiceTest {
 
     @Test
     void returnsEmptyWhenRecordIsFailedStatus() {
-        IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
-                .requestHash("hash")
-                .status(IdempotencyStatus.FAILED)
-                .build();
-        when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
+        when(repository.findByCustomerIdAndKey(1L, "key"))
+                .thenReturn(Optional.of(row("hash", IdempotencyStatus.FAILED, null)));
 
         assertThat(service.findCachedResponse(1L, "key", "hash")).isEmpty();
     }
 
     @Test
     void throwsWhenStoredResponseCannotBeDeserialized() {
-        IdempotencyKeyEntity entity = IdempotencyKeyEntity.builder()
-                .requestHash("hash")
-                .status(IdempotencyStatus.COMPLETED)
-                .responseBody("not-json")
-                .build();
-        when(repository.findByCustomerIdAndKey(1L, "key")).thenReturn(Optional.of(entity));
+        when(repository.findByCustomerIdAndKey(1L, "key"))
+                .thenReturn(Optional.of(row("hash", IdempotencyStatus.COMPLETED, "not-json")));
 
         assertThatThrownBy(() -> service.findCachedResponse(1L, "key", "hash"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Failed to deserialize");
+    }
+
+    private static IdempotencyKeyRow row(String requestHash, IdempotencyStatus status, String responseBody) {
+        return new IdempotencyKeyRow(1L, 1L, "key", requestHash, status, responseBody, Instant.EPOCH, Instant.EPOCH);
     }
 }

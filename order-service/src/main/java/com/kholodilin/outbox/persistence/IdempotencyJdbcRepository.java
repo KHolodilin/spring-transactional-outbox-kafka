@@ -1,7 +1,6 @@
 package com.kholodilin.outbox.persistence;
 
 import com.kholodilin.outbox.events.IdempotencyStatus;
-import com.kholodilin.outbox.persistence.entity.IdempotencyKeyEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -18,19 +17,19 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class IdempotencyJdbcRepository {
 
-    private static final RowMapper<IdempotencyKeyEntity> ROW_MAPPER = new RowMapper<>() {
+    private static final RowMapper<IdempotencyKeyRow> ROW_MAPPER = new RowMapper<>() {
         @Override
-        public IdempotencyKeyEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
-            IdempotencyKeyEntity entity = new IdempotencyKeyEntity();
-            entity.setCustomerId(rs.getLong("customer_id"));
-            entity.setId(rs.getLong("id"));
-            entity.setIdempotencyKey(rs.getString("idempotency_key"));
-            entity.setRequestHash(rs.getString("request_hash"));
-            entity.setStatus(IdempotencyStatus.fromCode(rs.getInt("status")));
-            entity.setResponseBody(rs.getString("response_body"));
-            entity.setCreatedAt(rs.getTimestamp("created_at").toInstant());
-            entity.setUpdatedAt(rs.getTimestamp("updated_at").toInstant());
-            return entity;
+        public IdempotencyKeyRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return new IdempotencyKeyRow(
+                    rs.getLong("customer_id"),
+                    rs.getLong("id"),
+                    rs.getString("idempotency_key"),
+                    rs.getString("request_hash"),
+                    IdempotencyStatus.fromCode(rs.getInt("status")),
+                    rs.getString("response_body"),
+                    rs.getTimestamp("created_at").toInstant(),
+                    rs.getTimestamp("updated_at").toInstant()
+            );
         }
     };
 
@@ -41,9 +40,9 @@ public class IdempotencyJdbcRepository {
      *
      * @param customerId     partition key / customer scope
      * @param idempotencyKey client {@code Idempotency-Key}
-     * @return entity when present
+     * @return row when present
      */
-    public Optional<IdempotencyKeyEntity> findByCustomerIdAndKey(Long customerId, String idempotencyKey) {
+    public Optional<IdempotencyKeyRow> findByCustomerIdAndKey(Long customerId, String idempotencyKey) {
         var list = jdbcTemplate.query(
                 """
                         SELECT customer_id, id, idempotency_key, request_hash, status, response_body, created_at, updated_at

@@ -1,7 +1,6 @@
 package com.kholodilin.outbox.persistence;
 
 import com.kholodilin.outbox.events.IdempotencyStatus;
-import com.kholodilin.outbox.persistence.entity.IdempotencyKeyEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -35,7 +34,7 @@ class IdempotencyJdbcRepositoryTest {
         IdempotencyJdbcRepository repository = new IdempotencyJdbcRepository(jdbcTemplate);
         when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(42L), eq("key-1")))
                 .thenAnswer(invocation -> {
-                    RowMapper<IdempotencyKeyEntity> mapper = invocation.getArgument(1);
+                    RowMapper<IdempotencyKeyRow> mapper = invocation.getArgument(1);
                     ResultSet rs = mock(ResultSet.class);
                     when(rs.getLong("customer_id")).thenReturn(42L);
                     when(rs.getLong("id")).thenReturn(7L);
@@ -49,19 +48,24 @@ class IdempotencyJdbcRepositoryTest {
                     return List.of(mapper.mapRow(rs, 0));
                 });
 
-        Optional<IdempotencyKeyEntity> found = repository.findByCustomerIdAndKey(42L, "key-1");
+        Optional<IdempotencyKeyRow> found = repository.findByCustomerIdAndKey(42L, "key-1");
 
         assertThat(found).isPresent();
-        assertThat(found.get().getStatus()).isEqualTo(IdempotencyStatus.COMPLETED);
-        assertThat(found.get().getRequestHash()).isEqualTo("hash");
+        assertThat(found.get().status()).isEqualTo(IdempotencyStatus.COMPLETED);
+        assertThat(found.get().requestHash()).isEqualTo("hash");
     }
 
     @Test
-    void tryInsertProcessingReturnsIdWhenInsertWins() {
+    void tryInsertProcessingReturnsIdWhenInsertWins() throws Exception {
         IdempotencyJdbcRepository repository = new IdempotencyJdbcRepository(jdbcTemplate);
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
         when(jdbcTemplate.query(anyString(), any(RowMapper.class), any(), any(), any(), any(), any(), any()))
-                .thenReturn(List.of(11L));
+                .thenAnswer(invocation -> {
+                    RowMapper<Long> mapper = invocation.getArgument(1);
+                    ResultSet rs = mock(ResultSet.class);
+                    when(rs.getLong(1)).thenReturn(11L);
+                    return List.of(mapper.mapRow(rs, 0));
+                });
 
         Optional<Long> id = repository.tryInsertProcessing(1L, "key", "hash", now);
 
@@ -79,6 +83,15 @@ class IdempotencyJdbcRepositoryTest {
         );
         assertThat(sql.getValue()).contains("ON CONFLICT");
         assertThat(sql.getValue()).contains("DO NOTHING");
+    }
+
+    @Test
+    void findByCustomerIdAndKeyReturnsEmptyWhenNoRows() {
+        IdempotencyJdbcRepository repository = new IdempotencyJdbcRepository(jdbcTemplate);
+        when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(42L), eq("missing")))
+                .thenReturn(List.of());
+
+        assertThat(repository.findByCustomerIdAndKey(42L, "missing")).isEmpty();
     }
 
     @Test
