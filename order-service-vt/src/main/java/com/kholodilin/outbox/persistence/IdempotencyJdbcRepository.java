@@ -1,0 +1,113 @@
+package com.kholodilin.outbox.persistence;
+
+import com.kholodilin.outbox.events.IdempotencyStatus;
+import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Repository;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.Optional;
+
+/** JDBC access to hash-partitioned {@code idempotency_keys} table. */
+@Repository
+@RequiredArgsConstructor
+public class IdempotencyJdbcRepository {
+
+    private static final RowMapper<IdempotencyKeyRow> ROW_MAPPER = new RowMapper<>() {
+        @Override
+        public IdempotencyKeyRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return new IdempotencyKeyRow(
+                    rs.getLong("customer_id"),
+                    rs.getLong("id"),
+                    rs.getString("idempotency_key"),
+                    rs.getString("request_hash"),
+                    IdempotencyStatus.fromCode(rs.getInt("status")),
+                    rs.getString("response_body"),
+                    rs.getTimestamp("created_at").toInstant(),
+                    rs.getTimestamp("updated_at").toInstant()
+            );
+        }
+    };
+
+    private final JdbcTemplate jdbcTemplate;
+
+    /**
+     * Finds an idempotency record by customer + key.
+     *
+     * @param customerId     partition key / customer scope
+     * @param idempotencyKey client {@code Idempotency-Key}
+     * @return row when present
+     */
+    public Optional<IdempotencyKeyRow> findByCustomerIdAndKey(Long customerId, String idempotencyKey) {
+        var list = jdbcTemplate.query(
+                """
+                        SELECT customer_id, id, idempotency_key, request_hash, status, response_body, created_at, updated_at
+                        FROM idempotency_keys
+                        WHERE customer_id = ? AND idempotency_key = ?
+                        """,
+                ROW_MAPPER,
+                customerId,
+                idempotencyKey
+        );
+        return list.stream().findFirst();
+    }
+
+    /**
+     * Tries to insert a {@link IdempotencyStatus#PROCESSING} row.
+     * <p>
+     * Uses {@code ON CONFLICT DO NOTHING} so a concurrent claim does not raise a unique-violation
+     * error. An empty result means the key already exists — callers should {@link #findByCustomerIdAndKey}
+     * in the same transaction and resolve cache / conflict.
+     *
+     * @param customerId     customer scope
+     * @param idempotencyKey client key
+     * @param requestHash    SHA-256 of the request body
+     * @param now            created_at / updated_at
+     * @return generated id when this call won the insert; empty on conflict
+     */
+    public Optional<Long> tryInsertProcessing(Long customerId, String idempotencyKey, String requestHash, Instant now) {
+        var ids = jdbcTemplate.query(
+                """
+                        INSERT INTO idempotency_keys (customer_id, idempotency_key, request_hash, status, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT (customer_id, idempotency_key) DO NOTHING
+                        RETURNING id
+                        """,
+                (rs, rowNum) -> rs.getLong(1),
+                customerId,
+                idempotencyKey,
+                requestHash,
+                IdempotencyStatus.PROCESSING.getCode(),
+                Timestamp.from(now),
+                Timestamp.from(now)
+        );
+        return ids.stream().findFirst();
+    }
+
+    /**
+     * Marks the key {@link IdempotencyStatus#COMPLETED} and stores the JSON response for replays.
+     *
+     * @param customerId     customer scope
+     * @param idempotencyKey client key
+     * @param responseBody   serialized {@link com.kholodilin.outbox.events.CreateOrderResponse}
+     * @param now            updated_at
+     */
+    public void complete(Long customerId, String idempotencyKey, String responseBody, Instant now) {
+        jdbcTemplate.update(
+                """
+                        UPDATE idempotency_keys
+                        SET status = ?, response_body = ?::jsonb, updated_at = ?
+                        WHERE customer_id = ? AND idempotency_key = ?
+                        """,
+                IdempotencyStatus.COMPLETED.getCode(),
+                responseBody,
+                Timestamp.from(now),
+                customerId,
+                idempotencyKey
+        );
+    }
+}

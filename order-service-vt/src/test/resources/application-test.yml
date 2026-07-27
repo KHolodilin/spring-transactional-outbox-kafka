@@ -1,0 +1,34 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16-alpine:///outbox
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  liquibase:
+    enabled: true
+
+management:
+  opentelemetry:
+    enabled: false
+  tracing:
+    enabled: false
+
+app:
+  outbox:
+    recovery:
+      enabled: true
+      interval: 2s
+    memory-queue:
+      capacity: 100
+  rate-limit:
+    global:
+      capacity: 1000
+      refill-per-second: 1000
+    per-customer:
+      capacity: 1000
+      refill-per-second: 1000
+    per-ip:
+      capacity: 1000
+      refill-per-second: 1000
+
+logging:
+  level:
+    com.kholodilin.outbox: INFO
