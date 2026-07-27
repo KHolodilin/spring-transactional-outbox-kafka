@@ -19,6 +19,9 @@ class OutboxMetricsTest {
         metrics.incrementRetryCount();
         metrics.incrementRecoveryCount(2);
         metrics.incrementRateLimitRejects();
+        metrics.incrementBackpressureRejects();
+        metrics.incrementPoolExhaustedRejects();
+        metrics.updateBackpressureInFlight(12);
         metrics.incrementEnqueue();
         metrics.incrementDequeue(3);
         metrics.recordPublishedBatch(7, java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(10));
@@ -34,6 +37,9 @@ class OutboxMetricsTest {
         assertThat(registry.find("outbox.retry.count").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("outbox.recovery.count").counter().count()).isEqualTo(2.0);
         assertThat(registry.find("outbox.rate_limit.rejects").counter().count()).isEqualTo(1.0);
+        assertThat(registry.find("outbox.backpressure.rejects").counter().count()).isEqualTo(1.0);
+        assertThat(registry.find("outbox.pool_exhausted.rejects").counter().count()).isEqualTo(1.0);
+        assertThat(registry.find("outbox.backpressure.in_flight").gauge().value()).isEqualTo(12.0);
         assertThat(registry.find("outbox.queue.enqueue").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("outbox.queue.dequeue").counter().count()).isEqualTo(3.0);
         assertThat(registry.find("outbox.publish.latency").timer().count()).isEqualTo(2);

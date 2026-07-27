@@ -32,6 +32,10 @@ public class AppProperties {
     @Builder.Default
     private RateLimitProperties rateLimit = RateLimitProperties.builder().build();
 
+    /** Concurrent create-order bulkhead (protects Hikari from oversubscription). */
+    @Builder.Default
+    private BackpressureProperties backpressure = BackpressureProperties.builder().build();
+
     /** Thresholds used by custom Actuator health indicators. */
     @Builder.Default
     private HealthProperties health = HealthProperties.builder().build();

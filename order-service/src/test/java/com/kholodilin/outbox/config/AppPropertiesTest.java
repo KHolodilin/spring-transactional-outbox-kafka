@@ -14,6 +14,8 @@ class AppPropertiesTest {
         assertThat(properties.getKafka()).isNotNull();
         assertThat(properties.getOutbox()).isNotNull();
         assertThat(properties.getRateLimit()).isNotNull();
+        assertThat(properties.getBackpressure()).isNotNull();
+        assertThat(properties.getBackpressure().getMaxConcurrentCreates()).isEqualTo(55);
         assertThat(properties.getHealth()).isNotNull();
         assertThat(properties.getLogging()).isNotNull();
     }

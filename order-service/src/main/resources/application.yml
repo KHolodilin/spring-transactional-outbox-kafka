@@ -7,6 +7,7 @@ spring:
     password: ${DB_PASSWORD:outbox}
     hikari:
       maximum-pool-size: 70
+      connection-timeout: 2000
       connection-init-sql: SET TIME ZONE 'UTC'
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
@@ -89,6 +90,8 @@ app:
     per-ip:
       capacity: 50
       refill-per-second: 5
+  backpressure:
+    max-concurrent-creates: 55
   health:
     queue-pressure-critical: 0.95
     outbox-pending-critical: 10000
