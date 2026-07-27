@@ -7,6 +7,8 @@ services:
       POSTGRES_PASSWORD: outbox
     ports:
       - "5432:5432"
+    volumes:
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U outbox -d outbox"]
       interval: 5s
@@ -171,6 +173,7 @@ services:
     volumes:
       - ./logs/order-service:/var/log/app/order-service/order-service:ro
       - ./logs/notification-stub:/var/log/app/notification-stub/notification-stub:ro
+      - ./logs/order-service-reactive:/var/log/app/order-service-reactive/order-service-reactive:ro
       - ./monitoring/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - ./monitoring/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
     depends_on:

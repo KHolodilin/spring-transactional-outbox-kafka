@@ -20,6 +20,7 @@
     <modules>
         <module>outbox-events-contract</module>
         <module>order-service</module>
+        <module>order-service-reactive</module>
         <module>notification-stub</module>
         <module>load-tests</module>
     </modules>

@@ -6,7 +6,7 @@ spring:
     username: ${DB_USER:outbox}
     password: ${DB_PASSWORD:outbox}
     hikari:
-      maximum-pool-size: 50
+      maximum-pool-size: 70
       connection-init-sql: SET TIME ZONE 'UTC'
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
