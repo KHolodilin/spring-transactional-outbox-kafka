@@ -28,6 +28,10 @@ public class AppProperties {
     @Builder.Default
     private RateLimitProperties rateLimit = RateLimitProperties.builder().build();
 
+    /** Concurrent create-order bulkhead (protects R2DBC pool from oversubscription). */
+    @Builder.Default
+    private BackpressureProperties backpressure = BackpressureProperties.builder().build();
+
     @Builder.Default
     private HealthProperties health = HealthProperties.builder().build();
 

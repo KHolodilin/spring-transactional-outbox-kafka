@@ -85,3 +85,36 @@ Dashboards:
 
 - Grafana: **Orders Technical** / **Orders Technical (Reactive)** / **Orders Technical (Virtual Threads)**
 - OpenSearch: filter by `service.name` (`order-service`, `order-service-reactive`, `order-service-vt`)
+
+## 5. Local A/B results (with create bulkhead)
+
+All peers use the same create concurrency bulkhead (`max-concurrent-creates: 55`), short pool acquire timeout (2s), and map pool exhaustion to HTTP 429. Gatling profile: warmup 50 RPS → pause → target RPS × 120s. KO is almost entirely intentional **429** (Gatling expects 200/201).
+
+Where multiple runs exist at 100 RPS (servlet ×3, VT ×2, reactive ×2), values are **averages**.
+
+| RPS | Peer | OK | KO % | P50 | P95 | P99 | mean OK RPS |
+|-----|------|---:|-----:|----:|----:|----:|------------:|
+| **100** | Servlet *(avg 3)* | 14,227 | 0.16% | 13 | 105 | 299 | ~77 |
+| | VT *(avg 2)* | 14,218 | 0.22% | 14 | 129 | 393 | ~77 |
+| | Reactive *(avg 2)* | 14,217 | 0.24% | 15 | **121** | 363 | ~77 |
+| **200** | Servlet | 26,308 | 1.7% | 14 | 167 | 433 | ~141 |
+| | VT | 26,510 | 0.9% | 17 | 171 | 324 | ~143 |
+| | Reactive | **26,742** | **0.03%** | 18 | **89** | **255** | ~145 |
+| **300** | Servlet | 38,013 | 3.2% | 26 | 210 | 443 | ~204 |
+| | VT | 38,143 | 2.8% | 25 | **187** | 422 | ~206 |
+| | Reactive | 38,147 | 2.8% | 50 | 203 | **336** | ~206 |
+| **500** | Servlet | **55,587** | **13.5%** | **45** | **188** | **305** | **~299** |
+| | VT | 49,439 | 23% | 83 | 255 | 337 | ~267 |
+| | Reactive | 38,590 | 40% | 90 | 309 | 515 | ~207 |
+| **1000** | Servlet | **44,643** | 65%* | 130 | **271** | 572 | **~240** |
+| | VT | 42,999 | 66% | 137 | 313 | 545 | ~231 |
+| | Reactive | 36,461 | 71% | 159 | 410 | 864 | ~196 |
+
+\* Servlet @1000: almost all KO are 429; plus 183× `Connection refused` during JVM start race.
+
+**Takeaways**
+
+- At **100 RPS** the three peers are effectively equal; rare 429s are noise under the same bulkhead.
+- At **200 RPS** reactive is best on reject rate and P95.
+- Around **300 RPS** successful throughput converges (~205 OK RPS).
+- From **500+** servlet leads on successful create throughput; reactive is the tightest at the bulkhead ceiling.
