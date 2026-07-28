@@ -56,4 +56,12 @@ class GlobalExceptionHandlerTest {
         assertThat(problem.getTitle()).isEqualTo("Database pool exhausted");
         assertThat(registry.find("outbox.pool_exhausted.rejects").counter().count()).isEqualTo(1.0);
     }
+
+    @Test
+    void mapsNullDetailToDefaultPoolExhaustedMessage() {
+        ProblemDetail problem = handler.handleTimeout(new TimeoutException());
+
+        assertThat(problem.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        assertThat(problem.getDetail()).isEqualTo("Database connection pool exhausted");
+    }
 }

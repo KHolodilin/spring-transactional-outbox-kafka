@@ -60,4 +60,22 @@ class GlobalExceptionHandlerTest {
         assertThat(problem.getTitle()).isEqualTo("Database pool exhausted");
         assertThat(registry.find("outbox.pool_exhausted.rejects").counter().count()).isEqualTo(1.0);
     }
+
+    @Test
+    void mapsCannotGetJdbcConnectionWithoutCauseUsingExceptionMessage() {
+        CannotGetJdbcConnectionException ex = new CannotGetJdbcConnectionException("Failed to obtain JDBC Connection");
+
+        ProblemDetail problem = handler.handleCannotGetJdbcConnection(ex);
+
+        assertThat(problem.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        assertThat(problem.getDetail()).contains("Failed to obtain JDBC Connection");
+    }
+
+    @Test
+    void mapsNullDetailToDefaultPoolExhaustedMessage() {
+        ProblemDetail problem = handler.handleSqlTransientConnection(new SQLTransientConnectionException());
+
+        assertThat(problem.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        assertThat(problem.getDetail()).isEqualTo("Database connection pool exhausted");
+    }
 }

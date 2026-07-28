@@ -72,6 +72,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         ContentCachingRequestWrapper wrapped = new ContentCachingRequestWrapper(request, 64 * 1024);
+        // Cache the body so per-customer limiting can read customerId without consuming the stream for downstream.
+        wrapped.getInputStream().readAllBytes();
         double multiplier = throttleMultiplier();
 
         if (!tryConsume(globalBucket, multiplier)) {

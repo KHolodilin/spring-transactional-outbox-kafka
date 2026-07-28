@@ -38,6 +38,21 @@ class RequestHashCalculatorTest {
         assertThat(calculator.calculate(first)).isNotEqualTo(calculator.calculate(second));
     }
 
+    @Test
+    void wrapsSerializationFailures() throws Exception {
+        tools.jackson.databind.ObjectMapper canonical = org.mockito.Mockito.mock(tools.jackson.databind.ObjectMapper.class);
+        org.mockito.Mockito.when(canonical.writeValueAsString(org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new RuntimeException("boom"));
+
+        RequestHashCalculator failingCalculator = new RequestHashCalculator(JsonMapper.builder().build());
+        ReflectionTestUtils.invokeMethod(failingCalculator, "init");
+        ReflectionTestUtils.setField(failingCalculator, "canonicalMapper", canonical);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> failingCalculator.calculate(sampleRequest()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Failed to calculate request hash");
+    }
+
     private CreateOrderRequest sampleRequest() {
         return new CreateOrderRequest(
                 1L,

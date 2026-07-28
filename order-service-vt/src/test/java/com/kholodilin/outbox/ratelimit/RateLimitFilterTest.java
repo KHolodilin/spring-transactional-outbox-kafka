@@ -32,6 +32,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.Map;
+
 @ExtendWith(MockitoExtension.class)
 class RateLimitFilterTest {
 
@@ -122,6 +124,69 @@ class RateLimitFilterTest {
         Long customerId = ReflectionTestUtils.invokeMethod(filter, "extractCustomerId", wrapped);
 
         assertThat(customerId).isEqualTo(77L);
+    }
+
+    @Test
+    void rejectsWhenPerIpBucketExhausted() throws Exception {
+        Bucket ipBucket = mock(Bucket.class);
+        when(ipBucket.tryConsume(1L)).thenReturn(false);
+        @SuppressWarnings("unchecked")
+        Map<String, Bucket> ipBuckets = (Map<String, Bucket>) ReflectionTestUtils.getField(filter, "ipBuckets");
+        ipBuckets.put("127.0.0.1", ipBucket);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(orderRequest(42L), response, filterChain);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        verifyNoInteractions(filterChain);
+    }
+
+    @Test
+    void rejectsWhenPerCustomerBucketExhausted() throws Exception {
+        Bucket customerBucket = mock(Bucket.class);
+        when(customerBucket.tryConsume(1L)).thenReturn(false);
+        @SuppressWarnings("unchecked")
+        Map<Long, Bucket> customerBuckets = (Map<Long, Bucket>) ReflectionTestUtils.getField(filter, "customerBuckets");
+        customerBuckets.put(42L, customerBucket);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(orderRequest(42L), response, filterChain);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        verifyNoInteractions(filterChain);
+    }
+
+    @Test
+    void extractCustomerIdReturnsNullForEmptyOrInvalidBody() throws Exception {
+        MockHttpServletRequest empty = new MockHttpServletRequest("POST", "/api/v1/orders");
+        empty.setContent(new byte[0]);
+        ContentCachingRequestWrapper emptyWrapped = new ContentCachingRequestWrapper(empty, 64 * 1024);
+        emptyWrapped.getInputStream().readAllBytes();
+        assertThat((Long) ReflectionTestUtils.invokeMethod(filter, "extractCustomerId", emptyWrapped)).isNull();
+
+        MockHttpServletRequest invalid = new MockHttpServletRequest("POST", "/api/v1/orders");
+        invalid.setContent("{not-json".getBytes());
+        ContentCachingRequestWrapper invalidWrapped = new ContentCachingRequestWrapper(invalid, 64 * 1024);
+        invalidWrapped.getInputStream().readAllBytes();
+        assertThat((Long) ReflectionTestUtils.invokeMethod(filter, "extractCustomerId", invalidWrapped)).isNull();
+
+        MockHttpServletRequest noCustomer = new MockHttpServletRequest("POST", "/api/v1/orders");
+        noCustomer.setContent("{\"items\":[]}".getBytes());
+        ContentCachingRequestWrapper noCustomerWrapped = new ContentCachingRequestWrapper(noCustomer, 64 * 1024);
+        noCustomerWrapped.getInputStream().readAllBytes();
+        assertThat((Long) ReflectionTestUtils.invokeMethod(filter, "extractCustomerId", noCustomerWrapped)).isNull();
+    }
+
+    @Test
+    void usesRemoteAddrWhenForwardedHeaderBlank() throws Exception {
+        MockHttpServletRequest request = orderRequest(1L);
+        request.addHeader("X-Forwarded-For", "   ");
+        request.setRemoteAddr("10.0.0.8");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, filterChain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
     }
 
     private static AppProperties strictProperties() {
