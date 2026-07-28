@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="context" name="appName" source="spring.application.name"/>
+    <springProperty scope="context" name="instanceId" source="app.instance-id"/>
+    <springProperty scope="context" name="deployEnv" source="deployment.environment" defaultValue="local"/>
+    <springProperty scope="context" name="serviceVersion" source="info.app.version" defaultValue="1.0.0-SNAPSHOT"/>
+    <springProperty scope="context" name="jsonLogPath" source="app.logging.json.path" defaultValue="./logs"/>
+    <springProperty scope="context" name="jsonLogEnabled" source="app.logging.json.enabled" defaultValue="true"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [${appName}] [traceId=%X{traceId:-}] [spanId=%X{spanId:-}] [correlationId=%X{correlationId:-}] [customerId=%X{customerId:-}] [idempotencyKey=%X{idempotencyKey:-}] [instanceId=${instanceId}] %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <springProfile name="!test">
+        <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${jsonLogPath}/${appName}/app.json</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>${jsonLogPath}/${appName}/app-%d{yyyy-MM-dd}.%i.json</fileNamePattern>
+                <maxFileSize>50MB</maxFileSize>
+                <maxHistory>7</maxHistory>
+                <totalSizeCap>1GB</totalSizeCap>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <fieldName>@timestamp</fieldName>
+                    </timestamp>
+                    <logLevel>
+                        <fieldName>log.level</fieldName>
+                    </logLevel>
+                    <message/>
+                    <loggerName>
+                        <fieldName>logger.name</fieldName>
+                    </loggerName>
+                    <threadName>
+                        <fieldName>thread.name</fieldName>
+                    </threadName>
+                    <mdc/>
+                    <pattern>
+                        <pattern>
+                            {
+                              "service.name": "${appName}",
+                              "service.version": "${serviceVersion}",
+                              "deployment.environment": "${deployEnv}",
+                              "instance.id": "${instanceId}"
+                            }
+                        </pattern>
+                    </pattern>
+                </providers>
+            </encoder>
+        </appender>
+    </springProfile>
+
+    <springProfile name="test">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!test">
+        <if condition='property("jsonLogEnabled").equalsIgnoreCase("true")'>
+            <then>
+                <root level="INFO">
+                    <appender-ref ref="CONSOLE"/>
+                    <appender-ref ref="JSON_FILE"/>
+                </root>
+            </then>
+            <else>
+                <root level="INFO">
+                    <appender-ref ref="CONSOLE"/>
+                </root>
+            </else>
+        </if>
+    </springProfile>
+</configuration>

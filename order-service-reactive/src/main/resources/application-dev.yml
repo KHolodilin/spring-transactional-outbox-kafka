@@ -1,0 +1,30 @@
+logging:
+  level:
+    com.kholodilin.outbox: DEBUG
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/traces
+          timeout: 2s
+
+app:
+  rate-limit:
+    global:
+      capacity: 50000
+      refill-per-second: 5000
+    per-customer:
+      capacity: 5000
+      refill-per-second: 1000
+    per-ip:
+      capacity: 2000
+      refill-per-second: 500

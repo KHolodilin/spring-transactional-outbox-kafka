@@ -30,13 +30,17 @@ public class OutboxMetrics {
     private Counter retryCount;
     private Counter recoveryCount;
     private Counter rateLimitRejects;
+    private Counter backpressureRejects;
+    private Counter poolExhaustedRejects;
     private Counter enqueueCount;
     private Counter dequeueCount;
+    private final AtomicInteger backpressureInFlight = new AtomicInteger();
 
     @PostConstruct
     void registerMeters() {
         Gauge.builder("outbox.queue.size", queueSize, AtomicInteger::get).register(registry);
         Gauge.builder("outbox.queue.pressure", queuePressure, AtomicReference::get).register(registry);
+        Gauge.builder("outbox.backpressure.in_flight", backpressureInFlight, AtomicInteger::get).register(registry);
         publishLatency = Timer.builder("outbox.publish.latency")
                 .publishPercentileHistogram()
                 .publishPercentiles(0.5, 0.95, 0.99)
@@ -54,6 +58,8 @@ public class OutboxMetrics {
         retryCount = Counter.builder("outbox.retry.count").register(registry);
         recoveryCount = Counter.builder("outbox.recovery.count").register(registry);
         rateLimitRejects = Counter.builder("outbox.rate_limit.rejects").register(registry);
+        backpressureRejects = Counter.builder("outbox.backpressure.rejects").register(registry);
+        poolExhaustedRejects = Counter.builder("outbox.pool_exhausted.rejects").register(registry);
         enqueueCount = Counter.builder("outbox.queue.enqueue").register(registry);
         dequeueCount = Counter.builder("outbox.queue.dequeue").register(registry);
     }
@@ -94,6 +100,25 @@ public class OutboxMetrics {
 
     public void incrementRateLimitRejects() {
         rateLimitRejects.increment();
+    }
+
+    /** Increments {@code outbox.backpressure.rejects} when the create bulkhead returns 429. */
+    public void incrementBackpressureRejects() {
+        backpressureRejects.increment();
+    }
+
+    /** Increments {@code outbox.pool_exhausted.rejects} when R2DBC cannot hand out a connection. */
+    public void incrementPoolExhaustedRejects() {
+        poolExhaustedRejects.increment();
+    }
+
+    /**
+     * Sets the gauge for in-flight create-order requests holding a bulkhead permit.
+     *
+     * @param inFlight {@code maxPermits - availablePermits}
+     */
+    public void updateBackpressureInFlight(int inFlight) {
+        backpressureInFlight.set(Math.max(0, inFlight));
     }
 
     public void incrementEnqueue() {

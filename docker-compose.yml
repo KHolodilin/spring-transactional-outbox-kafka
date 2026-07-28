@@ -174,6 +174,7 @@ services:
       - ./logs/order-service:/var/log/app/order-service/order-service:ro
       - ./logs/notification-stub:/var/log/app/notification-stub/notification-stub:ro
       - ./logs/order-service-reactive:/var/log/app/order-service-reactive/order-service-reactive:ro
+      - ./logs/order-service-vt:/var/log/app/order-service-vt/order-service-vt:ro
       - ./monitoring/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - ./monitoring/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
     depends_on:

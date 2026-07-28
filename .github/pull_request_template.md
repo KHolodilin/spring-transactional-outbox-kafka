@@ -18,6 +18,8 @@
 
 - [ ] `outbox-events-contract`
 - [ ] `order-service`
+- [ ] `order-service-reactive`
+- [ ] `order-service-vt`
 - [ ] `notification-stub`
 - [ ] `docker-compose` / infrastructure
 - [ ] docs / CI / other
