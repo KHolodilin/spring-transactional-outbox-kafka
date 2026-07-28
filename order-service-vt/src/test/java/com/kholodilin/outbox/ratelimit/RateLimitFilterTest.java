@@ -22,16 +22,20 @@ import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.util.ContentCachingRequestWrapper;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @ExtendWith(MockitoExtension.class)
@@ -89,7 +93,14 @@ class RateLimitFilterTest {
         filter.doFilter(orderRequest(42L), response, filterChain);
 
         assertThat(response.getStatus()).isEqualTo(200);
-        verify(filterChain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(response));
+        verify(filterChain).doFilter(argThat(req -> {
+            try {
+                byte[] body = ((HttpServletRequest) req).getInputStream().readAllBytes();
+                return new String(body, StandardCharsets.UTF_8).contains("\"customerId\":42");
+            } catch (Exception ex) {
+                return false;
+            }
+        }), eq(response));
     }
 
     @Test
@@ -116,12 +127,11 @@ class RateLimitFilterTest {
     }
 
     @Test
-    void extractsCustomerIdFromRequestBody() throws Exception {
-        MockHttpServletRequest request = orderRequest(77L);
-        ContentCachingRequestWrapper wrapped = new ContentCachingRequestWrapper(request, 64 * 1024);
-        wrapped.getInputStream().readAllBytes();
-
-        Long customerId = ReflectionTestUtils.invokeMethod(filter, "extractCustomerId", wrapped);
+    void extractsCustomerIdFromRequestBody() {
+        Long customerId = ReflectionTestUtils.invokeMethod(
+                filter,
+                "extractCustomerId",
+                (Object) "{\"customerId\":77,\"items\":[]}".getBytes(StandardCharsets.UTF_8));
 
         assertThat(customerId).isEqualTo(77L);
     }
@@ -157,24 +167,12 @@ class RateLimitFilterTest {
     }
 
     @Test
-    void extractCustomerIdReturnsNullForEmptyOrInvalidBody() throws Exception {
-        MockHttpServletRequest empty = new MockHttpServletRequest("POST", "/api/v1/orders");
-        empty.setContent(new byte[0]);
-        ContentCachingRequestWrapper emptyWrapped = new ContentCachingRequestWrapper(empty, 64 * 1024);
-        emptyWrapped.getInputStream().readAllBytes();
-        assertThat((Long) ReflectionTestUtils.invokeMethod(filter, "extractCustomerId", emptyWrapped)).isNull();
-
-        MockHttpServletRequest invalid = new MockHttpServletRequest("POST", "/api/v1/orders");
-        invalid.setContent("{not-json".getBytes());
-        ContentCachingRequestWrapper invalidWrapped = new ContentCachingRequestWrapper(invalid, 64 * 1024);
-        invalidWrapped.getInputStream().readAllBytes();
-        assertThat((Long) ReflectionTestUtils.invokeMethod(filter, "extractCustomerId", invalidWrapped)).isNull();
-
-        MockHttpServletRequest noCustomer = new MockHttpServletRequest("POST", "/api/v1/orders");
-        noCustomer.setContent("{\"items\":[]}".getBytes());
-        ContentCachingRequestWrapper noCustomerWrapped = new ContentCachingRequestWrapper(noCustomer, 64 * 1024);
-        noCustomerWrapped.getInputStream().readAllBytes();
-        assertThat((Long) ReflectionTestUtils.invokeMethod(filter, "extractCustomerId", noCustomerWrapped)).isNull();
+    void extractCustomerIdReturnsNullForEmptyOrInvalidBody() {
+        assertThat((Long) ReflectionTestUtils.invokeMethod(filter, "extractCustomerId", (Object) new byte[0])).isNull();
+        assertThat((Long) ReflectionTestUtils.invokeMethod(
+                filter, "extractCustomerId", (Object) "{not-json".getBytes(StandardCharsets.UTF_8))).isNull();
+        assertThat((Long) ReflectionTestUtils.invokeMethod(
+                filter, "extractCustomerId", (Object) "{\"items\":[]}".getBytes(StandardCharsets.UTF_8))).isNull();
     }
 
     @Test

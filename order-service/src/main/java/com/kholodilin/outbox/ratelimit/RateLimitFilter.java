@@ -21,7 +21,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -71,9 +70,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        ContentCachingRequestWrapper wrapped = new ContentCachingRequestWrapper(request, 64 * 1024);
-        // Cache the body so per-customer limiting can read customerId without consuming the stream for downstream.
-        wrapped.getInputStream().readAllBytes();
+        // Buffer once so per-customer limiting can parse customerId and the controller still sees the body.
+        CachedBodyHttpServletRequest wrapped = new CachedBodyHttpServletRequest(request, request.getInputStream().readAllBytes());
         double multiplier = throttleMultiplier();
 
         if (!tryConsume(globalBucket, multiplier)) {
@@ -88,7 +86,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        Long customerId = extractCustomerId(wrapped);
+        Long customerId = extractCustomerId(wrapped.getCachedBody());
         if (customerId != null) {
             Bucket customerBucket = customerBuckets.computeIfAbsent(customerId, key -> createBucket(properties.getRateLimit().getPerCustomer()));
             if (!tryConsume(customerBucket, multiplier)) {
@@ -138,8 +136,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return request.getRemoteAddr();
     }
 
-    private Long extractCustomerId(ContentCachingRequestWrapper request) {
-        byte[] content = request.getContentAsByteArray();
+    private Long extractCustomerId(byte[] content) {
         if (content.length == 0) {
             return null;
         }
