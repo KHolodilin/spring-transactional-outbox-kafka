@@ -13,3 +13,6 @@ logs/
 *-smoke.err
 *.pid
 
+# Local planning drafts (not for git)
+docs/todo/
+
