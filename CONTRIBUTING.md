@@ -36,6 +36,16 @@ mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
 mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
+Peer services for the servlet vs reactive vs Virtual Threads A/B load comparison (run one peer under load at a time — see [docs/ab-load-comparison.md](docs/ab-load-comparison.md)):
+
+```bash
+# WebFlux + R2DBC peer (port 8083)
+mvn -pl order-service-reactive spring-boot:run -Dspring-boot.run.profiles=dev
+
+# Virtual Threads + JDBC peer (port 8084)
+mvn -pl order-service-vt spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
 Metrics: Prometheus http://localhost:9090, Grafana http://localhost:3000 — see [README Observability](README.md#observability).
 
 ### Centralized logging (OpenSearch)
@@ -107,7 +117,10 @@ Without `CODECOV_TOKEN`, the CI upload step fails (`fail_ci_if_error: true`).
 |--------|---------|
 | `outbox-events-contract` | Shared event DTOs and enums |
 | `order-service` | REST API, transactional outbox, Kafka publisher |
+| `order-service-reactive` | WebFlux + R2DBC peer (A/B load comparison, port 8083) |
+| `order-service-vt` | Virtual Threads + JDBC peer (A/B load comparison, port 8084) |
 | `notification-stub` | Demo downstream consumer |
+| `load-tests` | Gatling load tests for servlet / reactive / VT — see [docs/ab-load-comparison.md](docs/ab-load-comparison.md) |
 
 Package base: `com.kholodilin.outbox`.
 
