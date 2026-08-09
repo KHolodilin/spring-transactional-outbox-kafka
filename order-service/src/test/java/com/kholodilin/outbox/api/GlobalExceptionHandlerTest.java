@@ -1,6 +1,7 @@
 package com.kholodilin.outbox.api;
 
-import com.kholodilin.outbox.idempotency.IdempotencyConflictException;
+import com.kholodilin.idempotency.IdempotencyConflictException;
+import com.kholodilin.idempotency.IdempotencyKey;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,12 +30,16 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void mapsIdempotencyConflictTo409ProblemDetail() {
-        ProblemDetail problem = handler.handleIdempotencyConflict(
-                new IdempotencyConflictException("Key conflict"));
+        IdempotencyConflictException ex = new IdempotencyConflictException(
+                new IdempotencyKey("CREATE_ORDER:1", "key-1"),
+                "hash-a",
+                "hash-b"
+        );
+        ProblemDetail problem = handler.handleIdempotencyConflict(ex);
 
         assertThat(problem.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
         assertThat(problem.getTitle()).isEqualTo("Idempotency conflict");
-        assertThat(problem.getDetail()).isEqualTo("Key conflict");
+        assertThat(problem.getDetail()).isEqualTo(ex.getMessage());
     }
 
     @Test

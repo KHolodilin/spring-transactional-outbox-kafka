@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.0</version>
+        <version>4.1.0</version>
         <relativePath/>
     </parent>
 
@@ -32,6 +32,7 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <jacoco.version>0.8.12</jacoco.version>
         <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
+        <idempotency-starter.version>0.1.1</idempotency-starter.version>
         <mockito.agent.argLine>-javaagent:@{org.mockito:mockito-core:jar}</mockito.agent.argLine>
     </properties>
 
@@ -59,6 +60,11 @@
                 <groupId>com.bucket4j</groupId>
                 <artifactId>bucket4j-core</artifactId>
                 <version>${bucket4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.kholodilin</groupId>
+                <artifactId>spring-boot-idempotency-starter</artifactId>
+                <version>${idempotency-starter.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.testcontainers</groupId>

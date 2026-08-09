@@ -11,6 +11,14 @@ management:
   tracing:
     enabled: false
 
+idempotency:
+  enabled: true
+  persistence:
+    enabled: true
+    table-name: idempotency_records
+    schema:
+      mode: validate
+
 app:
   outbox:
     recovery:
