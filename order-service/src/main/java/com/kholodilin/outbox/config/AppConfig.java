@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
 public class AppConfig {
 
     /**
-     * Shared Jackson 3 {@link ObjectMapper} for HTTP bodies, idempotency JSON, and outbox payloads.
+     * Shared Jackson 3 {@link ObjectMapper} for HTTP bodies and outbox payloads.
      */
     @Bean
     public ObjectMapper objectMapper() {

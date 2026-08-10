@@ -29,14 +29,11 @@ class OrderControllerTest {
     @Mock
     private OrderTransactionService orderTransactionService;
 
-    @Mock
-    private RequestHashCalculator requestHashCalculator;
-
     private OrderController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new OrderController(orderTransactionService, requestHashCalculator);
+        controller = new OrderController(orderTransactionService);
     }
 
     @AfterEach
@@ -48,8 +45,7 @@ class OrderControllerTest {
     void returnsCachedResponseWhenIdempotentReplay() {
         CreateOrderRequest request = sampleRequest("corr-1");
         CreateOrderResponse cached = new CreateOrderResponse(1L, 2L, "ACCEPTED", Instant.now());
-        when(requestHashCalculator.calculate(request)).thenReturn("hash");
-        when(orderTransactionService.createOrder(request, "idem", "hash"))
+        when(orderTransactionService.createOrder(request, "idem"))
                 .thenReturn(new OrderCreateOutcome(cached, false));
 
         ResponseEntity<CreateOrderResponse> response = controller.createOrder("idem", request);
@@ -62,15 +58,14 @@ class OrderControllerTest {
     void createsOrderWhenClaimSucceeds() {
         CreateOrderRequest request = sampleRequest(null);
         CreateOrderResponse created = new CreateOrderResponse(10L, 20L, "ACCEPTED", Instant.now());
-        when(requestHashCalculator.calculate(request)).thenReturn("hash");
-        when(orderTransactionService.createOrder(request, "idem", "hash"))
+        when(orderTransactionService.createOrder(request, "idem"))
                 .thenReturn(new OrderCreateOutcome(created, true));
 
         ResponseEntity<CreateOrderResponse> response = controller.createOrder("idem", request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isEqualTo(created);
-        verify(orderTransactionService).createOrder(request, "idem", "hash");
+        verify(orderTransactionService).createOrder(request, "idem");
     }
 
     private static CreateOrderRequest sampleRequest(String correlationId) {

@@ -1,6 +1,6 @@
 package com.kholodilin.outbox.api;
 
-import com.kholodilin.outbox.idempotency.IdempotencyConflictException;
+import com.kholodilin.idempotency.IdempotencyConflictException;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

@@ -58,6 +58,14 @@ logging:
 deployment:
   environment: ${DEPLOYMENT_ENV:local}
 
+idempotency:
+  enabled: true
+  persistence:
+    enabled: true
+    table-name: idempotency_records
+    schema:
+      mode: validate
+
 app:
   instance-id: ${HOSTNAME:local-${random.uuid}}
   logging:

@@ -59,7 +59,7 @@ The project is built around three core workflows:
 
 1. **Normal Flow** — processes newly created outbox events with minimal latency.
 2. **Recovery Flow** — restores unpublished events after crashes or temporary failures.
-3. **Idempotent Request Flow** — prevents duplicate order creation and duplicate outbox events.
+3. **Idempotent Request Flow** — prevents duplicate order creation and duplicate outbox events (`order-service` / `order-service-vt` use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter); reactive keeps its own R2DBC stack).
 
 The **Normal Flow** and **Recovery Flow** converge into the same publishing pipeline, sharing the Memory Queue and Kafka Batch Publisher.
 
@@ -149,6 +149,8 @@ As a result, recovery performance depends only on the number of active events in
 
 ### 🔑 Idempotent Request Flow
 
+Servlet and Virtual Threads peers use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter) with PostgreSQL table `idempotency_records`. The idempotency outcome is committed in the **same transaction** as the order and outbox row.
+
 ```mermaid
 sequenceDiagram
     actor Client
@@ -157,25 +159,25 @@ sequenceDiagram
 
     Client->>Service: POST /api/v1/orders<br/>Idempotency-Key
 
-    Service->>Service: Calculate request hash
-    Service->>DB: Lookup idempotency key
+    Service->>Service: Fingerprint request (starter)
+    Service->>DB: Lookup idempotency_records
 
     alt New request
         DB-->>Service: Not found
-        Service->>DB: Business transaction
-        Service-->>Client: HTTP 200 OK
+        Service->>DB: Business transaction + persist outcome
+        Service-->>Client: HTTP 201 Created
 
     else Same key + same request
         DB-->>Service: Stored response
-        Service-->>Client: Return stored response
+        Service-->>Client: HTTP 200 OK (replay)
 
     else Same key + different request
-        DB-->>Service: Request hash mismatch
+        DB-->>Service: Fingerprint mismatch
         Service-->>Client: HTTP 409 Conflict
     end
 ```
 
-Each request is uniquely identified by the combination of **customerId** and **Idempotency-Key**.
+Each request is uniquely identified by the combination of **customerId** and **Idempotency-Key** (`operation = CREATE_ORDER:{customerId}`).
 
 For a new request, the service executes the business transaction and stores the response. If the same request is received again with an identical payload, the stored response is returned immediately. If the payload differs, the request is rejected with **HTTP 409 Conflict**.
 
