@@ -1,9 +1,9 @@
 package com.kholodilin.outbox.order;
 
 import com.kholodilin.idempotency.ExecutionResult;
-import com.kholodilin.idempotency.IdempotencyConflictException;
-import com.kholodilin.idempotency.IdempotencyKey;
 import com.kholodilin.idempotency.IdempotencyService;
+import com.kholodilin.idempotency.exception.IdempotencyConflictException;
+import com.kholodilin.idempotency.model.IdempotencyKey;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.OrderItemRequest;

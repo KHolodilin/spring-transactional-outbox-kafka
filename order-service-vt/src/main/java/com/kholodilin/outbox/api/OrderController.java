@@ -27,7 +27,7 @@ import java.util.UUID;
  * Idempotency is handled by {@code spring-boot-idempotency-starter} inside
  * {@link OrderTransactionService#createOrder}: same key + same body → 200 with stored response;
  * new key → create (201); same key + different body →
- * {@link com.kholodilin.idempotency.IdempotencyConflictException} mapped to HTTP 409 by
+ * {@link com.kholodilin.idempotency.exception.IdempotencyConflictException} mapped to HTTP 409 by
  * {@link GlobalExceptionHandler}.
  */
 @Slf4j
@@ -44,7 +44,7 @@ public class OrderController {
      * @param idempotencyKey client-supplied key ({@code Idempotency-Key} header); scoped per customer
      * @param request        validated order payload (also included in the request fingerprint)
      * @return {@code 201} for a new order, {@code 200} when replaying the same key + body;
-     *         {@code 409} is thrown as {@link com.kholodilin.idempotency.IdempotencyConflictException}
+     *         {@code 409} is thrown as {@link com.kholodilin.idempotency.exception.IdempotencyConflictException}
      *         and mapped by {@link GlobalExceptionHandler}
      */
     @PostMapping
