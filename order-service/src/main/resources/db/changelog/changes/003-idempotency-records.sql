@@ -1,9 +1,6 @@
 --liquibase formatted sql
 
---changeset outbox:006-drop-idempotency-keys
-DROP TABLE IF EXISTS idempotency_keys CASCADE;
-
---changeset outbox:006-idempotency-records
+--changeset outbox:003-idempotency-records
 CREATE TABLE idempotency_records (
     operation        VARCHAR(128)  NOT NULL,
     idempotency_key  VARCHAR(255)  NOT NULL,

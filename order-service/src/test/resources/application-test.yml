@@ -19,13 +19,29 @@ idempotency:
     schema:
       mode: validate
 
-app:
-  outbox:
+outbox:
+  enabled: true
+  instance-id: test-instance
+  defaults:
+    persistence:
+      schema:
+        mode: none
+    queue:
+      type: memory
+      capacity: 100
+      batch-size: 50
+      batch-wait: 20ms
+      usage-threshold: 0.8
+    publisher:
+      enabled: true
+      lease-duration: 30s
+      max-retries: 5
     recovery:
       enabled: true
-      interval: 2s
-    memory-queue:
-      capacity: 100
+      interval: 1s
+      batch-size: 500
+
+app:
   rate-limit:
     global:
       capacity: 1000

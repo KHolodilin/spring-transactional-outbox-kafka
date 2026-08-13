@@ -31,6 +31,10 @@
             <artifactId>spring-boot-idempotency-starter</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.kholodilin</groupId>
+            <artifactId>spring-boot-outbox-starter</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>

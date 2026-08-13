@@ -1,13 +1,14 @@
 package com.kholodilin.outbox.ratelimit;
 
 import tools.jackson.databind.json.JsonMapper;
+import com.kholodilin.outbox.channel.OutboxChannel;
+import com.kholodilin.outbox.channel.OutboxChannelProperties;
+import com.kholodilin.outbox.channel.OutboxChannelRegistry;
 import com.kholodilin.outbox.config.AppProperties;
-import com.kholodilin.outbox.config.MemoryQueueProperties;
-import com.kholodilin.outbox.config.OutboxProperties;
 import com.kholodilin.outbox.config.RateLimitBucketProperties;
 import com.kholodilin.outbox.config.RateLimitProperties;
-import com.kholodilin.outbox.metrics.OutboxMetrics;
-import com.kholodilin.outbox.queue.InMemoryEventQueue;
+import com.kholodilin.outbox.metrics.OrderServiceMetrics;
+import com.kholodilin.outbox.spi.OutboxDispatchQueue;
 import io.github.bucket4j.Bucket;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.FilterChain;
@@ -30,7 +31,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -41,7 +41,16 @@ import java.nio.charset.StandardCharsets;
 class RateLimitFilterTest {
 
     @Mock
-    private InMemoryEventQueue eventQueue;
+    private OutboxChannelRegistry channelRegistry;
+
+    @Mock
+    private OutboxChannel channel;
+
+    @Mock
+    private OutboxDispatchQueue queue;
+
+    @Mock
+    private OutboxChannelProperties channelProperties;
 
     @Mock
     private FilterChain filterChain;
@@ -50,15 +59,19 @@ class RateLimitFilterTest {
     private Bucket globalBucket;
 
     private RateLimitFilter filter;
-    private OutboxMetrics metrics;
+    private OrderServiceMetrics metrics;
 
     @BeforeEach
     void setUp() {
-        metrics = new OutboxMetrics(new SimpleMeterRegistry());
+        metrics = new OrderServiceMetrics(new SimpleMeterRegistry());
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
-        filter = new RateLimitFilter(strictProperties(), eventQueue, metrics, JsonMapper.builder().build());
+        filter = new RateLimitFilter(strictProperties(), channelRegistry, metrics, JsonMapper.builder().build());
         ReflectionTestUtils.setField(filter, "globalBucket", globalBucket);
-        lenient().when(eventQueue.pressure()).thenReturn(0.0);
+        lenient().when(channelRegistry.getRequired("default")).thenReturn(channel);
+        lenient().when(channel.queue()).thenReturn(queue);
+        lenient().when(channel.properties()).thenReturn(channelProperties);
+        lenient().when(channelProperties.usageThreshold()).thenReturn(0.5);
+        lenient().when(queue.pressure()).thenReturn(0.0);
         lenient().when(globalBucket.tryConsume(anyLong())).thenReturn(true);
     }
 
@@ -104,7 +117,7 @@ class RateLimitFilterTest {
 
     @Test
     void appliesAdaptiveThrottleWhenQueuePressureHigh() throws Exception {
-        when(eventQueue.pressure()).thenReturn(0.9);
+        when(queue.pressure()).thenReturn(0.9);
         when(globalBucket.tryConsume(2L)).thenReturn(false);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -143,9 +156,6 @@ class RateLimitFilterTest {
                         .perIp(one)
                         .perCustomer(one)
                         .throttleMultiplier(0.5)
-                        .build())
-                .outbox(OutboxProperties.builder()
-                        .memoryQueue(MemoryQueueProperties.builder().usageThreshold(0.5).build())
                         .build())
                 .build();
     }

@@ -2,7 +2,7 @@ package com.kholodilin.outbox.ratelimit;
 
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.logging.StructuredLogContext;
-import com.kholodilin.outbox.metrics.OutboxMetrics;
+import com.kholodilin.outbox.metrics.OrderServiceMetrics;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -31,7 +31,7 @@ import java.util.concurrent.Semaphore;
 public class CreateConcurrencyFilter extends OncePerRequestFilter {
 
     private final AppProperties properties;
-    private final OutboxMetrics metrics;
+    private final OrderServiceMetrics metrics;
 
     private Semaphore createPermits;
     private int maxConcurrentCreates;

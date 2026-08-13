@@ -2,7 +2,7 @@ package com.kholodilin.outbox.ratelimit;
 
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.config.BackpressureProperties;
-import com.kholodilin.outbox.metrics.OutboxMetrics;
+import com.kholodilin.outbox.metrics.OrderServiceMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
@@ -32,11 +32,12 @@ class CreateConcurrencyFilterTest {
 
     private CreateConcurrencyFilter filter;
     private SimpleMeterRegistry registry;
+    private OrderServiceMetrics metrics;
 
     @BeforeEach
     void setUp() {
         registry = new SimpleMeterRegistry();
-        OutboxMetrics metrics = new OutboxMetrics(registry);
+        metrics = new OrderServiceMetrics(registry);
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         AppProperties properties = AppProperties.builder()
                 .backpressure(BackpressureProperties.builder().maxConcurrentCreates(1).build())

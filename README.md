@@ -59,7 +59,7 @@ The project is built around three core workflows:
 
 1. **Normal Flow** — processes newly created outbox events with minimal latency.
 2. **Recovery Flow** — restores unpublished events after crashes or temporary failures.
-3. **Idempotent Request Flow** — prevents duplicate order creation and duplicate outbox events (`order-service` / `order-service-vt` use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter); reactive keeps its own R2DBC stack).
+3. **Idempotent Request Flow** — prevents duplicate order creation and duplicate outbox events (`order-service` / `order-service-vt` use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter) `0.3.0` and [`spring-boot-outbox-starter`](https://github.com/KHolodilin/spring-boot-outbox-starter) `0.1.0`; reactive keeps its own R2DBC stack).
 
 The **Normal Flow** and **Recovery Flow** converge into the same publishing pipeline, sharing the Memory Queue and Kafka Batch Publisher.
 
@@ -149,7 +149,7 @@ As a result, recovery performance depends only on the number of active events in
 
 ### 🔑 Idempotent Request Flow
 
-Servlet and Virtual Threads peers use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter) with PostgreSQL table `idempotency_records`. The idempotency outcome is committed in the **same transaction** as the order and outbox row.
+Servlet and Virtual Threads peers use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter) `0.3.0` (fluent API) and [`spring-boot-outbox-starter`](https://github.com/KHolodilin/spring-boot-outbox-starter) `0.1.0` with PostgreSQL tables `idempotency_records` / `outbox_events`. The idempotency outcome is committed in the **same transaction** as the order and outbox row.
 
 ```mermaid
 sequenceDiagram

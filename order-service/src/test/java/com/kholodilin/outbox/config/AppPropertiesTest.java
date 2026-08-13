@@ -12,7 +12,6 @@ class AppPropertiesTest {
 
         assertThat(properties.getInstanceId()).isEqualTo("pod-a");
         assertThat(properties.getKafka()).isNotNull();
-        assertThat(properties.getOutbox()).isNotNull();
         assertThat(properties.getRateLimit()).isNotNull();
         assertThat(properties.getBackpressure()).isNotNull();
         assertThat(properties.getBackpressure().getMaxConcurrentCreates()).isEqualTo(55);

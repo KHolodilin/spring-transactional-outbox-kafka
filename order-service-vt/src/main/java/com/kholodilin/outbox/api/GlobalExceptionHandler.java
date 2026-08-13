@@ -1,7 +1,7 @@
 package com.kholodilin.outbox.api;
 
 import com.kholodilin.idempotency.exception.IdempotencyConflictException;
-import com.kholodilin.outbox.metrics.OutboxMetrics;
+import com.kholodilin.outbox.metrics.OrderServiceMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -17,7 +17,7 @@ import java.sql.SQLTransientConnectionException;
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
-    private final OutboxMetrics metrics;
+    private final OrderServiceMetrics metrics;
 
     /**
      * Maps {@link IdempotencyConflictException} to HTTP 409 Problem Details.
