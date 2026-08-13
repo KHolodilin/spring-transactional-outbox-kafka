@@ -98,6 +98,31 @@ class OrderTransactionServiceTest {
         assertThat(outcome.response().eventId()).isEqualTo(200L);
         assertThat(outcome.response().status()).isEqualTo("ACCEPTED");
         verify(orderJdbcRepository).insertOrderItem(eq(100L), eq(42L), eq("sku-1"), eq(2), eq(BigDecimal.valueOf(5)), any(Instant.class));
+        verify(outboxAppend).header("correlationId", "corr-1");
+        verify(outboxAppend).append();
+    }
+
+    @Test
+    void createOrderOmitsCorrelationHeaderWhenAbsent() {
+        CreateOrderRequest request = new CreateOrderRequest(
+                42L,
+                List.of(new OrderItemRequest("sku-1", 2, BigDecimal.valueOf(5))),
+                null
+        );
+
+        when(orderJdbcRepository.insertOrder(eq(42L), eq(BigDecimal.valueOf(10)), any(Instant.class))).thenReturn(100L);
+        when(outboxEventFactory.buildOrderCreatedPayload(100L, request)).thenReturn("{\"orderId\":100}");
+        when(outboxEventFactory.eventType()).thenReturn("OrderCreated");
+        when(traceContextSupport.captureTraceParent()).thenReturn("00-trace");
+        stubIdempotencyExecuteAction();
+        stubOutboxAppend(200L);
+
+        OrderCreateOutcome outcome = service.createOrder(request, "idem-key");
+
+        assertThat(outcome.created()).isTrue();
+        verify(outboxAppend, never()).header(eq("correlationId"), anyString());
+        verify(outboxAppend).header("orderId", "100");
+        verify(outboxAppend).header("customerId", "42");
         verify(outboxAppend).append();
     }
 
