@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.util.concurrent.Semaphore;
 
 /**
- * Limits concurrent create-order transactions so ingress cannot exhaust the JDBC pool.
+ * Create-order concurrency bulkhead so ingress cannot exhaust the JDBC pool.
  * <p>
  * Runs after {@link RateLimitFilter}. Failed {@code tryAcquire} returns HTTP 429 immediately
  * (no wait on Hikari {@code connection-timeout}).
@@ -28,7 +28,7 @@ import java.util.concurrent.Semaphore;
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 50)
 @RequiredArgsConstructor
-public class CreateConcurrencyFilter extends OncePerRequestFilter {
+public class CreateBulkheadFilter extends OncePerRequestFilter {
 
     private final AppProperties properties;
     private final OrderServiceMetrics metrics;
@@ -38,9 +38,9 @@ public class CreateConcurrencyFilter extends OncePerRequestFilter {
 
     @PostConstruct
     void init() {
-        maxConcurrentCreates = Math.max(1, properties.getBackpressure().getMaxConcurrentCreates());
+        maxConcurrentCreates = Math.max(1, properties.getBulkhead().getMaxConcurrentCreates());
         createPermits = new Semaphore(maxConcurrentCreates, true);
-        metrics.updateBackpressureInFlight(0);
+        metrics.updateBulkheadInFlight(0);
     }
 
     /**
@@ -61,18 +61,18 @@ public class CreateConcurrencyFilter extends OncePerRequestFilter {
             reject(response);
             return;
         }
-        metrics.updateBackpressureInFlight(maxConcurrentCreates - createPermits.availablePermits());
+        metrics.updateBulkheadInFlight(maxConcurrentCreates - createPermits.availablePermits());
         try {
             filterChain.doFilter(request, response);
         } finally {
             createPermits.release();
-            metrics.updateBackpressureInFlight(maxConcurrentCreates - createPermits.availablePermits());
+            metrics.updateBulkheadInFlight(maxConcurrentCreates - createPermits.availablePermits());
         }
     }
 
     private void reject(HttpServletResponse response) throws IOException {
-        StructuredLogContext.putEventAction("http.request.rejected.backpressure");
-        metrics.incrementBackpressureRejects();
+        StructuredLogContext.putEventAction("http.request.rejected.bulkhead");
+        metrics.incrementBulkheadRejects();
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.getWriter().write(

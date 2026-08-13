@@ -28,9 +28,9 @@ class OutboxMetricsTest {
         metrics.incrementRetryCount();
         metrics.incrementRecoveryCount(3);
         metrics.incrementRateLimitRejects();
-        metrics.incrementBackpressureRejects();
+        metrics.incrementBulkheadRejects();
         metrics.incrementPoolExhaustedRejects();
-        metrics.updateBackpressureInFlight(12);
+        metrics.updateBulkheadInFlight(12);
         metrics.recordPublishedBatch(4, 1_000_000L);
 
         assertThat(registry.get("outbox.queue.size").gauge().value()).isEqualTo(5.0);
@@ -38,8 +38,8 @@ class OutboxMetricsTest {
         assertThat(registry.get("outbox.queue.enqueue").counter().count()).isEqualTo(1.0);
         assertThat(registry.get("outbox.publish.failures").counter().count()).isEqualTo(1.0);
         assertThat(registry.get("outbox.recovery.count").counter().count()).isEqualTo(3.0);
-        assertThat(registry.get("outbox.backpressure.rejects").counter().count()).isEqualTo(1.0);
+        assertThat(registry.get("order.bulkhead.rejects").counter().count()).isEqualTo(1.0);
         assertThat(registry.get("outbox.pool_exhausted.rejects").counter().count()).isEqualTo(1.0);
-        assertThat(registry.get("outbox.backpressure.in_flight").gauge().value()).isEqualTo(12.0);
+        assertThat(registry.get("order.bulkhead.in_flight").gauge().value()).isEqualTo(12.0);
     }
 }

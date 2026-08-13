@@ -30,11 +30,7 @@ public class AppProperties {
 
     /** Concurrent create-order bulkhead (protects Hikari from oversubscription). */
     @Builder.Default
-    private BackpressureProperties backpressure = BackpressureProperties.builder().build();
-
-    /** Thresholds used by custom Actuator health indicators. */
-    @Builder.Default
-    private HealthProperties health = HealthProperties.builder().build();
+    private BulkheadProperties bulkhead = BulkheadProperties.builder().build();
 
     /** JSON file logging for centralized log shipping. */
     @Builder.Default

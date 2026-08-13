@@ -36,8 +36,6 @@ import java.util.function.Supplier;
  * Both {@link Tracer} and {@link Propagator} are optional ({@link ObjectProvider}). When either
  * is missing (tests, tracing disabled), capture methods return {@code null} and
  * {@code runWithTraceParent} executes {@code action} without opening a span.
- *
- * @see OutboxTracing
  */
 @Component
 public class TraceContextSupport {

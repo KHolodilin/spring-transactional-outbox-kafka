@@ -1,7 +1,7 @@
 package com.kholodilin.outbox.ratelimit;
 
 import com.kholodilin.outbox.config.AppProperties;
-import com.kholodilin.outbox.config.BackpressureProperties;
+import com.kholodilin.outbox.config.BulkheadProperties;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
@@ -30,12 +30,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class CreateConcurrencyWebFilterTest {
+class CreateBulkheadWebFilterTest {
 
     @Mock
     private WebFilterChain chain;
 
-    private CreateConcurrencyWebFilter filter;
+    private CreateBulkheadWebFilter filter;
     private SimpleMeterRegistry registry;
 
     @BeforeEach
@@ -44,9 +44,9 @@ class CreateConcurrencyWebFilterTest {
         OutboxMetrics metrics = new OutboxMetrics(registry);
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         AppProperties properties = AppProperties.builder()
-                .backpressure(BackpressureProperties.builder().maxConcurrentCreates(1).build())
+                .bulkhead(BulkheadProperties.builder().maxConcurrentCreates(1).build())
                 .build();
-        filter = new CreateConcurrencyWebFilter(properties, metrics);
+        filter = new CreateBulkheadWebFilter(properties, metrics);
         ReflectionTestUtils.invokeMethod(filter, "init");
         org.mockito.Mockito.lenient().when(chain.filter(any())).thenReturn(Mono.empty());
     }
@@ -78,7 +78,7 @@ class CreateConcurrencyWebFilterTest {
         StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
         verify(chain).filter(exchange);
-        assertThat(registry.find("outbox.backpressure.in_flight").gauge().value()).isEqualTo(0.0);
+        assertThat(registry.find("order.bulkhead.in_flight").gauge().value()).isEqualTo(0.0);
     }
 
     @Test
@@ -91,8 +91,8 @@ class CreateConcurrencyWebFilterTest {
         StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
-        assertThat(MDC.get("event.action")).isEqualTo("http.request.rejected.backpressure");
-        assertThat(registry.find("outbox.backpressure.rejects").counter().count()).isEqualTo(1.0);
+        assertThat(MDC.get("event.action")).isEqualTo("http.request.rejected.bulkhead");
+        assertThat(registry.find("order.bulkhead.rejects").counter().count()).isEqualTo(1.0);
         verifyNoInteractions(chain);
 
         permits.release();

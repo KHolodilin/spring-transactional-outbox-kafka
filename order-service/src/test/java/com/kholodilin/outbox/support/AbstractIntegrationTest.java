@@ -11,8 +11,10 @@ public abstract class AbstractIntegrationTest {
 
     private static final int SENT = OutboxStatus.SENT.getCode();
 
+    /** Stubs Kafka so IT can complete the starter publisher path without a broker. */
     @MockitoBean
-    protected KafkaBatchPublisher kafkaBatchPublisher;
+    @SuppressWarnings("unused")
+    private KafkaBatchPublisher kafkaBatchPublisher;
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;

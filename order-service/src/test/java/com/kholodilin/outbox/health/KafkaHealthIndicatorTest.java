@@ -1,7 +1,6 @@
 package com.kholodilin.outbox.health;
 
 import com.kholodilin.outbox.config.AppProperties;
-import com.kholodilin.outbox.config.HealthProperties;
 import com.kholodilin.outbox.config.KafkaProperties;
 import org.apache.kafka.clients.producer.Producer;
 import org.junit.jupiter.api.Test;

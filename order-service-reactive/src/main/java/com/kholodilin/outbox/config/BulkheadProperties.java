@@ -7,18 +7,18 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Limits concurrent create-order transactions so ingress cannot exhaust the R2DBC pool.
+ * Create-order concurrency bulkhead so ingress cannot exhaust the R2DBC pool.
  */
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BackpressureProperties {
+public class BulkheadProperties {
 
     /**
      * Max simultaneous {@code POST /api/v1/orders} transactions.
-     * Keep below R2DBC {@code pool.max-size} to leave headroom for publisher/recovery.
+     * Keep below the R2DBC pool size to leave headroom for publisher/recovery.
      */
     @Builder.Default
     private int maxConcurrentCreates = 55;

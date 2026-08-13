@@ -7,14 +7,14 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Limits concurrent create-order transactions so ingress cannot exhaust the JDBC pool.
+ * Create-order concurrency bulkhead so ingress cannot exhaust the JDBC pool.
  */
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BackpressureProperties {
+public class BulkheadProperties {
 
     /**
      * Max simultaneous {@code POST /api/v1/orders} transactions.

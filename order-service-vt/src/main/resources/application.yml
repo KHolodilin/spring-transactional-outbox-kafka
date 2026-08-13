@@ -111,11 +111,8 @@ app:
     per-ip:
       capacity: 50
       refill-per-second: 5
-  backpressure:
+  bulkhead:
     max-concurrent-creates: 55
-  health:
-    queue-pressure-critical: 0.95
-    outbox-pending-critical: 10000
 
 server:
   port: 8084

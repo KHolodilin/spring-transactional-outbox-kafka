@@ -1,7 +1,7 @@
 package com.kholodilin.outbox.ratelimit;
 
 import com.kholodilin.outbox.config.AppProperties;
-import com.kholodilin.outbox.config.BackpressureProperties;
+import com.kholodilin.outbox.config.BulkheadProperties;
 import com.kholodilin.outbox.metrics.OrderServiceMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.FilterChain;
@@ -25,12 +25,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
-class CreateConcurrencyFilterTest {
+class CreateBulkheadFilterTest {
 
     @Mock
     private FilterChain filterChain;
 
-    private CreateConcurrencyFilter filter;
+    private CreateBulkheadFilter filter;
     private SimpleMeterRegistry registry;
     private OrderServiceMetrics metrics;
 
@@ -40,9 +40,9 @@ class CreateConcurrencyFilterTest {
         metrics = new OrderServiceMetrics(registry);
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         AppProperties properties = AppProperties.builder()
-                .backpressure(BackpressureProperties.builder().maxConcurrentCreates(1).build())
+                .bulkhead(BulkheadProperties.builder().maxConcurrentCreates(1).build())
                 .build();
-        filter = new CreateConcurrencyFilter(properties, metrics);
+        filter = new CreateBulkheadFilter(properties, metrics);
         ReflectionTestUtils.invokeMethod(filter, "init");
     }
 
@@ -65,7 +65,7 @@ class CreateConcurrencyFilterTest {
 
         assertThat(response.getStatus()).isEqualTo(200);
         verify(filterChain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(response));
-        assertThat(registry.find("outbox.backpressure.in_flight").gauge().value()).isEqualTo(0.0);
+        assertThat(registry.find("order.bulkhead.in_flight").gauge().value()).isEqualTo(0.0);
     }
 
     @Test
@@ -78,8 +78,8 @@ class CreateConcurrencyFilterTest {
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
         assertThat(response.getContentAsString()).contains("Create concurrency limit exceeded");
-        assertThat(MDC.get("event.action")).isEqualTo("http.request.rejected.backpressure");
-        assertThat(registry.find("outbox.backpressure.rejects").counter().count()).isEqualTo(1.0);
+        assertThat(MDC.get("event.action")).isEqualTo("http.request.rejected.bulkhead");
+        assertThat(registry.find("order.bulkhead.rejects").counter().count()).isEqualTo(1.0);
         verifyNoInteractions(filterChain);
 
         permits.release();

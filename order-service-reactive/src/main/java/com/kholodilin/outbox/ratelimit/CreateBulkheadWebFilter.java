@@ -21,14 +21,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Semaphore;
 
 /**
- * Limits concurrent create-order transactions so ingress cannot exhaust the R2DBC pool.
+ * Create-order concurrency bulkhead so ingress cannot exhaust the R2DBC pool.
  * <p>
  * Runs after {@link RateLimitWebFilter}. Failed {@code tryAcquire} returns HTTP 429 immediately
  * (no wait on R2DBC {@code max-acquire-time}).
  */
 @Component
 @RequiredArgsConstructor
-public class CreateConcurrencyWebFilter implements WebFilter, Ordered {
+public class CreateBulkheadWebFilter implements WebFilter, Ordered {
 
     private final AppProperties properties;
     private final OutboxMetrics metrics;
@@ -38,9 +38,9 @@ public class CreateConcurrencyWebFilter implements WebFilter, Ordered {
 
     @PostConstruct
     void init() {
-        maxConcurrentCreates = Math.max(1, properties.getBackpressure().getMaxConcurrentCreates());
+        maxConcurrentCreates = Math.max(1, properties.getBulkhead().getMaxConcurrentCreates());
         createPermits = new Semaphore(maxConcurrentCreates, true);
-        metrics.updateBackpressureInFlight(0);
+        metrics.updateBulkheadInFlight(0);
     }
 
     @Override
@@ -59,17 +59,17 @@ public class CreateConcurrencyWebFilter implements WebFilter, Ordered {
         if (!createPermits.tryAcquire()) {
             return reject(exchange);
         }
-        metrics.updateBackpressureInFlight(maxConcurrentCreates - createPermits.availablePermits());
+        metrics.updateBulkheadInFlight(maxConcurrentCreates - createPermits.availablePermits());
         return chain.filter(exchange)
                 .doFinally(signal -> {
                     createPermits.release();
-                    metrics.updateBackpressureInFlight(maxConcurrentCreates - createPermits.availablePermits());
+                    metrics.updateBulkheadInFlight(maxConcurrentCreates - createPermits.availablePermits());
                 });
     }
 
     private Mono<Void> reject(ServerWebExchange exchange) {
-        StructuredLogContext.putEventAction("http.request.rejected.backpressure");
-        metrics.incrementBackpressureRejects();
+        StructuredLogContext.putEventAction("http.request.rejected.bulkhead");
+        metrics.incrementBulkheadRejects();
         exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_PROBLEM_JSON);
         byte[] body = "{\"title\":\"Too Many Requests\",\"status\":429,\"detail\":\"Create concurrency limit exceeded\"}"

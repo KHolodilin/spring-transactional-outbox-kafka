@@ -40,15 +40,13 @@ import org.springframework.util.AntPathMatcher;
  * themselves.
  * <p>
  * <b>What is not excluded.</b>
- * Business HTTP APIs, JDBC, Kafka, and explicit {@link OutboxTracing} spans continue to be
- * observed and exported as usual.
+ * Business HTTP APIs, JDBC, Kafka, and outbox publish spans continue to be observed and
+ * exported as usual.
  * <p>
  * <b>Exceptions / failures.</b>
  * These beans never throw into request handling. A mis-matched path simply means a scrape
  * might still produce a span (too much data), never that actuator health fails. Predicates
  * must stay side-effect free.
- *
- * @see RecoveryTracingConfig
  */
 @Configuration
 public class ActuatorTracingExclusionConfig {

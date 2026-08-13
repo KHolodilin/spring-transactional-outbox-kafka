@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * App-owned Micrometer meters for order-service (rate limit, backpressure, pool, order TX).
+ * App-owned Micrometer meters for order-service (rate limit, create bulkhead, pool, order TX).
  * Outbox pipeline meters are provided by {@code spring-boot-outbox-starter}.
  */
 @Component
@@ -22,19 +22,19 @@ public class OrderServiceMetrics {
 
     private Timer orderTransaction;
     private Counter rateLimitRejects;
-    private Counter backpressureRejects;
+    private Counter bulkheadRejects;
     private Counter poolExhaustedRejects;
-    private final AtomicInteger backpressureInFlight = new AtomicInteger();
+    private final AtomicInteger bulkheadInFlight = new AtomicInteger();
 
     @PostConstruct
     void registerMeters() {
-        Gauge.builder("outbox.backpressure.in_flight", backpressureInFlight, AtomicInteger::get).register(registry);
+        Gauge.builder("order.bulkhead.in_flight", bulkheadInFlight, AtomicInteger::get).register(registry);
         orderTransaction = Timer.builder("order.transaction")
                 .publishPercentileHistogram()
                 .publishPercentiles(0.5, 0.95, 0.99)
                 .register(registry);
         rateLimitRejects = Counter.builder("outbox.rate_limit.rejects").register(registry);
-        backpressureRejects = Counter.builder("outbox.backpressure.rejects").register(registry);
+        bulkheadRejects = Counter.builder("order.bulkhead.rejects").register(registry);
         poolExhaustedRejects = Counter.builder("outbox.pool_exhausted.rejects").register(registry);
     }
 
@@ -50,9 +50,9 @@ public class OrderServiceMetrics {
         rateLimitRejects.increment();
     }
 
-    /** Increments {@code outbox.backpressure.rejects} when the create bulkhead returns 429. */
-    public void incrementBackpressureRejects() {
-        backpressureRejects.increment();
+    /** Increments {@code order.bulkhead.rejects} when the create bulkhead returns 429. */
+    public void incrementBulkheadRejects() {
+        bulkheadRejects.increment();
     }
 
     /** Increments {@code outbox.pool_exhausted.rejects} when Hikari cannot hand out a connection. */
@@ -65,7 +65,7 @@ public class OrderServiceMetrics {
      *
      * @param inFlight {@code maxPermits - availablePermits}
      */
-    public void updateBackpressureInFlight(int inFlight) {
-        backpressureInFlight.set(Math.max(0, inFlight));
+    public void updateBulkheadInFlight(int inFlight) {
+        bulkheadInFlight.set(Math.max(0, inFlight));
     }
 }
