@@ -1,14 +1,13 @@
 package com.kholodilin.outbox.api;
 
 import com.kholodilin.outbox.events.EventConstants;
-import com.kholodilin.outbox.persistence.OutboxRow;
-import com.kholodilin.outbox.recovery.RecoveryWorker;
+import com.kholodilin.outbox.model.OutboxStatus;
 import com.kholodilin.outbox.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,32 +16,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 class RecoveryIT extends AbstractIntegrationTest {
 
-    @Autowired
-    private RecoveryWorker recoveryWorker;
-
-    @Autowired
-    private com.kholodilin.outbox.config.AppProperties properties;
-
     @Test
     void recoveryEnqueuesAndPublishesNewEvent() {
-        long eventId = outboxJdbcRepository.insertEvent(
-                100L,
-                55L,
+        long eventId = jdbcTemplate.queryForObject(
+                """
+                        INSERT INTO outbox_events (
+                            aggregate_id, partition_key, event_type, payload, headers,
+                            status, retry_count, created_at
+                        ) VALUES (?, ?, ?, ?::jsonb, NULL, ?, 0, ?)
+                        RETURNING id
+                        """,
+                Long.class,
+                "100",
+                "55",
                 EventConstants.EVENT_TYPE_ORDER_CREATED,
                 "{\"orderId\":100,\"customerId\":55}",
-                null,
-                Instant.now()
+                OutboxStatus.NEW.getCode(),
+                Timestamp.from(Instant.now())
         );
-
-        properties.getOutbox().getRecovery().setEnabled(true);
-        recoveryWorker.recover();
 
         awaitSentInDatabase(eventId);
 
-        assertThat(outboxJdbcRepository.findById(eventId))
-                .isPresent()
-                .get()
-                .extracting(OutboxRow::customerId)
-                .isEqualTo(55L);
+        assertThat(queryStatus(eventId)).isEqualTo(OutboxStatus.SENT.getCode());
+        assertThat(queryPartitionKey(eventId)).isEqualTo("55");
     }
 }

@@ -2,15 +2,14 @@ package com.kholodilin.outbox.order;
 
 import com.kholodilin.idempotency.ExecutionResult;
 import com.kholodilin.idempotency.IdempotencyService;
+import com.kholodilin.outbox.OutboxService;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.OrderItemRequest;
 import com.kholodilin.outbox.logging.StructuredLogContext;
-import com.kholodilin.outbox.metrics.OutboxMetrics;
-import com.kholodilin.outbox.outbox.OutboxEnqueueListener;
+import com.kholodilin.outbox.metrics.OrderServiceMetrics;
 import com.kholodilin.outbox.outbox.OutboxEventFactory;
 import com.kholodilin.outbox.persistence.OrderJdbcRepository;
-import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.tracing.TraceContextSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Writes order domain data and the outbox row in a single database transaction.
  * <p>
- * The outbox event is enqueued only after commit ({@link com.kholodilin.outbox.outbox.OutboxEnqueueListener})
+ * Outbox append uses {@link OutboxService}; the starter enqueues the event id after commit
  * so Kafka never sees events that were rolled back with the business transaction.
  * <p>
  * Idempotency is handled by {@link IdempotencyService} in the same transaction:
@@ -36,19 +35,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class OrderTransactionService {
 
     private final OrderJdbcRepository orderJdbcRepository;
-    private final OutboxJdbcRepository outboxJdbcRepository;
+    private final OutboxService outboxService;
     private final IdempotencyService idempotencyService;
     private final OutboxEventFactory outboxEventFactory;
-    private final OutboxEnqueueListener outboxEnqueueListener;
     private final TraceContextSupport traceContextSupport;
-    private final OutboxMetrics metrics;
+    private final OrderServiceMetrics metrics;
 
     /**
      * Claims the idempotency key and either creates a new order or returns a cached replay.
-     * <p>
-     * Captures W3C {@code traceparent} onto the outbox row and registers post-commit enqueue
-     * so the publisher only sees committed events. On any failure while creating, the whole unit
-     * rolls back (including the idempotency record).
      *
      * @param request        validated create-order payload
      * @param idempotencyKey client key scoped per customer via operation name
@@ -61,18 +55,15 @@ public class OrderTransactionService {
 
     private OrderCreateOutcome persistOrder(CreateOrderRequest request, String idempotencyKey) {
         AtomicBoolean executed = new AtomicBoolean(false);
-        String operation = "CREATE_ORDER:" + request.customerId();
 
-        ExecutionResult<CreateOrderResponse> result = idempotencyService.execute(
-                operation,
-                idempotencyKey,
-                request,
-                CreateOrderResponse.class,
-                () -> {
+        ExecutionResult<CreateOrderResponse> result = idempotencyService
+                .operation("CREATE_ORDER:" + request.customerId())
+                .key(idempotencyKey)
+                .request(request)
+                .execute(CreateOrderResponse.class, () -> {
                     executed.set(true);
                     return ExecutionResult.success(createOrderInternal(request));
-                }
-        );
+                });
 
         CreateOrderResponse response = result.valueOrThrow();
         return new OrderCreateOutcome(response, executed.get());
@@ -100,18 +91,21 @@ public class OrderTransactionService {
 
         String payload = outboxEventFactory.buildOrderCreatedPayload(orderId, request);
         String traceParent = traceContextSupport.captureTraceParent();
-        long eventId = outboxJdbcRepository.insertEvent(
-                orderId,
-                request.customerId(),
-                outboxEventFactory.eventType(),
-                payload,
-                traceParent,
-                now
-        );
+
+        var append = outboxService
+                .eventType(outboxEventFactory.eventType())
+                .aggregateId(String.valueOf(orderId))
+                .partitionKey(String.valueOf(request.customerId()))
+                .payload(payload)
+                .header("orderId", String.valueOf(orderId))
+                .header("customerId", String.valueOf(request.customerId()));
+        if (request.correlationId() != null) {
+            append.header("correlationId", request.correlationId());
+        }
+        long eventId = append.traceParent(traceParent).append();
         log.debug("Outbox event inserted orderId={} eventId={}", orderId, eventId);
 
         CreateOrderResponse response = new CreateOrderResponse(orderId, eventId, "ACCEPTED", now);
-        outboxEnqueueListener.enqueueAfterCommit(eventId);
         StructuredLogContext.putOrderFields(orderId, eventId);
         StructuredLogContext.putEventType(outboxEventFactory.eventType());
         StructuredLogContext.putEventAction("outbox.event.persisted");

@@ -1,8 +1,8 @@
 package com.kholodilin.outbox.api;
 
-import com.kholodilin.idempotency.IdempotencyConflictException;
-import com.kholodilin.idempotency.IdempotencyKey;
-import com.kholodilin.outbox.metrics.OutboxMetrics;
+import com.kholodilin.idempotency.exception.IdempotencyConflictException;
+import com.kholodilin.idempotency.model.IdempotencyKey;
+import com.kholodilin.outbox.metrics.OrderServiceMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ class GlobalExceptionHandlerTest {
     @BeforeEach
     void setUp() {
         registry = new SimpleMeterRegistry();
-        OutboxMetrics metrics = new OutboxMetrics(registry);
+        OrderServiceMetrics metrics = new OrderServiceMetrics(registry);
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         handler = new GlobalExceptionHandler(metrics);
     }

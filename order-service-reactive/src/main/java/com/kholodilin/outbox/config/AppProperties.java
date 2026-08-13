@@ -30,7 +30,7 @@ public class AppProperties {
 
     /** Concurrent create-order bulkhead (protects R2DBC pool from oversubscription). */
     @Builder.Default
-    private BackpressureProperties backpressure = BackpressureProperties.builder().build();
+    private BulkheadProperties bulkhead = BulkheadProperties.builder().build();
 
     @Builder.Default
     private HealthProperties health = HealthProperties.builder().build();

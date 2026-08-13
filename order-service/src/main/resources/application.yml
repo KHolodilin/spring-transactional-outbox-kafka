@@ -66,6 +66,29 @@ idempotency:
     schema:
       mode: validate
 
+outbox:
+  enabled: true
+  instance-id: ${HOSTNAME:local-${random.uuid}}
+  defaults:
+    persistence:
+      # Liquibase owns DDL (004). Starter validate misses PG partitioned parents via JDBC TABLE metadata.
+      schema:
+        mode: none
+    queue:
+      type: memory
+      capacity: 10000
+      batch-size: 250
+      batch-wait: 50ms
+      usage-threshold: 0.8
+    publisher:
+      enabled: true
+      lease-duration: 30s
+      max-retries: 5
+    recovery:
+      enabled: true
+      interval: 10s
+      batch-size: 500
+
 app:
   instance-id: ${HOSTNAME:local-${random.uuid}}
   logging:
@@ -74,19 +97,6 @@ app:
       path: ${LOG_JSON_PATH:./logs}
   kafka:
     topic: orders.events
-  outbox:
-    memory-queue:
-      capacity: 10000
-      batch-size: 250
-      batch-wait: 50ms
-      usage-threshold: 0.8
-    publisher:
-      lease-duration: 30s
-      max-retries: 5
-    recovery:
-      enabled: true
-      interval: 10s
-      batch-size: 500
   rate-limit:
     throttle-multiplier: 0.5
     global:
@@ -98,11 +108,8 @@ app:
     per-ip:
       capacity: 50
       refill-per-second: 5
-  backpressure:
+  bulkhead:
     max-concurrent-creates: 55
-  health:
-    queue-pressure-critical: 0.95
-    outbox-pending-critical: 10000
 
 server:
   port: 8080

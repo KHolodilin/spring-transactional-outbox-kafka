@@ -2,11 +2,12 @@ package com.kholodilin.outbox.ratelimit;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import com.kholodilin.outbox.channel.OutboxChannel;
+import com.kholodilin.outbox.channel.OutboxChannelRegistry;
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.config.RateLimitBucketProperties;
 import com.kholodilin.outbox.logging.StructuredLogContext;
-import com.kholodilin.outbox.metrics.OutboxMetrics;
-import com.kholodilin.outbox.queue.InMemoryEventQueue;
+import com.kholodilin.outbox.metrics.OrderServiceMetrics;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import jakarta.annotation.PostConstruct;
@@ -40,8 +41,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private final AppProperties properties;
-    private final InMemoryEventQueue eventQueue;
-    private final OutboxMetrics metrics;
+    private final OutboxChannelRegistry channelRegistry;
+    private final OrderServiceMetrics metrics;
     private final ObjectMapper objectMapper;
 
     private Bucket globalBucket;
@@ -99,8 +100,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private double throttleMultiplier() {
-        double threshold = properties.getOutbox().getMemoryQueue().getUsageThreshold();
-        if (eventQueue.pressure() > threshold) {
+        OutboxChannel channel = channelRegistry.getRequired("default");
+        double threshold = channel.properties().usageThreshold();
+        if (channel.queue().pressure() > threshold) {
             return properties.getRateLimit().getThrottleMultiplier();
         }
         return 1.0;

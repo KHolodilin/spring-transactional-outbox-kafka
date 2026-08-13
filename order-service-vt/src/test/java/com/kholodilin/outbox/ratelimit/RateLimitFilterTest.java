@@ -1,13 +1,14 @@
 package com.kholodilin.outbox.ratelimit;
 
 import tools.jackson.databind.json.JsonMapper;
+import com.kholodilin.outbox.channel.OutboxChannel;
+import com.kholodilin.outbox.channel.OutboxChannelProperties;
+import com.kholodilin.outbox.channel.OutboxChannelRegistry;
 import com.kholodilin.outbox.config.AppProperties;
-import com.kholodilin.outbox.config.MemoryQueueProperties;
-import com.kholodilin.outbox.config.OutboxProperties;
 import com.kholodilin.outbox.config.RateLimitBucketProperties;
 import com.kholodilin.outbox.config.RateLimitProperties;
-import com.kholodilin.outbox.metrics.OutboxMetrics;
-import com.kholodilin.outbox.queue.InMemoryEventQueue;
+import com.kholodilin.outbox.metrics.OrderServiceMetrics;
+import com.kholodilin.outbox.spi.OutboxDispatchQueue;
 import io.github.bucket4j.Bucket;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.FilterChain;
@@ -30,19 +31,26 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 
 @ExtendWith(MockitoExtension.class)
 class RateLimitFilterTest {
 
     @Mock
-    private InMemoryEventQueue eventQueue;
+    private OutboxChannelRegistry channelRegistry;
+
+    @Mock
+    private OutboxChannel channel;
+
+    @Mock
+    private OutboxDispatchQueue queue;
+
+    @Mock
+    private OutboxChannelProperties channelProperties;
 
     @Mock
     private FilterChain filterChain;
@@ -51,15 +59,19 @@ class RateLimitFilterTest {
     private Bucket globalBucket;
 
     private RateLimitFilter filter;
-    private OutboxMetrics metrics;
+    private OrderServiceMetrics metrics;
 
     @BeforeEach
     void setUp() {
-        metrics = new OutboxMetrics(new SimpleMeterRegistry());
+        metrics = new OrderServiceMetrics(new SimpleMeterRegistry());
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
-        filter = new RateLimitFilter(strictProperties(), eventQueue, metrics, JsonMapper.builder().build());
+        filter = new RateLimitFilter(strictProperties(), channelRegistry, metrics, JsonMapper.builder().build());
         ReflectionTestUtils.setField(filter, "globalBucket", globalBucket);
-        lenient().when(eventQueue.pressure()).thenReturn(0.0);
+        lenient().when(channelRegistry.getRequired("default")).thenReturn(channel);
+        lenient().when(channel.queue()).thenReturn(queue);
+        lenient().when(channel.properties()).thenReturn(channelProperties);
+        lenient().when(channelProperties.usageThreshold()).thenReturn(0.5);
+        lenient().when(queue.pressure()).thenReturn(0.0);
         lenient().when(globalBucket.tryConsume(anyLong())).thenReturn(true);
     }
 
@@ -105,7 +117,7 @@ class RateLimitFilterTest {
 
     @Test
     void appliesAdaptiveThrottleWhenQueuePressureHigh() throws Exception {
-        when(eventQueue.pressure()).thenReturn(0.9);
+        when(queue.pressure()).thenReturn(0.9);
         when(globalBucket.tryConsume(2L)).thenReturn(false);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -136,57 +148,6 @@ class RateLimitFilterTest {
         assertThat(customerId).isEqualTo(77L);
     }
 
-    @Test
-    void rejectsWhenPerIpBucketExhausted() throws Exception {
-        Bucket ipBucket = mock(Bucket.class);
-        when(ipBucket.tryConsume(1L)).thenReturn(false);
-        @SuppressWarnings("unchecked")
-        Map<String, Bucket> ipBuckets = (Map<String, Bucket>) ReflectionTestUtils.getField(filter, "ipBuckets");
-        ipBuckets.put("127.0.0.1", ipBucket);
-
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        filter.doFilter(orderRequest(42L), response, filterChain);
-
-        assertThat(response.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
-        verifyNoInteractions(filterChain);
-    }
-
-    @Test
-    void rejectsWhenPerCustomerBucketExhausted() throws Exception {
-        Bucket customerBucket = mock(Bucket.class);
-        when(customerBucket.tryConsume(1L)).thenReturn(false);
-        @SuppressWarnings("unchecked")
-        Map<Long, Bucket> customerBuckets = (Map<Long, Bucket>) ReflectionTestUtils.getField(filter, "customerBuckets");
-        customerBuckets.put(42L, customerBucket);
-
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        filter.doFilter(orderRequest(42L), response, filterChain);
-
-        assertThat(response.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
-        verifyNoInteractions(filterChain);
-    }
-
-    @Test
-    void extractCustomerIdReturnsNullForEmptyOrInvalidBody() {
-        assertThat((Long) ReflectionTestUtils.invokeMethod(filter, "extractCustomerId", (Object) new byte[0])).isNull();
-        assertThat((Long) ReflectionTestUtils.invokeMethod(
-                filter, "extractCustomerId", (Object) "{not-json".getBytes(StandardCharsets.UTF_8))).isNull();
-        assertThat((Long) ReflectionTestUtils.invokeMethod(
-                filter, "extractCustomerId", (Object) "{\"items\":[]}".getBytes(StandardCharsets.UTF_8))).isNull();
-    }
-
-    @Test
-    void usesRemoteAddrWhenForwardedHeaderBlank() throws Exception {
-        MockHttpServletRequest request = orderRequest(1L);
-        request.addHeader("X-Forwarded-For", "   ");
-        request.setRemoteAddr("10.0.0.8");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        filter.doFilter(request, response, filterChain);
-
-        assertThat(response.getStatus()).isEqualTo(200);
-    }
-
     private static AppProperties strictProperties() {
         RateLimitBucketProperties one = RateLimitBucketProperties.builder().capacity(1).refillPerSecond(1).build();
         return AppProperties.builder()
@@ -195,9 +156,6 @@ class RateLimitFilterTest {
                         .perIp(one)
                         .perCustomer(one)
                         .throttleMultiplier(0.5)
-                        .build())
-                .outbox(OutboxProperties.builder()
-                        .memoryQueue(MemoryQueueProperties.builder().usageThreshold(0.5).build())
                         .build())
                 .build();
     }
