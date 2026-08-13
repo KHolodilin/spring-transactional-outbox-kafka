@@ -3,7 +3,7 @@
 [![CI](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml/badge.svg)](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka/graph/badge.svg)](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-brightgreen?logo=springboot)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-brightgreen?logo=springboot)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Kafka](https://img.shields.io/badge/Kafka-transactional%20outbox-black?logo=apachekafka)](https://kafka.apache.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-outbox%20store-336791?logo=postgresql)](https://www.postgresql.org/)
@@ -53,13 +53,20 @@ The result is a solution that provides:
 - ✅ A single, consistent publishing pipeline
 - ✅ Production-ready observability with metrics, structured logging, and distributed tracing
 
+Servlet (`order-service`) and Virtual Threads (`order-service-vt`) get that pipeline from reusable starters. Reactive (`order-service-reactive`) keeps its own R2DBC stack.
+
+| Starter | Version | Repository |
+|---------|---------|------------|
+| `spring-boot-outbox-starter` | `0.1.0` | [KHolodilin/spring-boot-outbox-starter](https://github.com/KHolodilin/spring-boot-outbox-starter) |
+| `spring-boot-idempotency-starter` | `0.3.0` | [KHolodilin/spring-boot-idempotency-starter](https://github.com/KHolodilin/spring-boot-idempotency-starter) |
+
 ## 🔄 How it works
 
 The project is built around three core workflows:
 
 1. **Normal Flow** — processes newly created outbox events with minimal latency.
 2. **Recovery Flow** — restores unpublished events after crashes or temporary failures.
-3. **Idempotent Request Flow** — prevents duplicate order creation and duplicate outbox events (`order-service` / `order-service-vt` use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter) `0.3.0` and [`spring-boot-outbox-starter`](https://github.com/KHolodilin/spring-boot-outbox-starter) `0.1.0`; reactive keeps its own R2DBC stack).
+3. **Idempotent Request Flow** — prevents duplicate order creation and duplicate outbox events.
 
 The **Normal Flow** and **Recovery Flow** converge into the same publishing pipeline, sharing the Memory Queue and Kafka Batch Publisher.
 
@@ -81,7 +88,7 @@ sequenceDiagram
     DB-->>Service: Commit
 
     Service->>Queue: Enqueue eventId
-    Service-->>Client: HTTP 200 OK
+    Service-->>Client: HTTP 201 Created
 
     Publisher->>Queue: Read event IDs
     Publisher->>DB: Load event payloads
@@ -149,7 +156,7 @@ As a result, recovery performance depends only on the number of active events in
 
 ### 🔑 Idempotent Request Flow
 
-Servlet and Virtual Threads peers use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter) `0.3.0` (fluent API) and [`spring-boot-outbox-starter`](https://github.com/KHolodilin/spring-boot-outbox-starter) `0.1.0` with PostgreSQL tables `idempotency_records` / `outbox_events`. The idempotency outcome is committed in the **same transaction** as the order and outbox row.
+Servlet and Virtual Threads peers use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter) (fluent API) and [`spring-boot-outbox-starter`](https://github.com/KHolodilin/spring-boot-outbox-starter) with PostgreSQL tables `idempotency_records` / `outbox_events`. The idempotency outcome is committed in the **same transaction** as the order and outbox row.
 
 ```mermaid
 sequenceDiagram
@@ -435,6 +442,7 @@ To remove containers together with local volumes and stored data:
 ```bash
 docker compose down -v
 ```
+
 ## ⚡ Load Testing
 
 The project includes a ready-to-run **Gatling** benchmark for validating the complete event delivery pipeline under sustained load.
@@ -505,7 +513,9 @@ During the benchmark you can monitor the system in real time using the built-in 
 
 ## 📚 Docs
 
-- [Technical Specification v2](docs/spring-transactional-outbox-kafka-Technical-Specification-v2.md) 
+- [spring-boot-outbox-starter](https://github.com/KHolodilin/spring-boot-outbox-starter)
+- [spring-boot-idempotency-starter](https://github.com/KHolodilin/spring-boot-idempotency-starter)
+- [Technical Specification v2](docs/spring-transactional-outbox-kafka-Technical-Specification-v2.md)
 - [Distributed Tracing Spec](docs/spring-transactional-outbox-kafka-Distributed-Tracing-Spec.md)
 - [OpenSearch Logging Spec](docs/spring-transactional-outbox-kafka-OpenSearch-Logging-Spec.md)
 - [Logging guide](docs/logging.md)
