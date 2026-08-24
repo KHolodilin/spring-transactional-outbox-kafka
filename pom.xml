@@ -32,7 +32,7 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <jacoco.version>0.8.12</jacoco.version>
         <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
-        <idempotency-starter.version>0.3.0</idempotency-starter.version>
+        <idempotency-starter.version>0.3.1</idempotency-starter.version>
         <outbox-starter.version>0.1.0</outbox-starter.version>
         <mockito.agent.argLine>-javaagent:@{org.mockito:mockito-core:jar}</mockito.agent.argLine>
     </properties>
