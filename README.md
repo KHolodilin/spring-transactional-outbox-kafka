@@ -1,4 +1,4 @@
-# Transactional Outbox Pattern with Kafka and PostgreSQL
+# Spring Boot Transactional Outbox with Kafka & PostgreSQL
 
 [![CI](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml/badge.svg)](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka/graph/badge.svg)](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
