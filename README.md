@@ -10,7 +10,7 @@
 [![OpenSearch](https://img.shields.io/badge/OpenSearch-centralized%20logging-005EB8?logo=opensearch)](https://opensearch.org/)
 [![Grafana](https://img.shields.io/badge/Grafana-metrics%20%26%20tracing-F46800?logo=grafana)](https://grafana.com/)
 
-Production-oriented **Transactional Outbox** for Spring Boot 4, PostgreSQL, and Kafka, combining low-latency event delivery, durable recovery, and reduced database polling.
+Production-ready **Transactional Outbox Pattern** Java example with idempotency, crash recovery, batch publishing, load testing and observability.
 <p align="center">
   <a href="docs/images/hero-architecture.png">
     <img alt="Architecture diagram" src="docs/images/hero-architecture.png" />
