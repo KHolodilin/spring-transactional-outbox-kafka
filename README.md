@@ -297,6 +297,13 @@ Pick a stack — servlet, WebFlux, or Virtual Threads. Host ports do not overlap
 | WebFlux + R2DBC | `compose.reactive.yml` | http://localhost:8092 | :8093 | :3001 |
 | Virtual Threads + JDBC | `compose.vt.yml` | http://localhost:8094 | :8095 | :3002 |
 
+Compose modes (same on every flavor file):
+
+| Mode | Command | What starts |
+|------|---------|-------------|
+| Default | `docker compose -f docker/compose.servlet.yml up -d` | Postgres, Kafka, order-service, notification-stub |
+| Observability | `docker compose -f docker/compose.servlet.yml --profile observability up -d` | Default plus Grafana, Prometheus, Tempo, OpenSearch |
+
 ### 🐳 1. Download a compose file and start
 
 PowerShell (servlet):
@@ -385,11 +392,7 @@ HTTP 409 Conflict
 
 ### 🧭 4. Explore metrics, logs, and traces
 
-Grafana, Prometheus, Tempo, and OpenSearch bind-mount files from `monitoring/`, so this step needs a **git clone**.
-
 ```bash
-git clone https://github.com/KHolodilin/spring-transactional-outbox-kafka.git
-cd spring-transactional-outbox-kafka
 docker compose -f docker/compose.servlet.yml --profile observability up -d
 ```
 
