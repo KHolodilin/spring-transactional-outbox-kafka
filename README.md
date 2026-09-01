@@ -289,13 +289,13 @@ After `docker compose --profile observability up -d` (clone) or the same profile
 
 You only need **Docker**. Java and Maven are not required.
 
-Pick one stack — servlet, WebFlux, or Virtual Threads. Do not run two flavors at the same time; they all use ports `5432`, `9092`, `8080`, and `8081`.
+Pick a stack — servlet, WebFlux, or Virtual Threads. Host ports do not overlap; all three can run at once.
 
-| Stack | Compose asset | What you get |
-|-------|---------------|--------------|
-| Servlet + JDBC | `compose.servlet.yml` | `order-service` + `notification-stub` |
-| WebFlux + R2DBC | `compose.reactive.yml` | `order-service-reactive` + `notification-stub` |
-| Virtual Threads + JDBC | `compose.vt.yml` | `order-service-vt` + `notification-stub` |
+| Stack | Compose asset | Order | Stub | Grafana |
+|-------|---------------|-------|------|---------|
+| Servlet + JDBC | `compose.servlet.yml` | http://localhost:8090 | :8091 | :3000 |
+| WebFlux + R2DBC | `compose.reactive.yml` | http://localhost:8092 | :8093 | :3001 |
+| Virtual Threads + JDBC | `compose.vt.yml` | http://localhost:8094 | :8095 | :3002 |
 
 ### 🐳 1. Download a compose file and start
 
@@ -321,14 +321,14 @@ From a clone, the same files live in `docker/`:
 docker compose -f docker/compose.servlet.yml up -d
 ```
 
-Order Service: http://localhost:8080 — Notification Stub: http://localhost:8081
+Order Service: http://localhost:8090 — Notification Stub: http://localhost:8091
 
 ### 🛒 2. Create an order
 
 Send a request with a unique `Idempotency-Key`:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/orders \
+curl -X POST http://localhost:8090/api/v1/orders \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -d '{
@@ -359,7 +359,7 @@ After the commit, the outbox event ID is placed into the Memory Queue, published
 Repeat the same request with the same `Idempotency-Key` and payload:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/orders \
+curl -X POST http://localhost:8090/api/v1/orders \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -d '{
@@ -393,14 +393,14 @@ cd spring-transactional-outbox-kafka
 docker compose -f docker/compose.servlet.yml --profile observability up -d
 ```
 
-The same `--profile observability` flag works on `compose.reactive.yml` and `compose.vt.yml`.
+The same `--profile observability` flag works on `compose.reactive.yml` (Grafana :3001) and `compose.vt.yml` (Grafana :3002). Each stack provisions only its Orders Technical dashboard.
 
-Open the local observability services:
+Open the local observability services (servlet example):
 
 | Service | URL | What to check |
 |---------|-----|---------------|
-| Grafana | http://localhost:3000 | Queue size, publishing latency, retries, recovery and JVM metrics |
-| Prometheus | http://localhost:9090 | Application and PostgreSQL metrics |
+| Grafana | http://localhost:3000 | **Orders Technical** (servlet). Reactive → :3001, VT → :3002 |
+| Prometheus | http://localhost:9100 | Application and PostgreSQL metrics |
 | OpenSearch Dashboards | http://localhost:5601 | Structured application logs |
 | Grafana Tempo | http://localhost:3200 | Distributed trace storage |
 | OpenSearch | http://localhost:9200 | Indexed JSON logs |
@@ -415,8 +415,8 @@ Password: admin
 You can also verify the application metrics directly:
 
 ```bash
-curl http://localhost:8080/actuator/prometheus
-curl http://localhost:8081/actuator/prometheus
+curl http://localhost:8090/actuator/prometheus
+curl http://localhost:8091/actuator/prometheus
 ```
 
 ### 🛑 5. Stop the environment
@@ -480,13 +480,13 @@ mvn -pl load-tests gatling:test \
 
 Peer services for sequential Gatling A/B (one under load at a time). See [docs/ab-load-comparison.md](docs/ab-load-comparison.md).
 
-From source, peers use different ports. Docker flavors all expose the order service on `:8080` — run one compose file at a time.
+Maven peers use `:8080` / `:8083` / `:8084`. Docker flavors can run together:
 
-| Module | Maven port | Docker flavor | DB |
-|--------|------------|---------------|-----|
-| `order-service` | 8080 | `docker/compose.servlet.yml` | `outbox` |
-| `order-service-reactive` | 8083 | `docker/compose.reactive.yml` | `outbox_reactive` |
-| `order-service-vt` | 8084 | `docker/compose.vt.yml` | `outbox_vt` |
+| Module | Maven | Docker | Grafana |
+|--------|-------|--------|---------|
+| `order-service` | 8080 | 8090 (`compose.servlet.yml`) | 3000 |
+| `order-service-reactive` | 8083 | 8092 (`compose.reactive.yml`) | 3001 |
+| `order-service-vt` | 8084 | 8094 (`compose.vt.yml`) | 3002 |
 
 ```bash
 mvn -pl load-tests gatling:test \

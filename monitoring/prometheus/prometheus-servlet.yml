@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: order-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["order-service:8080"]
+
+  - job_name: notification-stub
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["notification-stub:8081"]
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: tempo
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["tempo:3200"]

@@ -126,9 +126,9 @@ Without `CODECOV_TOKEN`, the CI upload step fails (`fail_ci_if_error: true`).
 | `order-service-vt` | Virtual Threads + JDBC peer (A/B load comparison, port 8084) |
 | `notification-stub` | Demo downstream consumer |
 | `load-tests` | Gatling load tests for servlet / reactive / VT — see [docs/ab-load-comparison.md](docs/ab-load-comparison.md) |
-| `docker/compose.servlet.yml` | Docker demo stack (servlet). Same ports as Maven servlet (`:8080` / `:8081`) |
-| `docker/compose.reactive.yml` | Docker demo stack (WebFlux). Order service on `:8080` |
-| `docker/compose.vt.yml` | Docker demo stack (virtual threads). Order service on `:8080` |
+| `docker/compose.servlet.yml` | Docker demo stack (servlet). Order `:8090`, stub `:8091`, Grafana `:3000` |
+| `docker/compose.reactive.yml` | Docker demo stack (WebFlux). Order `:8092`, stub `:8093`, Grafana `:3001` |
+| `docker/compose.vt.yml` | Docker demo stack (virtual threads). Order `:8094`, stub `:8095`, Grafana `:3002` |
 
 Package base: `com.kholodilin.outbox`.
 

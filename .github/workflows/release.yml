@@ -76,7 +76,7 @@ jobs:
 
           ## Quick start
 
-          Download one compose file, then start it (do not run two flavors at once — they share ports 5432, 9092, 8080, and 8081).
+          Download one compose file (or all three — host ports do not overlap). Servlet order API is \`:8090\`.
 
           **PowerShell (servlet):**
 
@@ -92,16 +92,16 @@ jobs:
           docker compose -f compose.yml up -d
           \`\`\`
 
-          | Stack | Asset |
-          |-------|--------|
-          | Servlet + JDBC | \`compose.servlet.yml\` |
-          | WebFlux + R2DBC | \`compose.reactive.yml\` |
-          | Virtual Threads + JDBC | \`compose.vt.yml\` |
+          | Stack | Asset | Order | Grafana |
+          |-------|--------|-------|---------|
+          | Servlet + JDBC | \`compose.servlet.yml\` | \`:8090\` | \`:3000\` |
+          | WebFlux + R2DBC | \`compose.reactive.yml\` | \`:8092\` | \`:3001\` |
+          | Virtual Threads + JDBC | \`compose.vt.yml\` | \`:8094\` | \`:3002\` |
 
-          Create an order:
+          Create an order (servlet):
 
           \`\`\`bash
-          curl -X POST http://localhost:8080/api/v1/orders \\
+          curl -X POST http://localhost:8090/api/v1/orders \\
             -H "Content-Type: application/json" \\
             -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \\
             -d '{"customerId":42,"items":[{"productId":"sku-1","quantity":2,"price":10.50}],"correlationId":"demo"}'
