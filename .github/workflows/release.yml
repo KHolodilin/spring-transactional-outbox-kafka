@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_PREFIX: ghcr.io/kholodilin/spring-transactional-outbox-kafka
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      - name: Package
+        run: mvn -B -DskipTests package
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push images
+        run: |
+          build_push() {
+            local module="$1"
+            local image="${IMAGE_PREFIX}/${module}"
+            docker build \
+              --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+              --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+              --label "org.opencontainers.image.version=${VERSION}" \
+              -t "${image}:${VERSION}" \
+              -t "${image}:latest" \
+              "${module}"
+            docker push "${image}:${VERSION}"
+            docker push "${image}:latest"
+          }
+          build_push order-service
+          build_push order-service-reactive
+          build_push order-service-vt
+          build_push notification-stub
+
+      - name: Pin compose image tags
+        run: |
+          mkdir -p dist
+          for f in docker/compose.servlet.yml docker/compose.reactive.yml docker/compose.vt.yml; do
+            sed "s/\${APP_VERSION:-latest}/${VERSION}/g" "$f" > "dist/$(basename "$f")"
+          done
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat > dist/release-notes.md <<EOF
+          Docker demo stacks for the transactional outbox example. Java and Maven are not required.
+
+          ## Quick start
+
+          Download one compose file (or all three — host ports do not overlap). Servlet order API is \`:8090\`.
+
+          **PowerShell (servlet):**
+
+          \`\`\`powershell
+          Invoke-WebRequest -Uri https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/compose.servlet.yml -OutFile compose.yml
+          docker compose -f compose.yml up -d
+          \`\`\`
+
+          **bash (servlet):**
+
+          \`\`\`bash
+          curl -fsSL -o compose.yml https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/compose.servlet.yml
+          docker compose -f compose.yml up -d
+          \`\`\`
+
+          | Stack | Asset | Order | Grafana |
+          |-------|--------|-------|---------|
+          | Servlet + JDBC | \`compose.servlet.yml\` | \`:8090\` | \`:3000\` |
+          | WebFlux + R2DBC | \`compose.reactive.yml\` | \`:8092\` | \`:3001\` |
+          | Virtual Threads + JDBC | \`compose.vt.yml\` | \`:8094\` | \`:3002\` |
+
+          Create an order (servlet):
+
+          \`\`\`bash
+          curl -X POST http://localhost:8090/api/v1/orders \\
+            -H "Content-Type: application/json" \\
+            -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \\
+            -d '{"customerId":42,"items":[{"productId":"sku-1","quantity":2,"price":10.50}],"correlationId":"demo"}'
+          \`\`\`
+
+          Images: \`ghcr.io/kholodilin/spring-transactional-outbox-kafka/*:${VERSION}\`.
+
+          Grafana / Prometheus / OpenSearch need a git clone and \`--profile observability\` (bind-mounts \`monitoring/\`).
+          EOF
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/compose.servlet.yml \
+            dist/compose.reactive.yml \
+            dist/compose.vt.yml \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file dist/release-notes.md

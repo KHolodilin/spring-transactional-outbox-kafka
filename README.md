@@ -1,6 +1,7 @@
 # Spring Boot Transactional Outbox with Kafka & PostgreSQL
 
 [![CI](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml/badge.svg)](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/KHolodilin/spring-transactional-outbox-kafka)](https://github.com/KHolodilin/spring-transactional-outbox-kafka/releases/latest)
 [![codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka/graph/badge.svg)](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-brightgreen?logo=springboot)](https://spring.io/projects/spring-boot)
@@ -269,7 +270,7 @@ Distributed tracing helps you:
 
 ### 🌐 Local Services
 
-After starting the Docker Compose infrastructure, the following services are available:
+After `docker compose --profile observability up -d` (clone) or the same profile on a flavor file, the following services are available:
 
 | Service | URL | Purpose |
 |---------|-----|---------|
@@ -286,69 +287,48 @@ After starting the Docker Compose infrastructure, the following services are ava
 
 ## 🚀 Quick Start
 
-Run the complete Transactional Outbox example locally and publish your first event in a few minutes.
+You only need **Docker**. Java and Maven are not required.
 
-### 🐳 1. Start the infrastructure
+Pick a stack — servlet, WebFlux, or Virtual Threads. Host ports do not overlap; all three can run at once.
 
-```bash
-docker compose up -d
+| Stack | Compose asset | Order | Stub | Grafana |
+|-------|---------------|-------|------|---------|
+| Servlet + JDBC | `compose.servlet.yml` | http://localhost:8090 | :8091 | :3000 |
+| WebFlux + R2DBC | `compose.reactive.yml` | http://localhost:8092 | :8093 | :3001 |
+| Virtual Threads + JDBC | `compose.vt.yml` | http://localhost:8094 | :8095 | :3002 |
+
+### 🐳 1. Download a compose file and start
+
+PowerShell (servlet):
+
+```powershell
+Invoke-WebRequest -Uri https://github.com/KHolodilin/spring-transactional-outbox-kafka/releases/latest/download/compose.servlet.yml -OutFile compose.yml
+docker compose -f compose.yml up -d
 ```
 
-Docker Compose starts the required infrastructure:
-
-- PostgreSQL
-- Kafka
-- Prometheus
-- Grafana
-- Grafana Tempo
-- OpenSearch
-- OpenSearch Dashboards
-- Fluent Bit
-- PostgreSQL Exporter
-
-Check that all containers are running:
+bash (servlet):
 
 ```bash
-docker compose ps
+curl -fsSL -o compose.yml https://github.com/KHolodilin/spring-transactional-outbox-kafka/releases/latest/download/compose.servlet.yml
+docker compose -f compose.yml up -d
 ```
 
-### 🔨 2. Build the project
+Replace `compose.servlet.yml` with `compose.reactive.yml` or `compose.vt.yml` for the other stacks.
+
+From a clone, the same files live in `docker/`:
 
 ```bash
-mvn clean verify
+docker compose -f docker/compose.servlet.yml up -d
 ```
 
-This command compiles all modules and runs the automated test suite.
+Order Service: http://localhost:8090 — Notification Stub: http://localhost:8091
 
-### ▶️ 3. Start the application services
-
-Run the Order Service:
-
-```bash
-mvn -pl order-service spring-boot:run \
-  -Dspring-boot.run.profiles=dev
-```
-
-In a separate terminal, run the Notification Stub:
-
-```bash
-mvn -pl notification-stub spring-boot:run \
-  -Dspring-boot.run.profiles=dev
-```
-
-The services will be available at:
-
-| Service | URL |
-|---------|-----|
-| Order Service | http://localhost:8080 |
-| Notification Stub | http://localhost:8081 |
-
-### 🛒 4. Create an order
+### 🛒 2. Create an order
 
 Send a request with a unique `Idempotency-Key`:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/orders \
+curl -X POST http://localhost:8090/api/v1/orders \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -d '{
@@ -374,12 +354,12 @@ All three records are committed in the same PostgreSQL transaction.
 
 After the commit, the outbox event ID is placed into the Memory Queue, published to Kafka, and consumed by the Notification Stub.
 
-### ♻️ 5. Verify idempotency
+### ♻️ 3. Verify idempotency
 
 Repeat the same request with the same `Idempotency-Key` and payload:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/orders \
+curl -X POST http://localhost:8090/api/v1/orders \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -d '{
@@ -403,14 +383,24 @@ Using the same key with a different request payload returns:
 HTTP 409 Conflict
 ```
 
-### 🧭 6. Explore metrics, logs, and traces
+### 🧭 4. Explore metrics, logs, and traces
 
-Open the local observability services:
+Grafana, Prometheus, Tempo, and OpenSearch bind-mount files from `monitoring/`, so this step needs a **git clone**.
+
+```bash
+git clone https://github.com/KHolodilin/spring-transactional-outbox-kafka.git
+cd spring-transactional-outbox-kafka
+docker compose -f docker/compose.servlet.yml --profile observability up -d
+```
+
+The same `--profile observability` flag works on `compose.reactive.yml` (Grafana :3001) and `compose.vt.yml` (Grafana :3002). Each stack provisions only its Orders Technical dashboard.
+
+Open the local observability services (servlet example):
 
 | Service | URL | What to check |
 |---------|-----|---------------|
-| Grafana | http://localhost:3000 | Queue size, publishing latency, retries, recovery and JVM metrics |
-| Prometheus | http://localhost:9090 | Application and PostgreSQL metrics |
+| Grafana | http://localhost:3000 | **Orders Technical** (servlet). Reactive → :3001, VT → :3002 |
+| Prometheus | http://localhost:9100 | Application and PostgreSQL metrics |
 | OpenSearch Dashboards | http://localhost:5601 | Structured application logs |
 | Grafana Tempo | http://localhost:3200 | Distributed trace storage |
 | OpenSearch | http://localhost:9200 | Indexed JSON logs |
@@ -425,23 +415,41 @@ Password: admin
 You can also verify the application metrics directly:
 
 ```bash
-curl http://localhost:8080/actuator/prometheus
-curl http://localhost:8081/actuator/prometheus
+curl http://localhost:8090/actuator/prometheus
+curl http://localhost:8091/actuator/prometheus
 ```
 
-### 🛑 Stop the environment
-
-Stop the application services with `Ctrl+C`, then shut down the Docker Compose infrastructure:
+### 🛑 5. Stop the environment
 
 ```bash
-docker compose down
+docker compose -f compose.yml down
+```
+
+From a clone:
+
+```bash
+docker compose -f docker/compose.servlet.yml --profile observability down
 ```
 
 To remove containers together with local volumes and stored data:
 
 ```bash
-docker compose down -v
+docker compose -f docker/compose.servlet.yml --profile observability down -v
 ```
+
+### 🛠️ Run from source (Java 21 + Maven)
+
+Root `docker-compose.yml` starts Postgres and Kafka for host processes. Observability is opt-in:
+
+```bash
+docker compose up -d
+docker compose --profile observability up -d
+mvn clean verify
+mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
+mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+Peer services stay on `:8083` (reactive) and `:8084` (virtual threads). See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## ⚡ Load Testing
 
@@ -472,11 +480,13 @@ mvn -pl load-tests gatling:test \
 
 Peer services for sequential Gatling A/B (one under load at a time). See [docs/ab-load-comparison.md](docs/ab-load-comparison.md).
 
-| Module | Port | DB |
-|--------|------|-----|
-| `order-service` | 8080 | `outbox` |
-| `order-service-reactive` | 8083 | `outbox_reactive` |
-| `order-service-vt` | 8084 | `outbox_vt` |
+Maven peers use `:8080` / `:8083` / `:8084`. Docker flavors can run together:
+
+| Module | Maven | Docker | Grafana |
+|--------|-------|--------|---------|
+| `order-service` | 8080 | 8090 (`compose.servlet.yml`) | 3000 |
+| `order-service-reactive` | 8083 | 8092 (`compose.reactive.yml`) | 3001 |
+| `order-service-vt` | 8084 | 8094 (`compose.vt.yml`) | 3002 |
 
 ```bash
 mvn -pl load-tests gatling:test \

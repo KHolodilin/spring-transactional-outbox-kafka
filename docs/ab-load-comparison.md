@@ -10,7 +10,37 @@ Compare three peer order services **sequentially** on the same machine:
 
 Do not run more than one service under load at once if you want a clean CPU/IO comparison. Kafka topic `orders.events` is shared.
 
-## Prerequisites
+## Docker flavors (no Maven)
+
+Each stack is a separate compose file with its own ports, so all three can stay up. Load one at a time for a fair CPU/IO comparison. Grafana on each stack shows only that flavor's Orders Technical dashboard.
+
+| Peer | Order | Stub | Grafana |
+|------|-------|------|---------|
+| servlet | `:8090` | `:8091` | `:3000` |
+| reactive | `:8092` | `:8093` | `:3001` |
+| vt | `:8094` | `:8095` | `:3002` |
+
+```bash
+docker compose -f docker/compose.servlet.yml --profile observability up -d
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation \
+  -DbaseUrl=http://localhost:8090 \
+  -Dprofile=warmup -DwarmupRps=50 -DloadRps=100 -DloadSeconds=120
+
+docker compose -f docker/compose.reactive.yml --profile observability up -d
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderReactiveSimulation \
+  -DbaseUrl=http://localhost:8092 \
+  -Dprofile=warmup -DwarmupRps=50 -DloadRps=100 -DloadSeconds=120
+
+docker compose -f docker/compose.vt.yml --profile observability up -d
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderVtSimulation \
+  -DbaseUrl=http://localhost:8094 \
+  -Dprofile=warmup -DwarmupRps=50 -DloadRps=100 -DloadSeconds=120
+```
+
+## Prerequisites (Maven on the host)
 
 ```bash
 docker compose up -d postgres kafka

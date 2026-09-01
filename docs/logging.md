@@ -26,7 +26,7 @@ Micrometer Tracing (`traceId`, `spanId`) is reused — no second tracing stack.
 ### 1. Start infrastructure
 
 ```bash
-docker compose up -d
+docker compose --profile observability up -d
 ```
 
 Includes OpenSearch (`9200`), OpenSearch Dashboards (`5601`), and Fluent Bit.
@@ -67,7 +67,7 @@ curl -X POST http://localhost:8080/api/v1/orders \
 ### 4. OpenSearch Dashboards
 
 1. Open http://localhost:5601
-2. Dashboards are imported automatically on `docker compose up` (service `opensearch-dashboards-init`).
+2. Dashboards are imported automatically on `docker compose --profile observability up` (service `opensearch-dashboards-init`).
 3. If missing, import manually: **Stack Management → Saved Objects → Import** → `monitoring/opensearch-dashboards/saved-objects.ndjson`
 4. Open dashboard **Transactional Outbox Overview**
 
