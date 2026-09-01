@@ -10,7 +10,36 @@ Compare three peer order services **sequentially** on the same machine:
 
 Do not run more than one service under load at once if you want a clean CPU/IO comparison. Kafka topic `orders.events` is shared.
 
-## Prerequisites
+## Docker flavors (no Maven)
+
+Each stack is a separate compose file. Order service is always `:8080`. Tear one down before starting the next.
+
+```bash
+docker compose -f docker/compose.servlet.yml up -d
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderSimulation \
+  -DbaseUrl=http://localhost:8080 \
+  -Dprofile=warmup -DwarmupRps=50 -DloadRps=100 -DloadSeconds=120
+docker compose -f docker/compose.servlet.yml down -v
+
+docker compose -f docker/compose.reactive.yml up -d
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderReactiveSimulation \
+  -DbaseUrl=http://localhost:8080 \
+  -Dprofile=warmup -DwarmupRps=50 -DloadRps=100 -DloadSeconds=120
+docker compose -f docker/compose.reactive.yml down -v
+
+docker compose -f docker/compose.vt.yml up -d
+mvn -pl load-tests gatling:test \
+  -Dgatling.simulationClass=com.kholodilin.outbox.loadtests.CreateOrderVtSimulation \
+  -DbaseUrl=http://localhost:8080 \
+  -Dprofile=warmup -DwarmupRps=50 -DloadRps=100 -DloadSeconds=120
+docker compose -f docker/compose.vt.yml down -v
+```
+
+Add `--profile observability` when you want Grafana during the run.
+
+## Prerequisites (Maven on the host)
 
 ```bash
 docker compose up -d postgres kafka

@@ -1,6 +1,7 @@
 # Transactional Outbox Pattern with Kafka and PostgreSQL
 
 [![CI](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml/badge.svg)](https://github.com/KHolodilin/spring-transactional-outbox-kafka/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/KHolodilin/spring-transactional-outbox-kafka)](https://github.com/KHolodilin/spring-transactional-outbox-kafka/releases/latest)
 [![codecov](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka/graph/badge.svg)](https://codecov.io/gh/KHolodilin/spring-transactional-outbox-kafka)
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-brightgreen?logo=springboot)](https://spring.io/projects/spring-boot)
@@ -269,7 +270,7 @@ Distributed tracing helps you:
 
 ### 🌐 Local Services
 
-After starting the Docker Compose infrastructure, the following services are available:
+After `docker compose --profile observability up -d` (clone) or the same profile on a flavor file, the following services are available:
 
 | Service | URL | Purpose |
 |---------|-----|---------|
@@ -286,64 +287,43 @@ After starting the Docker Compose infrastructure, the following services are ava
 
 ## 🚀 Quick Start
 
-Run the complete Transactional Outbox example locally and publish your first event in a few minutes.
+You only need **Docker**. Java and Maven are not required.
 
-### 🐳 1. Start the infrastructure
+Pick one stack — servlet, WebFlux, or Virtual Threads. Do not run two flavors at the same time; they all use ports `5432`, `9092`, `8080`, and `8081`.
 
-```bash
-docker compose up -d
+| Stack | Compose asset | What you get |
+|-------|---------------|--------------|
+| Servlet + JDBC | `compose.servlet.yml` | `order-service` + `notification-stub` |
+| WebFlux + R2DBC | `compose.reactive.yml` | `order-service-reactive` + `notification-stub` |
+| Virtual Threads + JDBC | `compose.vt.yml` | `order-service-vt` + `notification-stub` |
+
+### 🐳 1. Download a compose file and start
+
+PowerShell (servlet):
+
+```powershell
+Invoke-WebRequest -Uri https://github.com/KHolodilin/spring-transactional-outbox-kafka/releases/latest/download/compose.servlet.yml -OutFile compose.yml
+docker compose -f compose.yml up -d
 ```
 
-Docker Compose starts the required infrastructure:
-
-- PostgreSQL
-- Kafka
-- Prometheus
-- Grafana
-- Grafana Tempo
-- OpenSearch
-- OpenSearch Dashboards
-- Fluent Bit
-- PostgreSQL Exporter
-
-Check that all containers are running:
+bash (servlet):
 
 ```bash
-docker compose ps
+curl -fsSL -o compose.yml https://github.com/KHolodilin/spring-transactional-outbox-kafka/releases/latest/download/compose.servlet.yml
+docker compose -f compose.yml up -d
 ```
 
-### 🔨 2. Build the project
+Replace `compose.servlet.yml` with `compose.reactive.yml` or `compose.vt.yml` for the other stacks.
+
+From a clone, the same files live in `docker/`:
 
 ```bash
-mvn clean verify
+docker compose -f docker/compose.servlet.yml up -d
 ```
 
-This command compiles all modules and runs the automated test suite.
+Order Service: http://localhost:8080 — Notification Stub: http://localhost:8081
 
-### ▶️ 3. Start the application services
-
-Run the Order Service:
-
-```bash
-mvn -pl order-service spring-boot:run \
-  -Dspring-boot.run.profiles=dev
-```
-
-In a separate terminal, run the Notification Stub:
-
-```bash
-mvn -pl notification-stub spring-boot:run \
-  -Dspring-boot.run.profiles=dev
-```
-
-The services will be available at:
-
-| Service | URL |
-|---------|-----|
-| Order Service | http://localhost:8080 |
-| Notification Stub | http://localhost:8081 |
-
-### 🛒 4. Create an order
+### 🛒 2. Create an order
 
 Send a request with a unique `Idempotency-Key`:
 
@@ -374,7 +354,7 @@ All three records are committed in the same PostgreSQL transaction.
 
 After the commit, the outbox event ID is placed into the Memory Queue, published to Kafka, and consumed by the Notification Stub.
 
-### ♻️ 5. Verify idempotency
+### ♻️ 3. Verify idempotency
 
 Repeat the same request with the same `Idempotency-Key` and payload:
 
@@ -403,7 +383,17 @@ Using the same key with a different request payload returns:
 HTTP 409 Conflict
 ```
 
-### 🧭 6. Explore metrics, logs, and traces
+### 🧭 4. Explore metrics, logs, and traces
+
+Grafana, Prometheus, Tempo, and OpenSearch bind-mount files from `monitoring/`, so this step needs a **git clone**.
+
+```bash
+git clone https://github.com/KHolodilin/spring-transactional-outbox-kafka.git
+cd spring-transactional-outbox-kafka
+docker compose -f docker/compose.servlet.yml --profile observability up -d
+```
+
+The same `--profile observability` flag works on `compose.reactive.yml` and `compose.vt.yml`.
 
 Open the local observability services:
 
@@ -429,19 +419,37 @@ curl http://localhost:8080/actuator/prometheus
 curl http://localhost:8081/actuator/prometheus
 ```
 
-### 🛑 Stop the environment
-
-Stop the application services with `Ctrl+C`, then shut down the Docker Compose infrastructure:
+### 🛑 5. Stop the environment
 
 ```bash
-docker compose down
+docker compose -f compose.yml down
+```
+
+From a clone:
+
+```bash
+docker compose -f docker/compose.servlet.yml --profile observability down
 ```
 
 To remove containers together with local volumes and stored data:
 
 ```bash
-docker compose down -v
+docker compose -f docker/compose.servlet.yml --profile observability down -v
 ```
+
+### 🛠️ Run from source (Java 21 + Maven)
+
+Root `docker-compose.yml` starts Postgres and Kafka for host processes. Observability is opt-in:
+
+```bash
+docker compose up -d
+docker compose --profile observability up -d
+mvn clean verify
+mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
+mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+Peer services stay on `:8083` (reactive) and `:8084` (virtual threads). See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## ⚡ Load Testing
 
@@ -472,11 +480,13 @@ mvn -pl load-tests gatling:test \
 
 Peer services for sequential Gatling A/B (one under load at a time). See [docs/ab-load-comparison.md](docs/ab-load-comparison.md).
 
-| Module | Port | DB |
-|--------|------|-----|
-| `order-service` | 8080 | `outbox` |
-| `order-service-reactive` | 8083 | `outbox_reactive` |
-| `order-service-vt` | 8084 | `outbox_vt` |
+From source, peers use different ports. Docker flavors all expose the order service on `:8080` — run one compose file at a time.
+
+| Module | Maven port | Docker flavor | DB |
+|--------|------------|---------------|-----|
+| `order-service` | 8080 | `docker/compose.servlet.yml` | `outbox` |
+| `order-service-reactive` | 8083 | `docker/compose.reactive.yml` | `outbox_reactive` |
+| `order-service-vt` | 8084 | `docker/compose.vt.yml` | `outbox_vt` |
 
 ```bash
 mvn -pl load-tests gatling:test \

@@ -1,19 +1,19 @@
-# Maven / contributor infra. Apps run on the host (mvn spring-boot:run).
+# Virtual Threads stack: Postgres + Kafka + order-service-vt + notification-stub.
 # Observability: docker compose --profile observability up -d
-# Keep Kafka listeners in sync with docker/compose.servlet.yml, compose.reactive.yml, compose.vt.yml.
+# Keep Kafka listeners in sync with compose.servlet.yml, compose.reactive.yml, and ../docker-compose.yml.
+name: outbox-vt
+
 services:
   postgres:
     image: postgres:18.4
     environment:
-      POSTGRES_DB: outbox
+      POSTGRES_DB: outbox_vt
       POSTGRES_USER: outbox
       POSTGRES_PASSWORD: outbox
     ports:
       - "5432:5432"
-    volumes:
-      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U outbox -d outbox"]
+      test: ["CMD-SHELL", "pg_isready -U outbox -d outbox_vt"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -62,11 +62,55 @@ services:
           --replication-factor 1
         echo "Topic orders.events is ready (10 partitions)"
 
+  order-service:
+    image: ghcr.io/kholodilin/spring-transactional-outbox-kafka/order-service-vt:${APP_VERSION:-latest}
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: outbox_vt
+      DB_USER: outbox
+      DB_PASSWORD: outbox
+      KAFKA_BOOTSTRAP: kafka:29092
+      SERVER_PORT: "8080"
+      LOG_JSON_PATH: /var/log/app
+      DEPLOYMENT_ENV: local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4318/v1/traces
+    volumes:
+      - ../logs:/var/log/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  notification-stub:
+    image: ghcr.io/kholodilin/spring-transactional-outbox-kafka/notification-stub:${APP_VERSION:-latest}
+    ports:
+      - "8081:8081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      KAFKA_BOOTSTRAP: kafka:29092
+      LOG_JSON_PATH: /var/log/app
+      DEPLOYMENT_ENV: local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4318/v1/traces
+    volumes:
+      - ../logs:/var/log/app
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      order-service:
+        condition: service_started
+
   postgres-exporter:
     profiles: ["observability"]
     image: prometheuscommunity/postgres-exporter:v0.17.1
     environment:
-      DATA_SOURCE_NAME: "postgresql://outbox:outbox@postgres:5432/outbox?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://outbox:outbox@postgres:5432/outbox_vt?sslmode=disable"
     ports:
       - "9187:9187"
     depends_on:
@@ -81,7 +125,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -98,7 +142,7 @@ services:
       GF_RENDERING_SERVER_URL: http://grafana-image-renderer:8081/render
       GF_RENDERING_CALLBACK_URL: http://grafana:3000/
     volumes:
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
       - tempo
@@ -118,7 +162,7 @@ services:
       - "3200:3200"
       - "4318:4318"
     volumes:
-      - ./monitoring/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - ../monitoring/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
 
   opensearch:
     profiles: ["observability"]
@@ -149,7 +193,7 @@ services:
     image: curlimages/curl:8.12.1
     restart: "no"
     volumes:
-      - ./monitoring/opensearch/index-template.json:/index-template.json:ro
+      - ../monitoring/opensearch/index-template.json:/index-template.json:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -167,7 +211,7 @@ services:
     image: curlimages/curl:8.12.1
     restart: "no"
     volumes:
-      - ./monitoring/opensearch-dashboards/saved-objects.ndjson:/saved-objects.ndjson:ro
+      - ../monitoring/opensearch-dashboards/saved-objects.ndjson:/saved-objects.ndjson:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -185,9 +229,9 @@ services:
     profiles: ["observability"]
     image: fluent/fluent-bit:3.2.10
     volumes:
-      - ./logs:/var/log/app:ro
-      - ./monitoring/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
-      - ./monitoring/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - ../logs:/var/log/app:ro
+      - ../monitoring/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ../monitoring/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
     depends_on:
       - opensearch
 
