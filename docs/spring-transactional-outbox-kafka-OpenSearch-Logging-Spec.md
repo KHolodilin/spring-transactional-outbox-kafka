@@ -268,6 +268,8 @@ Notification Stub
 -   notification.batch.received
 -   notification.processing.started
 -   notification.processed
+-   notification.duplicate.skipped
+-   notification.conflict.skipped
 -   notification.processing.failed
 
 ------------------------------------------------------------------------
