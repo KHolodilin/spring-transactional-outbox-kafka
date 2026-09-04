@@ -159,6 +159,8 @@ As a result, recovery performance depends only on the number of active events in
 
 Servlet and Virtual Threads peers use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter) (fluent API) and [`spring-boot-outbox-starter`](https://github.com/KHolodilin/spring-boot-outbox-starter) with PostgreSQL tables `idempotency_records` / `outbox_events`. The idempotency outcome is committed in the **same transaction** as the order and outbox row.
 
+The Notification Stub also uses the idempotency starter to process each Kafka `eventId` once, storing consumer-side records in its own `notification_idempotency_records` table.
+
 ```mermaid
 sequenceDiagram
     actor Client

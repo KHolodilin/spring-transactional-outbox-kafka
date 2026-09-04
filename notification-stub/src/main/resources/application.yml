@@ -1,6 +1,14 @@
 spring:
   application:
     name: notification-stub
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox}
+    username: ${DB_USER:outbox}
+    password: ${DB_PASSWORD:outbox}
+    hikari:
+      connection-init-sql: SET TIME ZONE 'UTC'
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
     listener:
@@ -36,6 +44,14 @@ logging:
   level:
     root: INFO
     com.kholodilin.outbox: INFO
+
+idempotency:
+  enabled: true
+  persistence:
+    enabled: true
+    table-name: notification_idempotency_records
+    schema:
+      mode: validate
 
 deployment:
   environment: ${DEPLOYMENT_ENV:local}

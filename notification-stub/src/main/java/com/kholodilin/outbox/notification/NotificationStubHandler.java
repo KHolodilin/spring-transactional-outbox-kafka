@@ -1,5 +1,6 @@
 package com.kholodilin.outbox.notification;
 
+import com.kholodilin.idempotency.exception.IdempotencyConflictException;
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.logging.InstanceMdcInitializer;
@@ -30,9 +31,10 @@ public class NotificationStubHandler {
     private final NotificationStubMetrics metrics;
     private final TraceContextSupport traceContextSupport;
     private final InstanceMdcInitializer instanceMdcInitializer;
+    private final NotificationTransactionService notificationTransactionService;
 
     /**
-     * Consumes a Kafka batch of order events and logs a mock notification per record.
+     * Consumes a Kafka batch of order events and processes each mock notification idempotently.
      * <p>
      * Restores W3C {@code traceparent} for the batch span and again per record so Tempo
      * continues the publisher's trace. Metrics record batch size and processing time.
@@ -60,7 +62,7 @@ public class NotificationStubHandler {
                     traceContextSupport.runWithTraceParent(
                             extractTraceParent(record),
                             "notification.consume",
-                            () -> logEvent(record)
+                            () -> processRecord(record)
                     );
                 }
                 StructuredLogContext.putDurationMs((System.nanoTime() - start) / 1_000_000);
@@ -71,20 +73,33 @@ public class NotificationStubHandler {
         });
     }
 
-    private void logEvent(ConsumerRecord<String, EventEnvelope> record) {
+    private void processRecord(ConsumerRecord<String, EventEnvelope> record) {
         EventEnvelope event = record.value();
         instanceMdcInitializer.enrich();
         StructuredLogContext.putCorrelation(event.correlationId(), event.customerId());
         StructuredLogContext.putOrderFields(event.orderId(), event.eventId());
         StructuredLogContext.putEventType(event.eventType());
         StructuredLogContext.putKafkaFields(record.topic(), record.partition(), record.offset());
-        StructuredLogContext.putNotificationFields("log", "sent");
-        StructuredLogContext.putEventAction("notification.processed");
-        log.info("Notification stub sent orderId={} customerId={} eventId={}",
-                event.orderId(), event.customerId(), event.eventId());
-        log.debug("Notification stub event details eventType={} correlationId={} payload={}",
-                event.eventType(), event.correlationId(), event.payload());
-        instanceMdcInitializer.clearConsumerContext();
+        try {
+            boolean sent = notificationTransactionService.process(event);
+            if (!sent) {
+                StructuredLogContext.putNotificationFields("log", "skipped");
+                StructuredLogContext.putEventAction("notification.duplicate.skipped");
+                log.info("Notification stub skipped duplicate eventId={}", event.eventId());
+            }
+        } catch (IdempotencyConflictException ex) {
+            StructuredLogContext.putNotificationFields("log", "skipped");
+            StructuredLogContext.putEventAction("notification.conflict.skipped");
+            log.warn("Notification stub skipped conflicting eventId={} reason={}",
+                    event.eventId(), ex.getMessage());
+        } catch (RuntimeException ex) {
+            StructuredLogContext.putNotificationFields("log", "failed");
+            StructuredLogContext.putEventAction("notification.processing.failed");
+            log.error("Notification stub failed eventId={}", event.eventId(), ex);
+            throw ex;
+        } finally {
+            instanceMdcInitializer.clearConsumerContext();
+        }
     }
 
     private String extractTraceParent(ConsumerRecord<String, EventEnvelope> record) {

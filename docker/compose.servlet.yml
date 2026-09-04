@@ -94,6 +94,11 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: outbox
+      DB_USER: outbox
+      DB_PASSWORD: outbox
       KAFKA_BOOTSTRAP: kafka:29092
       SPRING_PROFILES_ACTIVE: dev
       LOG_JSON_PATH: /var/log/app
@@ -102,6 +107,8 @@ services:
     volumes:
       - ../logs/servlet:/var/log/app
     depends_on:
+      postgres:
+        condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
       order-service:
