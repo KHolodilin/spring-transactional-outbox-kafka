@@ -58,8 +58,8 @@ Servlet (`order-service`) and Virtual Threads (`order-service-vt`) get that pipe
 
 | Starter | Version | Repository |
 |---------|---------|------------|
-| `spring-boot-outbox-starter` | `0.1.0` | [KHolodilin/spring-boot-outbox-starter](https://github.com/KHolodilin/spring-boot-outbox-starter) |
-| `spring-boot-idempotency-starter` | `0.3.2` | [KHolodilin/spring-boot-idempotency-starter](https://github.com/KHolodilin/spring-boot-idempotency-starter) |
+| `spring-boot-outbox-starter` | `0.1.3` | [KHolodilin/spring-boot-outbox-starter](https://github.com/KHolodilin/spring-boot-outbox-starter) |
+| `spring-boot-idempotency-starter` | `0.3.4` | [KHolodilin/spring-boot-idempotency-starter](https://github.com/KHolodilin/spring-boot-idempotency-starter) |
 
 ## 🔄 How it works
 
