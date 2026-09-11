@@ -13,7 +13,7 @@
 
     <groupId>com.kholodilin.outbox</groupId>
     <artifactId>spring-transactional-outbox-kafka</artifactId>
-    <version>1.3.0-SNAPSHOT</version>
+    <version>1.3.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>spring-transactional-outbox-kafka</name>
 
@@ -32,8 +32,8 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <jacoco.version>0.8.15</jacoco.version>
         <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
-        <idempotency-starter.version>0.3.4</idempotency-starter.version>
-        <outbox-starter.version>0.1.3</outbox-starter.version>
+        <idempotency-starter.version>0.3.5</idempotency-starter.version>
+        <outbox-starter.version>0.1.4</outbox-starter.version>
         <mockito.agent.argLine>-javaagent:@{org.mockito:mockito-core:jar}</mockito.agent.argLine>
     </properties>
 
