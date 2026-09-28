@@ -35,6 +35,7 @@
         <idempotency-starter.version>0.3.5</idempotency-starter.version>
         <outbox-starter.version>0.1.4</outbox-starter.version>
         <mockito.agent.argLine>-javaagent:@{org.mockito:mockito-core:jar}</mockito.agent.argLine>
+        <idempotency-starter-reactive.version>1.0.0</idempotency-starter-reactive.version>
     </properties>
 
     <dependencies>
@@ -79,6 +80,11 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+			<dependency>
+				<groupId>com.kholodilin</groupId>
+				<artifactId>spring-boot-idempotency-starter-reactive</artifactId>
+				<version>${idempotency-starter-reactive.version}</version>
+			</dependency>
         </dependencies>
     </dependencyManagement>
 

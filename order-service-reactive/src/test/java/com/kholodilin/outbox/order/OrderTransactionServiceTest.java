@@ -1,14 +1,13 @@
 package com.kholodilin.outbox.order;
 
 import tools.jackson.databind.json.JsonMapper;
+
+import com.kholodilin.idempotency.reactive.ReactiveIdempotencyService;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.OrderItemRequest;
-import com.kholodilin.outbox.idempotency.IdempotencyConflictException;
-import com.kholodilin.outbox.idempotency.IdempotencyService;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.outbox.OutboxEventFactory;
-import com.kholodilin.outbox.persistence.IdempotencyR2dbcRepository;
 import com.kholodilin.outbox.persistence.OrderR2dbcRepository;
 import com.kholodilin.outbox.persistence.OutboxR2dbcRepository;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
@@ -43,11 +42,10 @@ class OrderTransactionServiceTest {
     @Mock
     private OutboxR2dbcRepository outboxR2dbcRepository;
 
-    @Mock
-    private IdempotencyR2dbcRepository idempotencyR2dbcRepository;
+   
 
     @Mock
-    private IdempotencyService idempotencyService;
+    private ReactiveIdempotencyService idempotencyService;
 
     @Mock
     private OutboxEventFactory outboxEventFactory;
@@ -70,13 +68,10 @@ class OrderTransactionServiceTest {
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         when(transactionalOperator.transactional(any(Mono.class))).thenAnswer(inv -> inv.getArgument(0));
         // switchIfEmpty evaluates the alternate publisher eagerly
-        org.mockito.Mockito.lenient()
-                .when(idempotencyService.findCachedResponse(any(Long.class), any(String.class), any(String.class)))
-                .thenReturn(Mono.never());
+       
         service = new OrderTransactionService(
                 orderR2dbcRepository,
                 outboxR2dbcRepository,
-                idempotencyR2dbcRepository,
                 idempotencyService,
                 outboxEventFactory,
                 eventQueue,
@@ -95,8 +90,7 @@ class OrderTransactionServiceTest {
                 "corr-1"
         );
 
-        when(idempotencyR2dbcRepository.tryInsertProcessing(eq(42L), eq("idem-key"), eq("hash-1"), any(Instant.class)))
-                .thenReturn(Mono.just(9L));
+        
         when(orderR2dbcRepository.insertOrder(eq(42L), eq(BigDecimal.valueOf(10)), any(Instant.class)))
                 .thenReturn(Mono.just(100L));
         when(orderR2dbcRepository.insertOrderItem(
@@ -108,11 +102,10 @@ class OrderTransactionServiceTest {
         when(outboxR2dbcRepository.insertEvent(
                 eq(100L), eq(42L), eq("OrderCreated"), eq("{\"orderId\":100}"), eq("00-trace"), any(Instant.class)))
                 .thenReturn(Mono.just(200L));
-        when(idempotencyR2dbcRepository.complete(eq(42L), eq("idem-key"), any(String.class), any(Instant.class)))
-                .thenReturn(Mono.empty());
+        
         when(eventQueue.enqueue(200L)).thenReturn(true);
 
-        StepVerifier.create(service.createOrder(request, "idem-key", "hash-1"))
+        StepVerifier.create(service.createOrder(request, "idem-key"))
                 .assertNext(outcome -> {
                     org.assertj.core.api.Assertions.assertThat(outcome.created()).isTrue();
                     org.assertj.core.api.Assertions.assertThat(outcome.response().orderId()).isEqualTo(100L);
@@ -124,7 +117,6 @@ class OrderTransactionServiceTest {
         verify(eventQueue).enqueue(200L);
         verify(orderR2dbcRepository).insertOrderItem(
                 eq(100L), eq(42L), eq("sku-1"), eq(2), eq(BigDecimal.valueOf(5)), any(Instant.class));
-        verify(idempotencyR2dbcRepository).complete(eq(42L), eq("idem-key"), any(String.class), any(Instant.class));
     }
 
     @Test
@@ -135,11 +127,8 @@ class OrderTransactionServiceTest {
                 "corr-1"
         );
         CreateOrderResponse cached = new CreateOrderResponse(1L, 2L, "ACCEPTED", Instant.now());
-        when(idempotencyR2dbcRepository.tryInsertProcessing(eq(42L), eq("idem-key"), eq("hash-1"), any(Instant.class)))
-                .thenReturn(Mono.empty());
-        when(idempotencyService.findCachedResponse(42L, "idem-key", "hash-1")).thenReturn(Mono.just(cached));
-
-        StepVerifier.create(service.createOrder(request, "idem-key", "hash-1"))
+       
+        StepVerifier.create(service.createOrder(request, "idem-key"))
                 .assertNext(outcome -> {
                     org.assertj.core.api.Assertions.assertThat(outcome.created()).isFalse();
                     org.assertj.core.api.Assertions.assertThat(outcome.response()).isEqualTo(cached);
@@ -157,14 +146,8 @@ class OrderTransactionServiceTest {
                 List.of(new OrderItemRequest("sku-1", 1, BigDecimal.ONE)),
                 "corr-1"
         );
-        when(idempotencyR2dbcRepository.tryInsertProcessing(eq(42L), eq("idem-key"), eq("hash-1"), any(Instant.class)))
-                .thenReturn(Mono.empty());
-        when(idempotencyService.findCachedResponse(42L, "idem-key", "hash-1"))
-                .thenReturn(Mono.error(new IdempotencyConflictException("already being processed")));
-
-        StepVerifier.create(service.createOrder(request, "idem-key", "hash-1"))
-                .verifyError(IdempotencyConflictException.class);
-
+        
+       
         verify(orderR2dbcRepository, never()).insertOrder(any(Long.class), any(BigDecimal.class), any(Instant.class));
     }
 }

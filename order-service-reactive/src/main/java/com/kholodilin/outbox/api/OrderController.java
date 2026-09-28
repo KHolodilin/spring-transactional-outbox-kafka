@@ -28,7 +28,6 @@ import java.util.UUID;
 public class OrderController {
 
     private final OrderTransactionService orderTransactionService;
-    private final RequestHashCalculator requestHashCalculator;
 
     @PostMapping
     public Mono<ResponseEntity<CreateOrderResponse>> createOrder(
@@ -41,8 +40,7 @@ public class OrderController {
 
         log.info("Order request accepted customerId={} idempotencyKey={}", request.customerId(), idempotencyKey);
 
-        String requestHash = requestHashCalculator.calculate(request);
-        return orderTransactionService.createOrder(request, idempotencyKey, requestHash)
+        return orderTransactionService.createOrder(request, idempotencyKey)
                 .map(this::toResponse)
                 .doFinally(signal -> StructuredLogContext.clearRequestContext());
     }

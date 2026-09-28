@@ -6,14 +6,8 @@ databaseChangeLog:
       file: changes/002-order-items.sql
       relativeToChangelogFile: true
   - include:
-      file: changes/003-idempotency-keys.sql
+      file: changes/003-idempotency-records.sql
       relativeToChangelogFile: true
   - include:
       file: changes/004-outbox-events.sql
-      relativeToChangelogFile: true
-  - include:
-      file: changes/005-outbox-trace-parent.sql
-      relativeToChangelogFile: true
-  - include:
-      file: changes/006-idempotency-records.sql
       relativeToChangelogFile: true
