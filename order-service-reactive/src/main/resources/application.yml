@@ -67,7 +67,7 @@ idempotency:
     enabled: true
     table-name: idempotency_records
     schema:
-      mode: create
+      mode: validate
 
 app:
   instance-id: ${HOSTNAME:local-${random.uuid}}
