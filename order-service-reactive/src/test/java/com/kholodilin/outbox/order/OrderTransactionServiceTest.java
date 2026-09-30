@@ -12,6 +12,10 @@ import com.kholodilin.outbox.persistence.OrderR2dbcRepository;
 import com.kholodilin.outbox.persistence.OutboxR2dbcRepository;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import com.kholodilin.outbox.tracing.TraceContextSupport;
+import com.kholodilin.idempotency.ExecutionResult;
+import com.kholodilin.idempotency.exception.IdempotencyConflictException;
+import com.kholodilin.idempotency.model.IdempotencyKey;
+import com.kholodilin.idempotency.reactive.ReactiveIdempotencyCall;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,12 +30,15 @@ import reactor.test.StepVerifier;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
+
 
 @ExtendWith(MockitoExtension.class)
 class OrderTransactionServiceTest {
@@ -42,7 +49,8 @@ class OrderTransactionServiceTest {
     @Mock
     private OutboxR2dbcRepository outboxR2dbcRepository;
 
-   
+    @Mock
+    private ReactiveIdempotencyCall idempotencyCall;
 
     @Mock
     private ReactiveIdempotencyService idempotencyService;
@@ -104,6 +112,8 @@ class OrderTransactionServiceTest {
                 .thenReturn(Mono.just(200L));
         
         when(eventQueue.enqueue(200L)).thenReturn(true);
+        
+        stubIdempotencyExecuteAction();
 
         StepVerifier.create(service.createOrder(request, "idem-key"))
                 .assertNext(outcome -> {
@@ -127,7 +137,12 @@ class OrderTransactionServiceTest {
                 "corr-1"
         );
         CreateOrderResponse cached = new CreateOrderResponse(1L, 2L, "ACCEPTED", Instant.now());
-       
+        
+        when(idempotencyService.operation("CREATE_ORDER")).thenReturn(idempotencyCall);
+        when(idempotencyCall.key("idem-key")).thenReturn(idempotencyCall);
+        when(idempotencyCall.request(request)).thenReturn(idempotencyCall);
+        when(idempotencyCall.execute(eq(CreateOrderResponse.class), any()))
+        .thenReturn(Mono.just(ExecutionResult.success(cached)));       
         StepVerifier.create(service.createOrder(request, "idem-key"))
                 .assertNext(outcome -> {
                     org.assertj.core.api.Assertions.assertThat(outcome.created()).isFalse();
@@ -146,8 +161,30 @@ class OrderTransactionServiceTest {
                 List.of(new OrderItemRequest("sku-1", 1, BigDecimal.ONE)),
                 "corr-1"
         );
-        
-       
+
+        when(idempotencyService.operation("CREATE_ORDER")).thenReturn(idempotencyCall);
+
+        when(idempotencyCall.key("idem-key")).thenReturn(idempotencyCall);
+
+        when(idempotencyCall.request(request)).thenReturn(idempotencyCall);
+
+        when(idempotencyCall.execute(eq(CreateOrderResponse.class), any())).thenReturn(Mono.error(
+                new IdempotencyConflictException(new IdempotencyKey("CREATE_ORDER", "idem-key"), "hash-a", "hash-b")));
+
+        StepVerifier.create(service.createOrder(request, "idem-key")).expectError(IdempotencyConflictException.class)
+                .verify();
+
         verify(orderR2dbcRepository, never()).insertOrder(any(Long.class), any(BigDecimal.class), any(Instant.class));
+        verify(eventQueue, never()).enqueue(any(Long.class));
+    }
+    
+    private void stubIdempotencyExecuteAction() {
+        when(idempotencyService.operation(anyString())).thenReturn(idempotencyCall);
+        when(idempotencyCall.key(anyString())).thenReturn(idempotencyCall);
+        when(idempotencyCall.request(any())).thenReturn(idempotencyCall);
+        when(idempotencyCall.execute(eq(CreateOrderResponse.class), any())).thenAnswer(invocation -> {
+            Supplier<ExecutionResult<CreateOrderResponse>> action = invocation.getArgument(1);
+            return action.get();
+        });
     }
 }
