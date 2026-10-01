@@ -54,12 +54,13 @@ The result is a solution that provides:
 - ✅ A single, consistent publishing pipeline
 - ✅ Production-ready observability with metrics, structured logging, and distributed tracing
 
-Servlet (`order-service`) and Virtual Threads (`order-service-vt`) get that pipeline from reusable starters. Reactive (`order-service-reactive`) keeps its own R2DBC stack.
+Servlet (`order-service`) and Virtual Threads (`order-service-vt`) get that pipeline from reusable starters. Reactive (`order-service-reactive`) uses `spring-boot-idempotency-starter-reactive` and keeps its own R2DBC outbox publisher/recovery.
 
 | Starter | Version | Repository |
 |---------|---------|------------|
 | `spring-boot-outbox-starter` | `0.1.4` | [KHolodilin/spring-boot-outbox-starter](https://github.com/KHolodilin/spring-boot-outbox-starter) |
 | `spring-boot-idempotency-starter` | `0.3.5` | [KHolodilin/spring-boot-idempotency-starter](https://github.com/KHolodilin/spring-boot-idempotency-starter) |
+| `spring-boot-idempotency-starter-reactive` | `1.0.0` | [KHolodilin/spring-boot-idempotency-starter](https://github.com/KHolodilin/spring-boot-idempotency-starter) |
 
 ## 🔄 How it works
 
@@ -157,7 +158,7 @@ As a result, recovery performance depends only on the number of active events in
 
 ### 🔑 Idempotent Request Flow
 
-Servlet and Virtual Threads peers use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter) (fluent API) and [`spring-boot-outbox-starter`](https://github.com/KHolodilin/spring-boot-outbox-starter) with PostgreSQL tables `idempotency_records` / `outbox_events`. The idempotency outcome is committed in the **same transaction** as the order and outbox row.
+Servlet and Virtual Threads peers use [`spring-boot-idempotency-starter`](https://github.com/KHolodilin/spring-boot-idempotency-starter) (fluent API) and [`spring-boot-outbox-starter`](https://github.com/KHolodilin/spring-boot-outbox-starter) with PostgreSQL tables `idempotency_records` / `outbox_events`. The reactive peer uses [`spring-boot-idempotency-starter-reactive`](https://github.com/KHolodilin/spring-boot-idempotency-starter) in the same R2DBC transaction as the order and outbox row. The idempotency outcome is committed in the **same transaction** as the order and outbox row.
 
 The Notification Stub also uses the idempotency starter to process each Kafka `eventId` once, storing consumer-side records in its own `notification_idempotency_records` table.
 

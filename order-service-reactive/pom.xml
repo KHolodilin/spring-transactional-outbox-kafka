@@ -92,10 +92,10 @@
             <artifactId>janino</artifactId>
             <scope>runtime</scope>
         </dependency>
-		<dependency>
-			<groupId>com.kholodilin</groupId>
-			<artifactId>spring-boot-idempotency-starter-reactive</artifactId>
-		</dependency>
+        <dependency>
+            <groupId>com.kholodilin</groupId>
+            <artifactId>spring-boot-idempotency-starter-reactive</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
