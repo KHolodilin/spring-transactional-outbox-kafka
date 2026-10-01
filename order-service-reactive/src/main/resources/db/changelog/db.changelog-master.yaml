@@ -18,5 +18,5 @@ databaseChangeLog:
       file: changes/006-idempotency-records.sql
       relativeToChangelogFile: true
   - include:
-       file: changes/007-drop-idempotency-keys.sql
-       relativeToChangelogFile: true
+      file: changes/007-drop-idempotency-keys.sql
+      relativeToChangelogFile: true
