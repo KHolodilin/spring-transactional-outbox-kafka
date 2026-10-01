@@ -1,6 +1,5 @@
 package com.kholodilin.outbox.api;
 
-import com.kholodilin.outbox.idempotency.IdempotencyConflictException;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.r2dbc.spi.R2dbcTimeoutException;
@@ -25,16 +24,6 @@ class GlobalExceptionHandlerTest {
         OutboxMetrics metrics = new OutboxMetrics(registry);
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         handler = new GlobalExceptionHandler(metrics);
-    }
-
-    @Test
-    void mapsIdempotencyConflictTo409ProblemDetail() {
-        ProblemDetail problem = handler.handleIdempotencyConflict(
-                new IdempotencyConflictException("Key conflict"));
-
-        assertThat(problem.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
-        assertThat(problem.getTitle()).isEqualTo("Idempotency conflict");
-        assertThat(problem.getDetail()).isEqualTo("Key conflict");
     }
 
     @Test

@@ -1,6 +1,5 @@
 package com.kholodilin.outbox.api;
 
-import com.kholodilin.outbox.idempotency.IdempotencyConflictException;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import io.r2dbc.spi.R2dbcTimeoutException;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +10,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.net.URI;
 import java.util.concurrent.TimeoutException;
+import com.kholodilin.idempotency.exception.IdempotencyConflictException;
+
 
 /** Maps idempotency and pool-exhaustion errors to RFC 7807 {@link ProblemDetail}. */
 @RestControllerAdvice
@@ -32,7 +33,6 @@ public class GlobalExceptionHandler {
         problem.setType(URI.create("about:blank"));
         return problem;
     }
-
     /**
      * Maps R2DBC timeouts (including pool acquire) to HTTP 429.
      *

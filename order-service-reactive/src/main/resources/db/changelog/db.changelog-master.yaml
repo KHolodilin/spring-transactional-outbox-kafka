@@ -14,3 +14,9 @@ databaseChangeLog:
   - include:
       file: changes/005-outbox-trace-parent.sql
       relativeToChangelogFile: true
+  - include:
+      file: changes/006-idempotency-records.sql
+      relativeToChangelogFile: true
+  - include:
+       file: changes/007-drop-idempotency-keys.sql
+       relativeToChangelogFile: true
