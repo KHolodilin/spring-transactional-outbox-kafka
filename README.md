@@ -453,7 +453,12 @@ docker compose --profile observability up -d
 mvn clean verify
 mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
 mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
+
+# Reactive pair
+mvn -pl order-service-reactive spring-boot:run -Dspring-boot.run.profiles=dev
+mvn -pl notification-stub-reactive spring-boot:run -Dspring-boot.run.profiles=dev
 ```
+notification-stub-reactive is the reactor-kafka + R2DBC downstream peer on :8085; pair it with order-service-reactive on :8083.
 
 Peer services stay on `:8083` (reactive) and `:8084` (virtual threads). See [CONTRIBUTING.md](CONTRIBUTING.md).
 

@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: changes/001-notification-idempotency-records.sql
+      relativeToChangelogFile: true

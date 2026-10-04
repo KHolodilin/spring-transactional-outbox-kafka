@@ -47,6 +47,9 @@ mvn -pl order-service-reactive spring-boot:run -Dspring-boot.run.profiles=dev
 
 # Virtual Threads + JDBC peer (port 8084)
 mvn -pl order-service-vt spring-boot:run -Dspring-boot.run.profiles=dev
+
+# Reactive notification peer (port 8085)
+mvn -pl notification-stub-reactive spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 Metrics: `docker compose --profile observability up -d`, then Prometheus http://localhost:9090, Grafana http://localhost:3000 — see [README Observability](README.md#observability).
@@ -129,6 +132,7 @@ Without `CODECOV_TOKEN`, the CI upload step fails (`fail_ci_if_error: true`).
 | `docker/compose.servlet.yml` | Docker demo stack (servlet). Order `:8090`, stub `:8091`, Grafana `:3000` |
 | `docker/compose.reactive.yml` | Docker demo stack (WebFlux). Order `:8092`, stub `:8093`, Grafana `:3001` |
 | `docker/compose.vt.yml` | Docker demo stack (virtual threads). Order `:8094`, stub `:8095`, Grafana `:3002` |
+| `notification-stub-reactive` | Reactive downstream consumer using reactor-kafka + R2DBC (port 8085) |
 
 Package base: `com.kholodilin.outbox`.
 
