@@ -44,6 +44,8 @@ curl -X PUT "http://localhost:9200/_index_template/spring-outbox-logs" \
 ```bash
 mvn -pl order-service spring-boot:run -Dspring-boot.run.profiles=dev
 mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
+mvn -pl order-service-reactive spring-boot:run -Dspring-boot.run.profiles=dev
+mvn -pl notification-stub-reactive spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 JSON logs are written to:
@@ -51,6 +53,8 @@ JSON logs are written to:
 ```text
 ./logs/order-service/app.json
 ./logs/notification-stub/app.json
+./logs/order-service-reactive/app.json
+./logs/notification-stub-reactive/app.json
 ```
 
 Fluent Bit tails `./logs` (mounted as `/var/log/app` in the container).
@@ -103,7 +107,7 @@ Example PPL stats (view on **Events** tab):
 source = spring-outbox-logs-local-* | where isnotnull(customerId) | stats count() as cnt by customerId | sort - cnt
 ```
 
-> **Note:** JSON logs are written under `order-service/logs/` and `notification-stub/logs/` when running via `mvn -pl … spring-boot:run` (module working directory). Fluent Bit mounts those paths.
+> **Note:** JSON logs are written under `order-service/logs/`, `notification-stub/logs/`, and `notification-stub-reactive/logs/` when running via `mvn -pl … spring-boot:run` (module working directory). Fluent Bit mounts those paths.
 
 ## Saved searches
 
@@ -118,6 +122,7 @@ source = spring-outbox-logs-local-* | where isnotnull(customerId) | stats count(
 | `event.action:"outbox.publish.failed"` | Publish failures |
 | `service.name:"order-service"` | Producer logs |
 | `service.name:"notification-stub"` | Consumer logs |
+| `service.name:"notification-stub-reactive"` | Reactive consumer logs |
 | `log.level:"ERROR"` | Errors |
 
 ## Structured fields

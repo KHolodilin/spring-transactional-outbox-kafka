@@ -2,6 +2,11 @@ logging:
   level:
     com.kholodilin.outbox: DEBUG
 
+spring:
+  kafka:
+    consumer:
+      group-id: notification-stub-reactive-dev
+
 management:
   tracing:
     sampling:

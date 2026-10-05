@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverOffset;
@@ -83,6 +84,38 @@ class KafkaNotificationConsumerTest {
     }
 
     @Test
+    void startSubscribesAfterReadyAndIsIdempotent() {
+        when(kafkaReceiver.receive()).thenReturn(Flux.never());
+
+        verify(kafkaReceiver, never()).receive();
+
+        consumer.start();
+        consumer.start();
+
+        verify(kafkaReceiver, times(1)).receive();
+
+        consumer.stop();
+    }
+
+    @Test
+    void acknowledgesMalformedNullValue() {
+        TestRecord poison = nullValueRecord(8, 0L);
+
+        consumer.acknowledgeMalformedRecord(poison.record());
+
+        verify(poison.offset()).acknowledge();
+    }
+
+    @Test
+    void doesNotAcknowledgeValidRecordInMalformedHook() {
+        TestRecord valid = record(0, 1L);
+
+        consumer.acknowledgeMalformedRecord(valid.record());
+
+        verify(valid.offset(), never()).acknowledge();
+    }
+
+    @Test
     void technicalFailureDoesNotAcknowledge() {
         TestRecord testRecord =
                 record(0, 10L);
@@ -148,6 +181,23 @@ class KafkaNotificationConsumerTest {
                 receiverRecord,
                 receiverOffset
         );
+    }
+
+    private TestRecord nullValueRecord(int partition, long offset) {
+        ConsumerRecord<String, EventEnvelope> consumerRecord =
+                new ConsumerRecord<>(
+                        "orders.events",
+                        partition,
+                        offset,
+                        "9001",
+                        null
+                );
+
+        ReceiverOffset receiverOffset = mock(ReceiverOffset.class);
+        ReceiverRecord<String, EventEnvelope> receiverRecord =
+                new ReceiverRecord<>(consumerRecord, receiverOffset);
+
+        return new TestRecord(receiverRecord, receiverOffset);
     }
 
     private record TestRecord(

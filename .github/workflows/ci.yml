@@ -94,5 +94,7 @@ jobs:
           files: |
             outbox-events-contract/target/site/jacoco/jacoco.xml,
             order-service/target/site/jacoco/jacoco.xml,
-            notification-stub/target/site/jacoco/jacoco.xml
+            order-service-reactive/target/site/jacoco/jacoco.xml,
+            notification-stub/target/site/jacoco/jacoco.xml,
+            notification-stub-reactive/target/site/jacoco/jacoco.xml
           fail_ci_if_error: true
