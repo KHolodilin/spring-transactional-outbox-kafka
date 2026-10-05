@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: notification-stub-reactive
+  reactor:
+    context-propagation: auto
+
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox_reactive}
+    username: ${DB_USER:outbox}
+    password: ${DB_PASSWORD:outbox}
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox_reactive}
+    user: ${DB_USER:outbox}
+    password: ${DB_PASSWORD:outbox}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: notification-stub-reactive
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+idempotency:
+  enabled: true
+  persistence:
+    enabled: true
+    table-name: notification_idempotency_records
+    schema:
+      mode: validate
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+
+  tracing:
+    enabled: ${TRACING_ENABLED:true}
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}
+    propagation:
+      type: w3c
+
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  level:
+    root: INFO
+    com.kholodilin.outbox: INFO
+
+app:
+  instance-id: ${HOSTNAME:local-${random.uuid}}
+
+  kafka:
+    topic: orders.events
+    batch-size: 100
+    batch-wait: 50ms
+
+server:
+  port: 8085
