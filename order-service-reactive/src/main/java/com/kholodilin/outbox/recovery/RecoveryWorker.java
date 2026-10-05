@@ -9,6 +9,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
@@ -22,6 +23,7 @@ import java.time.Instant;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@DependsOnDatabaseInitialization
 public class RecoveryWorker {
 
     private final AppProperties properties;

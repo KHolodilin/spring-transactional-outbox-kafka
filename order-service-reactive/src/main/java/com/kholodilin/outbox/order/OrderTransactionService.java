@@ -14,6 +14,7 @@ import com.kholodilin.outbox.queue.InMemoryEventQueue;
 import com.kholodilin.outbox.tracing.TraceContextSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
@@ -31,6 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@DependsOnDatabaseInitialization
 public class OrderTransactionService {
 
     private final OrderR2dbcRepository orderR2dbcRepository;
