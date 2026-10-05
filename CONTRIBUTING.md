@@ -98,7 +98,7 @@ notification-stub/target/site/jacoco/jacoco.xml
 
 CI uploads all module reports to Codecov (merged on the Codecov side).
 
-Pushing a tag `v*` (for example `v1.2.0`) runs [Release](.github/workflows/release.yml): Maven package, four images to GHCR, and a GitHub Release with `compose.servlet.yml`, `compose.reactive.yml`, and `compose.vt.yml`.
+Pushing a tag `v*` (for example `v1.2.0`) runs [Release](.github/workflows/release.yml): Maven package, five images to GHCR, and a GitHub Release with `compose.servlet.yml`, `compose.reactive.yml`, and `compose.vt.yml`.
 
 ## Continuous integration and Codecov
 
@@ -130,7 +130,7 @@ Without `CODECOV_TOKEN`, the CI upload step fails (`fail_ci_if_error: true`).
 | `notification-stub` | Demo downstream consumer |
 | `load-tests` | Gatling load tests for servlet / reactive / VT — see [docs/ab-load-comparison.md](docs/ab-load-comparison.md) |
 | `docker/compose.servlet.yml` | Docker demo stack (servlet). Order `:8090`, stub `:8091`, Grafana `:3000` |
-| `docker/compose.reactive.yml` | Docker demo stack (WebFlux). Order `:8092`, stub `:8093`, Grafana `:3001` |
+| `docker/compose.reactive.yml` | Docker demo stack (WebFlux). Order `:8092`, `notification-stub-reactive` `:8093` → `:8085`, Grafana `:3001` |
 | `docker/compose.vt.yml` | Docker demo stack (virtual threads). Order `:8094`, stub `:8095`, Grafana `:3002` |
 | `notification-stub-reactive` | Reactive downstream consumer using reactor-kafka + R2DBC (port 8085) |
 

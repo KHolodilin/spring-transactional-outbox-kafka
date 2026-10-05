@@ -87,10 +87,10 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
-  notification-stub:
-    image: ghcr.io/kholodilin/spring-transactional-outbox-kafka/notification-stub:${APP_VERSION:-latest}
+  notification-stub-reactive:
+    image: ghcr.io/kholodilin/spring-transactional-outbox-kafka/notification-stub-reactive:${APP_VERSION:-latest}
     ports:
-      - "8093:8081"
+      - "8093:8085"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -152,8 +152,8 @@ services:
       - ../monitoring/grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
       - ../monitoring/grafana/provisioning/dashboards/orders-technical-reactive-dashboard.json:/etc/grafana/provisioning/dashboards/orders-technical.json:ro
       - ../monitoring/grafana/provisioning/dashboards/postgres-dashboard.json:/etc/grafana/provisioning/dashboards/postgres.json:ro
-      - ../monitoring/grafana/provisioning/dashboards/notification-stub-dashboard.json:/etc/grafana/provisioning/dashboards/notification-stub.json:ro
-      - ../monitoring/grafana/provisioning/dashboards/tracing-dashboard.json:/etc/grafana/provisioning/dashboards/tracing.json:ro
+      - ../monitoring/grafana/provisioning/dashboards/notification-stub-reactive-dashboard.json:/etc/grafana/provisioning/dashboards/notification-stub.json:ro
+      - ../monitoring/grafana/provisioning/dashboards/tracing-dashboard-reactive.json:/etc/grafana/provisioning/dashboards/tracing.json:ro
     depends_on:
       - prometheus
       - tempo
