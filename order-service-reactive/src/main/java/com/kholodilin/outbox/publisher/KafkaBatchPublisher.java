@@ -3,6 +3,7 @@ package com.kholodilin.outbox.publisher;
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.tracing.TraceContextSupport;
 import io.micrometer.tracing.Span;
@@ -65,7 +66,7 @@ public class KafkaBatchPublisher {
         String topic = properties.getKafka().getTopic();
         List<CompletableFuture<?>> futures = new ArrayList<>();
         for (EventEnvelope envelope : envelopes) {
-            traceContextSupport.runWithTraceParent(envelope.traceParent(), "outbox.publish", () -> {
+            traceContextSupport.runWithTraceParent(envelope.traceParent(), ObservabilityVocabulary.SPAN_OUTBOX_PUBLISH, () -> {
                 String key = String.valueOf(envelope.customerId());
                 ProducerRecord<String, Object> record = new ProducerRecord<>(topic, key, envelope);
                 addBusinessHeaders(record, envelope);

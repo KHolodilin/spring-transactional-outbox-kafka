@@ -1,14 +1,19 @@
 package com.kholodilin.outbox.publisher;
 
+import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.model.OutboxPublishResult;
 import com.kholodilin.outbox.model.OutboxRecord;
+import com.kholodilin.outbox.tracing.TraceContextSupport;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.MDC;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -16,12 +21,16 @@ import tools.jackson.databind.json.JsonMapper;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -32,11 +41,27 @@ class KafkaOutboxSinkTest {
     @Mock
     private KafkaBatchPublisher kafkaBatchPublisher;
 
+    @Mock
+    private TraceContextSupport traceContextSupport;
+
     private KafkaOutboxSink sink;
 
     @BeforeEach
     void setUp() {
-        sink = new KafkaOutboxSink(kafkaBatchPublisher, JsonMapper.builder().build());
+        lenient().when(traceContextSupport.runWithTraceParent(nullable(String.class), anyString(), any(Supplier.class)))
+                .thenAnswer(invocation -> invocation.<Supplier<?>>getArgument(2).get());
+        sink = new KafkaOutboxSink(
+                kafkaBatchPublisher,
+                JsonMapper.builder().build(),
+                traceContextSupport,
+                AppProperties.builder().instanceId("pod-1").build(),
+                5
+        );
+    }
+
+    @AfterEach
+    void tearDown() {
+        MDC.clear();
     }
 
     @Test
@@ -59,6 +84,13 @@ class KafkaOutboxSinkTest {
         assertThat(envelope.correlationId()).isEqualTo("corr-1");
         assertThat(envelope.traceParent()).isEqualTo("00-aa-bb-01");
         assertThat(envelope.payload()).containsEntry("orderId", 7);
+        assertThat(MDC.get("event.action")).isEqualTo(ObservabilityVocabulary.OUTBOX_BATCH_PUBLISHED);
+        verify(traceContextSupport).runWithTraceParent(
+                nullable(String.class), eq(ObservabilityVocabulary.SPAN_BATCH_FETCH), any(Supplier.class));
+        verify(traceContextSupport).runWithTraceParent(
+                eq("00-aa-bb-01"), eq(ObservabilityVocabulary.SPAN_BATCH_PUBLISH), any(Supplier.class));
+        verify(traceContextSupport).runWithTraceParent(
+                eq("00-aa-bb-01"), eq(ObservabilityVocabulary.SPAN_BATCH_COMPLETE), any(Supplier.class));
     }
 
     @Test
@@ -95,6 +127,7 @@ class KafkaOutboxSinkTest {
 
         assertThat(result).isInstanceOf(OutboxPublishResult.AllFailed.class);
         assertThat(((OutboxPublishResult.AllFailed) result).cause()).hasMessage("broker down");
+        assertThat(MDC.get("event.action")).isEqualTo(ObservabilityVocabulary.OUTBOX_RETRY);
     }
 
     @Test
@@ -105,12 +138,19 @@ class KafkaOutboxSinkTest {
         assertThat(((OutboxPublishResult.AllFailed) result).cause())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Failed to parse outbox payload JSON");
+        assertThat(MDC.get("event.action")).isEqualTo(ObservabilityVocabulary.OUTBOX_RETRY);
     }
 
     @Test
     void publishUsesNullCorrelationIdWhenPayloadMapIsNull() {
         ObjectMapper objectMapper = mock(ObjectMapper.class);
-        sink = new KafkaOutboxSink(kafkaBatchPublisher, objectMapper);
+        sink = new KafkaOutboxSink(
+                kafkaBatchPublisher,
+                objectMapper,
+                traceContextSupport,
+                AppProperties.builder().instanceId("pod-1").build(),
+                5
+        );
         when(objectMapper.readValue(eq("{}"), any(TypeReference.class))).thenReturn(null);
 
         sink.publish(List.of(record("{}", null)));

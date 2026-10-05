@@ -16,7 +16,7 @@
     {
       "title": "Notification Stub",
       "type": "link",
-      "url": "/d/notification-stub/notification-stub",
+      "url": "/d/notification-stub-reactive/notification-stub-reactive",
       "icon": "external link"
     }
   ],
@@ -98,7 +98,7 @@
           },
           "filters": [],
           "limit": 20,
-          "query": "{ resource.service.name =~ \"order-service(-vt)?\" && name = \"http post /api/v1/orders\" }",
+          "query": "{ resource.service.name = \"order-service-reactive\" && name = \"http post /api/v1/orders\" }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
@@ -141,13 +141,13 @@
           },
           "filters": [],
           "limit": 20,
-          "query": "{ resource.service.name = \"notification-stub\" && name =~ \"notification.*\" }",
+          "query": "{ resource.service.name = \"notification-stub-reactive\" && name =~ \"notification.*\" }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
         }
       ],
-      "title": "Kafka Consumer (notification-stub)",
+      "title": "Kafka Consumer (notification-stub-reactive)",
       "type": "table"
     },
     {
@@ -207,8 +207,8 @@
         "allValue": ".*",
         "current": {
           "selected": true,
-          "text": "order-service",
-          "value": "order-service"
+          "text": "order-service-reactive",
+          "value": "order-service-reactive"
         },
         "includeAll": true,
         "label": "Service",
@@ -217,21 +217,16 @@
         "options": [
           {
             "selected": true,
-            "text": "order-service",
-            "value": "order-service"
+            "text": "order-service-reactive",
+            "value": "order-service-reactive"
           },
           {
             "selected": false,
-            "text": "order-service-vt",
-            "value": "order-service-vt"
-          },
-          {
-            "selected": false,
-            "text": "notification-stub",
-            "value": "notification-stub"
+            "text": "notification-stub-reactive",
+            "value": "notification-stub-reactive"
           }
         ],
-        "query": "order-service,order-service-vt,notification-stub",
+        "query": "order-service-reactive,notification-stub-reactive",
         "type": "custom"
       },
       {
@@ -282,7 +277,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Distributed Tracing",
-  "uid": "distributed-tracing",
+  "title": "Distributed Tracing (Reactive)",
+  "uid": "distributed-tracing-reactive",
   "version": 9
 }

@@ -84,6 +84,18 @@ public final class StructuredLogContext {
         }
     }
 
+    /** Copies Micrometer {@code traceId}/{@code spanId} into dotted aliases expected by OpenSearch. */
+    public static void enrichTracingAliases() {
+        String traceId = MDC.get("traceId");
+        if (traceId != null) {
+            MDC.put("trace.id", traceId);
+        }
+        String spanId = MDC.get("spanId");
+        if (spanId != null) {
+            MDC.put("span.id", spanId);
+        }
+    }
+
     public static void clearRequestContext() {
         MDC.remove("correlationId");
         MDC.remove("customerId");
@@ -103,5 +115,7 @@ public final class StructuredLogContext {
         MDC.remove("kafka.topic");
         MDC.remove("kafka.partition");
         MDC.remove("kafka.offset");
+        MDC.remove("notification.channel");
+        MDC.remove("notification.status");
     }
 }

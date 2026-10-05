@@ -6,6 +6,7 @@ import com.kholodilin.outbox.channel.OutboxChannel;
 import com.kholodilin.outbox.channel.OutboxChannelRegistry;
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.config.RateLimitBucketProperties;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.OrderServiceMetrics;
 import io.github.bucket4j.Bandwidth;
@@ -115,7 +116,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private void reject(HttpServletResponse response) throws IOException {
-        StructuredLogContext.putEventAction("http.request.rejected");
+        StructuredLogContext.putEventAction(ObservabilityVocabulary.HTTP_REQUEST_REJECTED);
         metrics.incrementRateLimitRejects();
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);

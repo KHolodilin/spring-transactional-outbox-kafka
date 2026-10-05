@@ -11,6 +11,7 @@ import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.persistence.OutboxR2dbcRepository;
 import com.kholodilin.outbox.persistence.OutboxRow;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
+import com.kholodilin.outbox.tracing.TraceContextSupport;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,11 +29,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -52,11 +56,16 @@ class ReactiveBatchPublisherWorkerTest {
     @Mock
     private ObjectProvider<KafkaBatchPublisher> kafkaBatchPublisherProvider;
 
+    @Mock
+    private TraceContextSupport traceContextSupport;
+
     private ReactiveBatchPublisherWorker worker;
 
     @BeforeEach
     void setUp() {
         lenient().when(kafkaBatchPublisherProvider.getObject()).thenReturn(kafkaBatchPublisher);
+        lenient().when(traceContextSupport.deferWithTraceParent(nullable(String.class), anyString(), any()))
+                .thenAnswer(invocation -> invocation.<Supplier<Mono<?>>>getArgument(2).get());
         OutboxMetrics metrics = new OutboxMetrics(new SimpleMeterRegistry());
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         AppProperties properties = AppProperties.builder()
@@ -78,7 +87,8 @@ class ReactiveBatchPublisherWorkerTest {
                 kafkaBatchPublisherProvider,
                 metrics,
                 properties,
-                JsonMapper.builder().build()
+                JsonMapper.builder().build(),
+                traceContextSupport
         );
     }
 

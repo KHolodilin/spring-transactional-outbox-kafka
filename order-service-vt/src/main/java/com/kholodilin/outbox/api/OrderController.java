@@ -3,6 +3,7 @@ package com.kholodilin.outbox.api;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.EventConstants;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.order.OrderCreateOutcome;
 import com.kholodilin.outbox.order.OrderTransactionService;
@@ -54,7 +55,7 @@ public class OrderController {
     ) {
         String correlationId = request.correlationId() != null ? request.correlationId() : UUID.randomUUID().toString();
         StructuredLogContext.putCorrelation(correlationId, request.customerId(), idempotencyKey);
-        StructuredLogContext.putEventAction("http.request.accepted");
+        StructuredLogContext.putEventAction(ObservabilityVocabulary.HTTP_REQUEST_ACCEPTED);
 
         log.info("Order request accepted customerId={} idempotencyKey={}", request.customerId(), idempotencyKey);
         log.debug("Order request body customerId={} items={}", request.customerId(), request.items().size());
@@ -64,7 +65,7 @@ public class OrderController {
         OrderCreateOutcome outcome = orderTransactionService.createOrder(request, idempotencyKey);
         CreateOrderResponse response = outcome.response();
         StructuredLogContext.putOrderFields(response.orderId(), response.eventId());
-        StructuredLogContext.putEventAction("http.request.completed");
+        StructuredLogContext.putEventAction(ObservabilityVocabulary.HTTP_REQUEST_COMPLETED);
         if (outcome.created()) {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         }

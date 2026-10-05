@@ -1,6 +1,7 @@
 package com.kholodilin.outbox.ratelimit;
 
 import com.kholodilin.outbox.config.AppProperties;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import jakarta.annotation.PostConstruct;
@@ -68,7 +69,7 @@ public class CreateBulkheadWebFilter implements WebFilter, Ordered {
     }
 
     private Mono<Void> reject(ServerWebExchange exchange) {
-        StructuredLogContext.putEventAction("http.request.rejected.bulkhead");
+        StructuredLogContext.putEventAction(ObservabilityVocabulary.HTTP_REQUEST_REJECTED_BULKHEAD);
         metrics.incrementBulkheadRejects();
         exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_PROBLEM_JSON);

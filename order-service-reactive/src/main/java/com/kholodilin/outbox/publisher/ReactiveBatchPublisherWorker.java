@@ -3,17 +3,20 @@ package com.kholodilin.outbox.publisher;
 import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.events.OutboxStatus;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.persistence.OutboxR2dbcRepository;
 import com.kholodilin.outbox.persistence.OutboxRow;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
+import com.kholodilin.outbox.tracing.TraceContextSupport;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
@@ -31,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@DependsOnDatabaseInitialization
 public class ReactiveBatchPublisherWorker {
 
     private final InMemoryEventQueue eventQueue;
@@ -39,6 +43,7 @@ public class ReactiveBatchPublisherWorker {
     private final OutboxMetrics metrics;
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
+    private final TraceContextSupport traceContextSupport;
     private final AtomicBoolean running = new AtomicBoolean(true);
     private Disposable subscription;
 
@@ -72,8 +77,12 @@ public class ReactiveBatchPublisherWorker {
 
     private Mono<Void> publishIds(List<Long> ids) {
         Instant lockedUntil = Instant.now().plus(properties.getOutbox().getPublisher().getLeaseDuration());
-        return outboxR2dbcRepository.claimByIds(ids, properties.getInstanceId(), lockedUntil)
-                .collectList()
+        return traceContextSupport.deferWithTraceParent(
+                        null,
+                        ObservabilityVocabulary.SPAN_BATCH_FETCH,
+                        () -> outboxR2dbcRepository.claimByIds(ids, properties.getInstanceId(), lockedUntil)
+                                .collectList()
+                )
                 .flatMap(claimed -> {
                     if (claimed.isEmpty()) {
                         log.debug("No outbox rows claimed for ids={}", ids);
@@ -83,31 +92,44 @@ public class ReactiveBatchPublisherWorker {
                     }
 
                     StructuredLogContext.putInstanceFields(properties.getInstanceId());
+                    StructuredLogContext.enrichTracingAliases();
                     StructuredLogContext.putBatchSize(claimed.size());
-                    StructuredLogContext.putEventAction("outbox.batch.loaded");
+                    StructuredLogContext.putEventAction(ObservabilityVocabulary.OUTBOX_BATCH_LOADED);
+                    log.info("Outbox batch loaded size={}", claimed.size());
 
                     List<EventEnvelope> envelopes = new ArrayList<>();
                     for (OutboxRow row : claimed) {
                         envelopes.add(outboxR2dbcRepository.toEnvelope(row, extractCorrelationId(row.payload())));
                     }
+                    String batchTrace = envelopes.getFirst().traceParent();
 
                     long start = System.nanoTime();
-                    return kafkaBatchPublisher.getObject().publish(envelopes)
-                            .then(Mono.defer(() -> {
-                                long durationNs = System.nanoTime() - start;
-                                metrics.recordPublishedBatch(envelopes.size(), durationNs);
-                                return outboxR2dbcRepository.markSent(sentIds(claimed), Instant.now())
-                                        .doOnSuccess(v -> {
-                                            long durationMs = durationNs / 1_000_000;
-                                            StructuredLogContext.putDurationMs(durationMs);
-                                            StructuredLogContext.putEventAction("outbox.batch.published");
-                                            log.info("Kafka batch published size={} durationMs={}",
-                                                    envelopes.size(), durationMs);
-                                        });
-                            }))
+                    return traceContextSupport.<Void>deferWithTraceParent(
+                                    batchTrace,
+                                    ObservabilityVocabulary.SPAN_BATCH_PUBLISH,
+                                    () -> kafkaBatchPublisher.getObject().publish(envelopes)
+                                            .then(Mono.defer(() -> {
+                                                long durationNs = System.nanoTime() - start;
+                                                metrics.recordPublishedBatch(envelopes.size(), durationNs);
+                                                return outboxR2dbcRepository.markSent(sentIds(claimed), Instant.now())
+                                                        .then(traceContextSupport.<Void>deferWithTraceParent(
+                                                                batchTrace,
+                                                                ObservabilityVocabulary.SPAN_BATCH_COMPLETE,
+                                                                () -> {
+                                                                    long durationMs = durationNs / 1_000_000;
+                                                                    StructuredLogContext.putDurationMs(durationMs);
+                                                                    StructuredLogContext.putEventAction(
+                                                                            ObservabilityVocabulary.OUTBOX_BATCH_PUBLISHED);
+                                                                    log.info("Kafka batch published size={} durationMs={}",
+                                                                            envelopes.size(), durationMs);
+                                                                    return Mono.empty();
+                                                                }
+                                                        ));
+                                            }))
+                            )
                             .onErrorResume(ex -> {
                                 metrics.incrementPublishFailures();
-                                StructuredLogContext.putEventAction("outbox.publish.failed");
+                                StructuredLogContext.putEventAction(ObservabilityVocabulary.OUTBOX_PUBLISH_FAILED);
                                 log.warn("Kafka batch publish failed size={} error={}", claimed.size(), ex.getMessage());
                                 return handleFailures(claimed);
                             });
@@ -122,7 +144,7 @@ public class ReactiveBatchPublisherWorker {
                     metrics.incrementRetryCount();
                     OutboxStatus status = nextRetry >= maxRetries ? OutboxStatus.DEAD : OutboxStatus.FAILED;
                     StructuredLogContext.putOutboxStatus(status.name(), status.getCode(), nextRetry);
-                    StructuredLogContext.putEventAction("outbox.retry");
+                    StructuredLogContext.putEventAction(ObservabilityVocabulary.OUTBOX_RETRY);
                     log.info("Outbox event marked {} eventId={} retryCount={}", status, row.id(), nextRetry);
                     return outboxR2dbcRepository.markFailed(row.id(), nextRetry, status);
                 })

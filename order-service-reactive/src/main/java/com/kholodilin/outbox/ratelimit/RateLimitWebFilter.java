@@ -4,6 +4,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.config.AppProperties;
 import com.kholodilin.outbox.config.RateLimitBucketProperties;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.queue.InMemoryEventQueue;
@@ -120,7 +121,7 @@ public class RateLimitWebFilter implements WebFilter, Ordered {
     }
 
     private Mono<Void> reject(ServerWebExchange exchange) {
-        StructuredLogContext.putEventAction("http.request.rejected");
+        StructuredLogContext.putEventAction(ObservabilityVocabulary.HTTP_REQUEST_REJECTED);
         metrics.incrementRateLimitRejects();
         exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_PROBLEM_JSON);

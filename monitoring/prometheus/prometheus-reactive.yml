@@ -8,10 +8,10 @@ scrape_configs:
     static_configs:
       - targets: ["order-service:8080"]
 
-  - job_name: notification-stub
+  - job_name: notification-stub-reactive
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ["notification-stub:8081"]
+      - targets: ["notification-stub-reactive:8085"]
 
   - job_name: postgres
     static_configs:

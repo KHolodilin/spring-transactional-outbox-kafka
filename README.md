@@ -307,6 +307,8 @@ Compose modes (same on every flavor file):
 | Default | `docker compose -f docker/compose.servlet.yml up -d` | Postgres, Kafka, order-service, notification-stub |
 | Observability | `docker compose -f docker/compose.servlet.yml --profile observability up -d` | Default plus Grafana, Prometheus, Tempo, OpenSearch |
 
+`compose.reactive.yml` is the same layout but runs `order-service-reactive` and `notification-stub-reactive` (host stub `:8093` → container `:8085`). `compose.vt.yml` keeps servlet `notification-stub` next to `order-service-vt`.
+
 ### 🐳 1. Download a compose file and start
 
 PowerShell (servlet):
@@ -399,7 +401,7 @@ HTTP 409 Conflict
 docker compose -f docker/compose.servlet.yml --profile observability up -d
 ```
 
-The same `--profile observability` flag works on `compose.reactive.yml` (Grafana :3001) and `compose.vt.yml` (Grafana :3002). Each stack provisions only its Orders Technical dashboard.
+The same `--profile observability` flag works on `compose.reactive.yml` (Grafana :3001) and `compose.vt.yml` (Grafana :3002). Each stack provisions its Orders Technical dashboard; the WebFlux stack also loads **Notification Stub (Reactive)** and **Distributed Tracing (Reactive)**.
 
 Open the local observability services (servlet example):
 
@@ -458,7 +460,7 @@ mvn -pl notification-stub spring-boot:run -Dspring-boot.run.profiles=dev
 mvn -pl order-service-reactive spring-boot:run -Dspring-boot.run.profiles=dev
 mvn -pl notification-stub-reactive spring-boot:run -Dspring-boot.run.profiles=dev
 ```
-notification-stub-reactive is the reactor-kafka + R2DBC downstream peer on :8085; pair it with order-service-reactive on :8083.
+notification-stub-reactive is the reactor-kafka + R2DBC downstream peer on :8085; pair it with order-service-reactive on :8083. Docker (`compose.reactive.yml`) maps that stub to `:8093`.
 
 Peer services stay on `:8083` (reactive) and `:8084` (virtual threads). See [CONTRIBUTING.md](CONTRIBUTING.md).
 

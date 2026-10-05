@@ -3,6 +3,7 @@ package com.kholodilin.outbox.notification;
 import com.kholodilin.idempotency.exception.IdempotencyConflictException;
 import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.logging.InstanceMdcInitializer;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.NotificationStubMetrics;
@@ -50,23 +51,23 @@ public class NotificationStubHandler {
             return;
         }
         String batchTraceParent = extractTraceParent(records.get(0));
-        traceContextSupport.runWithTraceParent(batchTraceParent, "notification.batch.receive", () -> {
+        traceContextSupport.runWithTraceParent(batchTraceParent, ObservabilityVocabulary.SPAN_NOTIFICATION_BATCH_RECEIVE, () -> {
             instanceMdcInitializer.enrich();
-            StructuredLogContext.putEventAction("notification.batch.received");
+            StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_BATCH_RECEIVED);
             StructuredLogContext.putBatchSize(records.size());
             long start = System.nanoTime();
             metrics.recordBatch(records.size(), () -> {
                 log.info("Notification stub batch received size={}", records.size());
-                StructuredLogContext.putEventAction("notification.processing.started");
+                StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_PROCESSING_STARTED);
                 for (ConsumerRecord<String, EventEnvelope> record : records) {
                     traceContextSupport.runWithTraceParent(
                             extractTraceParent(record),
-                            "notification.consume",
+                            ObservabilityVocabulary.SPAN_NOTIFICATION_CONSUME,
                             () -> processRecord(record)
                     );
                 }
                 StructuredLogContext.putDurationMs((System.nanoTime() - start) / 1_000_000);
-                StructuredLogContext.putEventAction("notification.processed");
+                StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_PROCESSED);
                 log.info("Notification stub batch processed size={}", records.size());
             });
             instanceMdcInitializer.clearConsumerContext();
@@ -84,17 +85,17 @@ public class NotificationStubHandler {
             boolean sent = notificationTransactionService.process(event);
             if (!sent) {
                 StructuredLogContext.putNotificationFields("log", "skipped");
-                StructuredLogContext.putEventAction("notification.duplicate.skipped");
+                StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_DUPLICATE_SKIPPED);
                 log.info("Notification stub skipped duplicate eventId={}", event.eventId());
             }
         } catch (IdempotencyConflictException ex) {
             StructuredLogContext.putNotificationFields("log", "skipped");
-            StructuredLogContext.putEventAction("notification.conflict.skipped");
+            StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_CONFLICT_SKIPPED);
             log.warn("Notification stub skipped conflicting eventId={} reason={}",
                     event.eventId(), ex.getMessage());
         } catch (RuntimeException ex) {
             StructuredLogContext.putNotificationFields("log", "failed");
-            StructuredLogContext.putEventAction("notification.processing.failed");
+            StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_PROCESSING_FAILED);
             log.error("Notification stub failed eventId={}", event.eventId(), ex);
             throw ex;
         } finally {

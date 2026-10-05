@@ -3,6 +3,7 @@ package com.kholodilin.outbox.notification;
 import com.kholodilin.idempotency.ExecutionResult;
 import com.kholodilin.idempotency.IdempotencyService;
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +50,7 @@ public class NotificationTransactionService {
 
     private void logNotification(EventEnvelope event) {
         StructuredLogContext.putNotificationFields("log", "sent");
-        StructuredLogContext.putEventAction("notification.processed");
+        StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_PROCESSED);
         log.info("Notification stub sent orderId={} customerId={} eventId={}",
                 event.orderId(), event.customerId(), event.eventId());
         log.debug("Notification stub event details eventType={} correlationId={} payload={}",

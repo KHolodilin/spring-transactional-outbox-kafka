@@ -2,6 +2,7 @@ package com.kholodilin.outbox.notification;
 
 import com.kholodilin.idempotency.exception.IdempotencyConflictException;
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.logging.InstanceMdcInitializer;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.NotificationStubMetrics;
@@ -38,13 +39,13 @@ public class NotificationStubHandler {
 
         return traceContextSupport.withRecordTrace(
                 firstRecord,
-                "notification.batch.receive",
+                ObservabilityVocabulary.SPAN_NOTIFICATION_BATCH_RECEIVE,
                 () -> Mono.defer(() -> {
 
                     instanceMdcInitializer.enrich();
 
                     StructuredLogContext.putEventAction(
-                            "notification.batch.received"
+                            ObservabilityVocabulary.NOTIFICATION_BATCH_RECEIVED
                     );
 
                     StructuredLogContext.putBatchSize(
@@ -63,7 +64,7 @@ public class NotificationStubHandler {
                                         );
 
                                         StructuredLogContext.putEventAction(
-                                                "notification.processing.started"
+                                                ObservabilityVocabulary.NOTIFICATION_PROCESSING_STARTED
                                         );
 
                                         return Flux.fromIterable(records)
@@ -81,7 +82,7 @@ public class NotificationStubHandler {
                                 );
 
                                 StructuredLogContext.putEventAction(
-                                        "notification.processed"
+                                        ObservabilityVocabulary.NOTIFICATION_PROCESSED
                                 );
 
                                 log.info(
@@ -105,7 +106,7 @@ public class NotificationStubHandler {
 
         return traceContextSupport.withRecordTrace(
                 record,
-                "notification.consume",
+                ObservabilityVocabulary.SPAN_NOTIFICATION_CONSUME,
                 () -> Mono.defer(() -> {
 
                     enrichRecordContext(record, event);
@@ -130,7 +131,7 @@ public class NotificationStubHandler {
 
                                     StructuredLogContext
                                             .putEventAction(
-                                                    "notification.duplicate.skipped"
+                                                    ObservabilityVocabulary.NOTIFICATION_DUPLICATE_SKIPPED
                                             );
 
                                     log.info(
@@ -157,7 +158,7 @@ public class NotificationStubHandler {
 
                                         StructuredLogContext
                                                 .putEventAction(
-                                                        "notification.conflict.skipped"
+                                                        ObservabilityVocabulary.NOTIFICATION_CONFLICT_SKIPPED
                                                 );
 
                                         log.warn(
@@ -185,7 +186,7 @@ public class NotificationStubHandler {
 
                                 StructuredLogContext
                                         .putEventAction(
-                                                "notification.processing.failed"
+                                                ObservabilityVocabulary.NOTIFICATION_PROCESSING_FAILED
                                         );
 
                                 log.error(

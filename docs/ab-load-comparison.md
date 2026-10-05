@@ -12,7 +12,9 @@ Do not run more than one service under load at once if you want a clean CPU/IO c
 
 ## Docker flavors (no Maven)
 
-Each stack is a separate compose file with its own ports, so all three can stay up. Load one at a time for a fair CPU/IO comparison. Grafana on each stack shows only that flavor's Orders Technical dashboard.
+Each stack is a separate compose file with its own ports, so all three can stay up. Load one at a time for a fair CPU/IO comparison. Grafana on each stack shows that flavor's Orders Technical dashboard.
+
+The WebFlux compose file runs `notification-stub-reactive` (reactor-kafka) on `:8093`. Servlet and Virtual Threads compose files keep servlet `notification-stub`.
 
 | Peer | Order | Stub | Grafana |
 |------|-------|------|---------|

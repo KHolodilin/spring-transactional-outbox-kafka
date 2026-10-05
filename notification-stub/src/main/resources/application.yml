@@ -12,7 +12,7 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
     listener:
-      observation-enabled: true
+      observation-enabled: false
     consumer:
       group-id: notification-stub
       auto-offset-reset: earliest

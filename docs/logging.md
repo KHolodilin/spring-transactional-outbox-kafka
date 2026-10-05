@@ -107,7 +107,7 @@ Example PPL stats (view on **Events** tab):
 source = spring-outbox-logs-local-* | where isnotnull(customerId) | stats count() as cnt by customerId | sort - cnt
 ```
 
-> **Note:** JSON logs are written under `order-service/logs/`, `notification-stub/logs/`, and `notification-stub-reactive/logs/` when running via `mvn -pl … spring-boot:run` (module working directory). Fluent Bit mounts those paths.
+> **Note:** JSON logs are written under `order-service/logs/`, `notification-stub/logs/`, and `notification-stub-reactive/logs/` when running via `mvn -pl … spring-boot:run` (module working directory). Docker flavors write under `./logs/servlet`, `./logs/reactive`, and `./logs/vt`. Fluent Bit tails `/var/log/app/<service>/app.json`, including `notification-stub-reactive`.
 
 ## Saved searches
 

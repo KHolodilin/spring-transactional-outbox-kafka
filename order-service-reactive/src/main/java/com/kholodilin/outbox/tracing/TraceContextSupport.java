@@ -5,6 +5,7 @@ import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.propagation.Propagator;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -60,11 +61,40 @@ public class TraceContextSupport {
         }
     }
 
+    public <T> Mono<T> deferWithTraceParent(String traceParent, String spanName, Supplier<Mono<T>> action) {
+        Tracer tracer = tracerProvider.getIfAvailable();
+        Propagator propagator = propagatorProvider.getIfAvailable();
+        if (tracer == null || propagator == null) {
+            return Mono.defer(action);
+        }
+        return Mono.using(
+                () -> new OpenedSpan(startSpan(tracer, propagator, traceParent, spanName), tracer),
+                opened -> Mono.defer(action),
+                OpenedSpan::close
+        );
+    }
+
     private Span startSpan(Tracer tracer, Propagator propagator, String traceParent, String spanName) {
         if (traceParent == null || traceParent.isBlank()) {
             return tracer.nextSpan().name(spanName).start();
         }
         Map<String, String> carrier = Map.of(TRACE_PARENT_KEY, traceParent);
         return propagator.extract(carrier, Map::get).name(spanName).start();
+    }
+
+    private static final class OpenedSpan implements AutoCloseable {
+        private final Span span;
+        private final Tracer.SpanInScope scope;
+
+        private OpenedSpan(Span span, Tracer tracer) {
+            this.span = span;
+            this.scope = tracer.withSpan(span);
+        }
+
+        @Override
+        public void close() {
+            scope.close();
+            span.end();
+        }
     }
 }
