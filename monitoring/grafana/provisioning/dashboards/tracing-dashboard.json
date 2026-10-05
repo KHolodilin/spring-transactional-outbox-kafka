@@ -98,7 +98,7 @@
           },
           "filters": [],
           "limit": 20,
-          "query": "{ resource.service.name = \"order-service\" && name = \"http post /api/v1/orders\" }",
+          "query": "{ resource.service.name =~ \"order-service(-vt)?\" && name = \"http post /api/v1/orders\" }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
@@ -184,7 +184,7 @@
           },
           "filters": [],
           "limit": 20,
-          "query": "{ name =~ \"outbox.*\" }",
+          "query": "{ name =~ \"outbox.*|batch.*\" }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
@@ -222,11 +222,16 @@
           },
           {
             "selected": false,
+            "text": "order-service-vt",
+            "value": "order-service-vt"
+          },
+          {
+            "selected": false,
             "text": "notification-stub",
             "value": "notification-stub"
           }
         ],
-        "query": "order-service,notification-stub",
+        "query": "order-service,order-service-vt,notification-stub",
         "type": "custom"
       },
       {
@@ -266,7 +271,7 @@
             "value": "notification.consume"
           }
         ],
-        "query": ".*,outbox.save,outbox.batch.fetch,outbox.batch.publish,outbox.publish,outbox.mark.sent,outbox.recovery,http post /api/v1/orders,notification.batch.receive,notification.consume",
+        "query": ".*,outbox.save,batch.fetch,batch.publish,batch.complete,outbox.publish,http post /api/v1/orders,notification.batch.receive,notification.consume",
         "type": "custom"
       }
     ]

@@ -13,6 +13,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.beans.factory.ObjectProvider;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -137,5 +139,49 @@ class TraceContextSupportTest {
         AtomicReference<String> seen = new AtomicReference<>();
         disabled.runWithTraceParent(TRACE_PARENT, "outbox.publish", () -> seen.set("ran"));
         assertThat(seen).hasValue("ran");
+    }
+
+    @Test
+    void deferWithTraceParentRestoresContext() {
+        when(propagator.extract(any(), any())).thenReturn(spanBuilder);
+        when(spanBuilder.name("batch.fetch")).thenReturn(spanBuilder);
+        when(spanBuilder.start()).thenReturn(childSpan);
+        when(tracer.withSpan(childSpan)).thenReturn(spanInScope);
+
+        StepVerifier.create(traceContextSupport.deferWithTraceParent(
+                        TRACE_PARENT, "batch.fetch", () -> Mono.just("ok")))
+                .expectNext("ok")
+                .verifyComplete();
+
+        verify(childSpan).end();
+        verify(spanInScope).close();
+    }
+
+    @Test
+    void deferWithBlankTraceParentStartsLocalSpan() {
+        when(tracer.nextSpan()).thenReturn(childSpan);
+        when(childSpan.name("batch.publish")).thenReturn(childSpan);
+        when(childSpan.start()).thenReturn(childSpan);
+        when(tracer.withSpan(childSpan)).thenReturn(spanInScope);
+
+        StepVerifier.create(traceContextSupport.deferWithTraceParent(
+                        "  ", "batch.publish", () -> Mono.just("ok")))
+                .expectNext("ok")
+                .verifyComplete();
+
+        verify(childSpan).end();
+    }
+
+    @Test
+    void deferWithTraceParentNoOpsWhenTracingDisabled() {
+        ObjectProvider<Tracer> emptyTracer = org.mockito.Mockito.mock(ObjectProvider.class);
+        ObjectProvider<Propagator> emptyPropagator = org.mockito.Mockito.mock(ObjectProvider.class);
+        when(emptyTracer.getIfAvailable()).thenReturn(null);
+        when(emptyPropagator.getIfAvailable()).thenReturn(null);
+        TraceContextSupport disabled = new TraceContextSupport(emptyTracer, emptyPropagator);
+
+        StepVerifier.create(disabled.deferWithTraceParent(TRACE_PARENT, "batch.fetch", () -> Mono.just("ok")))
+                .expectNext("ok")
+                .verifyComplete();
     }
 }

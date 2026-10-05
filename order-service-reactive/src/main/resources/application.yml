@@ -1,6 +1,8 @@
 spring:
   application:
     name: order-service-reactive
+  reactor:
+    context-propagation: auto
   # Boot 4 skips JDBC DataSourceAutoConfiguration when R2DBC ConnectionFactory exists.
   # Liquibase still needs JDBC — give it an explicit URL (creates a short-lived DataSource).
   r2dbc:

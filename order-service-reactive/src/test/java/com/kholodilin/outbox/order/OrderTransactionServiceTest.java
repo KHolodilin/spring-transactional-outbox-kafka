@@ -33,11 +33,13 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.anyString;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -75,6 +77,8 @@ class OrderTransactionServiceTest {
         metrics = new OutboxMetrics(new SimpleMeterRegistry());
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
         when(transactionalOperator.transactional(any(Mono.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(traceContextSupport.deferWithTraceParent(nullable(String.class), anyString(), any()))
+                .thenAnswer(invocation -> invocation.<java.util.function.Supplier<Mono<?>>>getArgument(2).get());
         // switchIfEmpty evaluates the alternate publisher eagerly
        
         service = new OrderTransactionService(

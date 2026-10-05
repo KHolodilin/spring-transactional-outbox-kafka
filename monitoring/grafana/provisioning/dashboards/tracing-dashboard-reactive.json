@@ -184,7 +184,7 @@
           },
           "filters": [],
           "limit": 20,
-          "query": "{ name =~ \"outbox.*\" }",
+          "query": "{ name =~ \"outbox.*|batch.*\" }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
@@ -266,7 +266,7 @@
             "value": "notification.consume"
           }
         ],
-        "query": ".*,outbox.save,outbox.batch.fetch,outbox.batch.publish,outbox.publish,outbox.mark.sent,outbox.recovery,http post /api/v1/orders,notification.batch.receive,notification.consume",
+        "query": ".*,outbox.save,batch.fetch,batch.publish,batch.complete,outbox.publish,http post /api/v1/orders,notification.batch.receive,notification.consume",
         "type": "custom"
       }
     ]

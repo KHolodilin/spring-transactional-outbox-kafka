@@ -67,6 +67,17 @@ class StructuredLogContextTest {
     }
 
     @Test
+    void enrichTracingAliases_copiesTraceFields() {
+        MDC.put("traceId", "abc123");
+        MDC.put("spanId", "def456");
+
+        StructuredLogContext.enrichTracingAliases();
+
+        assertThat(MDC.get("trace.id")).isEqualTo("abc123");
+        assertThat(MDC.get("span.id")).isEqualTo("def456");
+    }
+
+    @Test
     void putOutboxStatusAndKafkaFieldsPopulateMdc() {
         StructuredLogContext.putOutboxStatus("FAILED", 2, 3);
         StructuredLogContext.putBatchSize(5);

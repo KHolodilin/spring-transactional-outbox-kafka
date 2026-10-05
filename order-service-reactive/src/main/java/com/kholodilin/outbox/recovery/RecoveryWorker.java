@@ -1,6 +1,7 @@
 package com.kholodilin.outbox.recovery;
 
 import com.kholodilin.outbox.config.AppProperties;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.OutboxMetrics;
 import com.kholodilin.outbox.persistence.OutboxR2dbcRepository;
@@ -65,6 +66,7 @@ public class RecoveryWorker {
 
     private Mono<Void> enqueueRecovered(java.util.List<Long> ids, Instant lockedUntil) {
         StructuredLogContext.putInstanceFields(properties.getInstanceId());
+        StructuredLogContext.enrichTracingAliases();
         log.debug("Recovery claimed ids={} lockedBy={} lockedUntil={}", ids, properties.getInstanceId(), lockedUntil);
 
         return outboxR2dbcRepository.clearLease(ids)
@@ -77,7 +79,7 @@ public class RecoveryWorker {
                     }
                     metrics.incrementRecoveryCount(enqueued);
                     StructuredLogContext.putBatchSize(enqueued);
-                    StructuredLogContext.putEventAction("outbox.recovery.completed");
+                    StructuredLogContext.putEventAction(ObservabilityVocabulary.OUTBOX_RECOVERY_COMPLETED);
                     log.info("Recovery enqueued eventIds count={}", enqueued);
                 }));
     }

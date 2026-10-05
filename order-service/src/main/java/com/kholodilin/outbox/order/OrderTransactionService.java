@@ -5,6 +5,7 @@ import com.kholodilin.idempotency.IdempotencyService;
 import com.kholodilin.outbox.OutboxService;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.events.OrderItemRequest;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import com.kholodilin.outbox.metrics.OrderServiceMetrics;
@@ -70,6 +71,14 @@ public class OrderTransactionService {
     }
 
     private CreateOrderResponse createOrderInternal(CreateOrderRequest request) {
+        return traceContextSupport.runWithTraceParent(
+                null,
+                ObservabilityVocabulary.SPAN_OUTBOX_SAVE,
+                () -> persistNewOrder(request)
+        );
+    }
+
+    private CreateOrderResponse persistNewOrder(CreateOrderRequest request) {
         Instant now = Instant.now();
 
         BigDecimal total = request.items().stream()
@@ -108,7 +117,7 @@ public class OrderTransactionService {
         CreateOrderResponse response = new CreateOrderResponse(orderId, eventId, "ACCEPTED", now);
         StructuredLogContext.putOrderFields(orderId, eventId);
         StructuredLogContext.putEventType(outboxEventFactory.eventType());
-        StructuredLogContext.putEventAction("outbox.event.persisted");
+        StructuredLogContext.putEventAction(ObservabilityVocabulary.OUTBOX_EVENT_PERSISTED);
         log.info("Order persisted orderId={} eventId={} customerId={}", orderId, eventId, request.customerId());
         return response;
     }

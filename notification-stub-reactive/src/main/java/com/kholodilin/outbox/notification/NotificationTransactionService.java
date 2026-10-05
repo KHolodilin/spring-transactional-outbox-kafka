@@ -3,6 +3,7 @@ package com.kholodilin.outbox.notification;
 import com.kholodilin.idempotency.ExecutionResult;
 import com.kholodilin.idempotency.reactive.ReactiveIdempotencyService;
 import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.outbox.logging.StructuredLogContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,7 +58,7 @@ public class NotificationTransactionService {
         );
 
         StructuredLogContext.putEventAction(
-                "notification.processed"
+                ObservabilityVocabulary.NOTIFICATION_PROCESSED
         );
 
         log.info(

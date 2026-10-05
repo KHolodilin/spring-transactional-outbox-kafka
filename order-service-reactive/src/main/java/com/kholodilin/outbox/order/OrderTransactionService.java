@@ -3,6 +3,7 @@ package com.kholodilin.outbox.order;
 import tools.jackson.databind.ObjectMapper;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
 import com.kholodilin.idempotency.ExecutionResult;
 import com.kholodilin.idempotency.reactive.ReactiveIdempotencyService;
 import com.kholodilin.outbox.logging.StructuredLogContext;
@@ -55,7 +56,7 @@ public class OrderTransactionService {
                         boolean enqueued = eventQueue.enqueue(eventId);
                         StructuredLogContext.putOrderFields(outcome.response().orderId(), eventId);
                         if (enqueued) {
-                            StructuredLogContext.putEventAction("outbox.event.persisted");
+                            StructuredLogContext.putEventAction(ObservabilityVocabulary.OUTBOX_EVENT_PERSISTED);
                             log.info("Outbox event enqueued after commit eventId={}", eventId);
                         } else {
                             log.warn("Outbox event not enqueued after commit eventId={} (queue full or duplicate)", eventId);
@@ -82,7 +83,17 @@ public class OrderTransactionService {
     }
 
     private Mono<CreateOrderResponse> createNewOrder(
-            CreateOrderRequest request  
+            CreateOrderRequest request
+    ) {
+        return traceContextSupport.deferWithTraceParent(
+                null,
+                ObservabilityVocabulary.SPAN_OUTBOX_SAVE,
+                () -> persistNewOrder(request)
+        );
+    }
+
+    private Mono<CreateOrderResponse> persistNewOrder(
+            CreateOrderRequest request
     ) {
         BigDecimal total = request.items().stream()
                 .map(item -> item.price().multiply(BigDecimal.valueOf(item.quantity())))
@@ -109,11 +120,10 @@ public class OrderTransactionService {
                 .doOnNext(response -> {
                     StructuredLogContext.putOrderFields(response.orderId(), response.eventId());
                     StructuredLogContext.putEventType(outboxEventFactory.eventType());
-                    StructuredLogContext.putEventAction("outbox.event.persisted");
+                    StructuredLogContext.putEventAction(ObservabilityVocabulary.OUTBOX_EVENT_PERSISTED);
                     log.info("Order persisted orderId={} eventId={} customerId={}",
                             response.orderId(), response.eventId(), request.customerId());
                 });
-               
     }
 
     private Mono<Void> insertItems(long orderId, CreateOrderRequest request, Instant now) {
