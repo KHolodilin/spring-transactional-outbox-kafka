@@ -19,6 +19,8 @@ import reactor.test.StepVerifier;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -93,6 +95,46 @@ class KafkaNotificationConsumerTest {
         consumer.start();
 
         verify(kafkaReceiver, times(1)).receive();
+
+        consumer.stop();
+    }
+
+    @Test
+    void stopIsSafeWhenNeverStarted() {
+        consumer.stop();
+    }
+
+    @Test
+    void startSkipsPoisonAndProcessesValidRecords() {
+        TestRecord poison = nullValueRecord(0, 1L);
+        TestRecord valid = record(0, 2L);
+
+        when(kafkaReceiver.receive()).thenReturn(Flux.just(poison.record(), valid.record()));
+        when(handler.handleBatch(anyList())).thenReturn(Mono.empty());
+
+        consumer.start();
+
+        verify(poison.offset(), timeout(1000)).acknowledge();
+        verify(handler, timeout(1000)).handleBatch(argThat(batch ->
+                batch.size() == 1 && batch.get(0).offset() == 2L));
+        verify(valid.offset(), timeout(1000)).acknowledge();
+
+        consumer.stop();
+    }
+
+    @Test
+    void startRetriesAfterTechnicalFailure() {
+        TestRecord valid = record(0, 2L);
+
+        when(kafkaReceiver.receive()).thenReturn(Flux.just(valid.record()));
+        when(handler.handleBatch(anyList()))
+                .thenReturn(Mono.error(new IllegalStateException("database unavailable")))
+                .thenReturn(Mono.empty());
+
+        consumer.start();
+
+        verify(handler, timeout(5000).times(2)).handleBatch(anyList());
+        verify(valid.offset(), timeout(2000)).acknowledge();
 
         consumer.stop();
     }
