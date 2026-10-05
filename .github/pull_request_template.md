@@ -21,6 +21,7 @@
 - [ ] `order-service-reactive`
 - [ ] `order-service-vt`
 - [ ] `notification-stub`
+- [ ] `notification-stub-reactive`
 - [ ] `docker-compose` / infrastructure
 - [ ] docs / CI / other
 

@@ -1,0 +1,21 @@
+spring:
+  liquibase:
+    enabled: true
+
+management:
+  opentelemetry:
+    enabled: false
+  tracing:
+    enabled: false
+
+idempotency:
+  enabled: true
+  persistence:
+    enabled: true
+    table-name: notification_idempotency_records
+    schema:
+      mode: validate
+
+logging:
+  level:
+    com.kholodilin.outbox: INFO

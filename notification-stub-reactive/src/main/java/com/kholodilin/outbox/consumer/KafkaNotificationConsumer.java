@@ -3,48 +3,57 @@ package com.kholodilin.outbox.consumer;
 import com.kholodilin.outbox.config.NotificationStubProperties;
 import com.kholodilin.outbox.events.EventEnvelope;
 import com.kholodilin.outbox.notification.NotificationStubHandler;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverRecord;
+import reactor.util.retry.Retry;
 
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@DependsOnDatabaseInitialization
 public class KafkaNotificationConsumer {
 
     private final KafkaReceiver<String, EventEnvelope> kafkaReceiver;
     private final NotificationStubHandler notificationStubHandler;
     private final NotificationStubProperties properties;
 
+    private final AtomicBoolean started = new AtomicBoolean(false);
     private Disposable subscription;
 
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     void start() {
+        if (!started.compareAndSet(false, true)) {
+            return;
+        }
+
+        log.info("Notification Kafka consumer starting after database initialization");
 
         subscription = kafkaReceiver
                 .receive()
-
+                .doOnNext(this::acknowledgeMalformedRecord)
+                .filter(record -> record.value() != null)
                 .bufferTimeout(
                         properties.getKafka().getBatchSize(),
                         properties.getKafka().getBatchWait()
                 )
-
                 .filter(batch -> !batch.isEmpty())
                 .concatMap(this::processBatch)
-
                 /*
                  * Technical error terminates the current receive pipeline.
                  * The failing batch was never acknowledged,
@@ -57,14 +66,13 @@ public class KafkaNotificationConsumer {
                                 )
                                 .maxBackoff(Duration.ofSeconds(30))
                                 .doBeforeRetry(signal ->
-                                                       log.warn(
-                                                               "Notification Kafka consumer retrying after failure attempt={} reason={}",
-                                                               signal.totalRetries() + 1,
-                                                               signal.failure().toString()
-                                                       )
+                                        log.warn(
+                                                "Notification Kafka consumer retrying after failure attempt={} reason={}",
+                                                signal.totalRetries() + 1,
+                                                signal.failure().toString()
+                                        )
                                 )
                 )
-
                 .subscribe(
                         ignored -> {
                         },
@@ -75,6 +83,26 @@ public class KafkaNotificationConsumer {
                                 )
                 );
     }
+
+    /**
+     * Poison JSON becomes a null value via {@code ErrorHandlingDeserializer}.
+     * Acknowledge and drop it so the rest of the partitions keep consuming.
+     */
+    void acknowledgeMalformedRecord(
+            ReceiverRecord<String, EventEnvelope> record
+    ) {
+        if (record.value() != null) {
+            return;
+        }
+
+        log.warn(
+                "Notification Kafka consumer skipped malformed record partition={} offset={}",
+                record.partition(),
+                record.offset()
+        );
+        record.receiverOffset().acknowledge();
+    }
+
     Mono<Void> processBatch(
             List<ReceiverRecord<String, EventEnvelope>> batch
     ) {
@@ -86,6 +114,7 @@ public class KafkaNotificationConsumer {
                         )
                 );
     }
+
     /**
      * Acknowledge only the greatest successfully processed offset
      * from each Kafka partition.
@@ -130,7 +159,6 @@ public class KafkaNotificationConsumer {
 
     @PreDestroy
     void stop() {
-
         if (subscription != null) {
             subscription.dispose();
         }

@@ -13,6 +13,7 @@ public class NotificationStubProperties {
 
     private String instanceId = "local";
     private Kafka kafka = new Kafka();
+    private LoggingProperties logging = LoggingProperties.builder().build();
 
     @Getter
     @Setter

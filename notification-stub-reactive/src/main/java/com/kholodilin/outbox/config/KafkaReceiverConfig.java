@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverOptions;
@@ -72,10 +73,13 @@ public class KafkaReceiverConfig {
 
         valueDeserializer.setUseTypeHeaders(false);
 
+        ErrorHandlingDeserializer<EventEnvelope> wrappingDeserializer =
+                new ErrorHandlingDeserializer<>(valueDeserializer);
+
         return ReceiverOptions
                 .<String, EventEnvelope>create(consumerProperties)
                 .withKeyDeserializer(new StringDeserializer())
-                .withValueDeserializer(valueDeserializer)
+                .withValueDeserializer(wrappingDeserializer)
                 .subscription(
                         List.of(properties.getKafka().getTopic())
                 );
