@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: notification-stub-vt
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:outbox}
+    username: ${DB_USER:outbox}
+    password: ${DB_PASSWORD:outbox}
+    hikari:
+      connection-init-sql: SET TIME ZONE 'UTC'
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    listener:
+      observation-enabled: false
+    consumer:
+      group-id: notification-stub
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.kholodilin.outbox.events
+        spring.json.value.default.type: com.kholodilin.outbox.events.EventEnvelope
+      max-poll-records: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  tracing:
+    enabled: ${TRACING_ENABLED:true}
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}
+    propagation:
+      type: w3c
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  level:
+    root: info
+    com.kholodilin.outbox: INFO
+
+idempotency:
+  enabled: true
+  persistence:
+    enabled: true
+    table-name: notification_idempotency_records
+    schema:
+      mode: validate
+
+deployment:
+  environment: ${DEPLOYMENT_ENV:local}
+
+app:
+  instance-id: ${HOSTNAME:local-${random.uuid}}
+  logging:
+    json:
+      enabled: true
+      path: ${LOG_JSON_PATH:./logs}
+  kafka:
+    topic: orders.events
+    batch-listener: true
+
+server:
+  port: 8081

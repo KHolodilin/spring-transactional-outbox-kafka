@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16-alpine:///outbox
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  liquibase:
+    enabled: true
+
+management:
+  opentelemetry:
+    enabled: false
+  tracing:
+    enabled: false
+
+idempotency:
+  enabled: true
+  persistence:
+    enabled: true
+    table-name: notification_idempotency_records
+    schema:
+      mode: validate
+
+logging:
+  level:
+    com.kholodilin.outbox: INFO

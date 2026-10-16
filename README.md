@@ -307,7 +307,7 @@ Compose modes (same on every flavor file):
 | Default | `docker compose -f docker/compose.servlet.yml up -d` | Postgres, Kafka, order-service, notification-stub |
 | Observability | `docker compose -f docker/compose.servlet.yml --profile observability up -d` | Default plus Grafana, Prometheus, Tempo, OpenSearch |
 
-`compose.reactive.yml` is the same layout but runs `order-service-reactive` and `notification-stub-reactive` (host stub `:8093` → container `:8085`). `compose.vt.yml` keeps servlet `notification-stub` next to `order-service-vt`.
+`compose.reactive.yml` is the same layout but runs `order-service-reactive` and `notification-stub-reactive` (host stub `:8093` → container `:8085`). `compose.vt.yml` runs `order-service-vt` and `notification-stub-vt` (host stub `:8095` → container `:8081`).
 
 ### 🐳 1. Download a compose file and start
 

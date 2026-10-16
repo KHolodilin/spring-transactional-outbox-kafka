@@ -60,6 +60,7 @@ jobs:
           build_push order-service-vt
           build_push notification-stub
           build_push notification-stub-reactive
+          build_push notification-stub-vt
 
       - name: Pin compose image tags
         run: |
@@ -99,8 +100,7 @@ jobs:
           | WebFlux + R2DBC | \`compose.reactive.yml\` | \`:8092\` | \`:3001\` |
           | Virtual Threads + JDBC | \`compose.vt.yml\` | \`:8094\` | \`:3002\` |
 
-          WebFlux compose uses \`notification-stub-reactive\` (host \`:8093\`). Servlet and VT compose keep servlet \`notification-stub\`.
-
+          WebFlux compose uses \`notification-stub-reactive\` (host \`:8093\`). VT compose uses \`notification-stub-vt\` (host \`:8095\`). Servlet compose keeps \`notification-stub\`.
           Create an order (servlet):
 
           \`\`\`bash

@@ -1,0 +1,113 @@
+package com.kholodilin.outbox.notification;
+
+import com.kholodilin.idempotency.exception.IdempotencyConflictException;
+import com.kholodilin.outbox.events.EventConstants;
+import com.kholodilin.outbox.events.EventEnvelope;
+import com.kholodilin.outbox.events.ObservabilityVocabulary;
+import com.kholodilin.outbox.logging.InstanceMdcInitializer;
+import com.kholodilin.outbox.logging.StructuredLogContext;
+import com.kholodilin.outbox.metrics.NotificationStubMetrics;
+import com.kholodilin.outbox.tracing.TraceContextSupport;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.Header;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+/**
+ * Demo downstream consumer that pretends to send customer notifications.
+ * <p>
+ * No real email/SMS integration — logs only, to show the end-to-end outbox pipeline.
+ * Restores W3C trace context from Kafka {@code traceparent} headers.
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class NotificationStubHandler {
+
+    private final NotificationStubMetrics metrics;
+    private final TraceContextSupport traceContextSupport;
+    private final InstanceMdcInitializer instanceMdcInitializer;
+    private final NotificationTransactionService notificationTransactionService;
+
+    /**
+     * Consumes a Kafka batch of order events and processes each mock notification idempotently.
+     * <p>
+     * Restores W3C {@code traceparent} for the batch span and again per record so Tempo
+     * continues the publisher's trace. Metrics record batch size and processing time.
+     *
+     * @param records polled consumer records (may be empty)
+     */
+    @KafkaListener(
+            topics = "${app.kafka.topic}",
+            containerFactory = "batchKafkaListenerContainerFactory"
+    )
+    public void handleBatch(List<ConsumerRecord<String, EventEnvelope>> records) {
+        if (records.isEmpty()) {
+            return;
+        }
+        String batchTraceParent = extractTraceParent(records.get(0));
+        traceContextSupport.runWithTraceParent(batchTraceParent, ObservabilityVocabulary.SPAN_NOTIFICATION_BATCH_RECEIVE, () -> {
+            instanceMdcInitializer.enrich();
+            StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_BATCH_RECEIVED);
+            StructuredLogContext.putBatchSize(records.size());
+            long start = System.nanoTime();
+            metrics.recordBatch(records.size(), () -> {
+                log.info("Notification stub batch received size={}", records.size());
+                StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_PROCESSING_STARTED);
+                for (ConsumerRecord<String, EventEnvelope> record : records) {
+                    traceContextSupport.runWithTraceParent(
+                            extractTraceParent(record),
+                            ObservabilityVocabulary.SPAN_NOTIFICATION_CONSUME,
+                            () -> processRecord(record)
+                    );
+                }
+                StructuredLogContext.putDurationMs((System.nanoTime() - start) / 1_000_000);
+                StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_PROCESSED);
+                log.info("Notification stub batch processed size={}", records.size());
+            });
+            instanceMdcInitializer.clearConsumerContext();
+        });
+    }
+
+    private void processRecord(ConsumerRecord<String, EventEnvelope> record) {
+        EventEnvelope event = record.value();
+        instanceMdcInitializer.enrich();
+        StructuredLogContext.putCorrelation(event.correlationId(), event.customerId());
+        StructuredLogContext.putOrderFields(event.orderId(), event.eventId());
+        StructuredLogContext.putEventType(event.eventType());
+        StructuredLogContext.putKafkaFields(record.topic(), record.partition(), record.offset());
+        try {
+            boolean sent = notificationTransactionService.process(event);
+            if (!sent) {
+                StructuredLogContext.putNotificationFields("log", "skipped");
+                StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_DUPLICATE_SKIPPED);
+                log.info("Notification stub skipped duplicate eventId={}", event.eventId());
+            }
+        } catch (IdempotencyConflictException ex) {
+            StructuredLogContext.putNotificationFields("log", "skipped");
+            StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_CONFLICT_SKIPPED);
+            log.warn("Notification stub skipped conflicting eventId={} reason={}",
+                    event.eventId(), ex.getMessage());
+        } catch (RuntimeException ex) {
+            StructuredLogContext.putNotificationFields("log", "failed");
+            StructuredLogContext.putEventAction(ObservabilityVocabulary.NOTIFICATION_PROCESSING_FAILED);
+            log.error("Notification stub failed eventId={}", event.eventId(), ex);
+            throw ex;
+        } finally {
+            instanceMdcInitializer.clearConsumerContext();
+        }
+    }
+
+    private String extractTraceParent(ConsumerRecord<String, EventEnvelope> record) {
+        Header header = record.headers().lastHeader(EventConstants.HEADER_TRACEPARENT);
+        if (header == null || header.value() == null) {
+            return null;
+        }
+        return new String(header.value(), StandardCharsets.UTF_8);
+    }
+}

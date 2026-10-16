@@ -25,6 +25,7 @@
         <module>order-service-debezium</module>
         <module>notification-stub</module>
         <module>notification-stub-reactive</module>
+        <module>notification-stub-vt</module>
         <module>load-tests</module>
     </modules>
 

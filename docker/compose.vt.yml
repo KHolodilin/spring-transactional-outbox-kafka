@@ -87,8 +87,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
-  notification-stub:
-    image: ghcr.io/kholodilin/spring-transactional-outbox-kafka/notification-stub:${APP_VERSION:-latest}
+  notification-stub-vt:
+    image: ghcr.io/kholodilin/spring-transactional-outbox-kafka/notification-stub-vt:${APP_VERSION:-latest}
     ports:
       - "8095:8081"
     extra_hosts:
