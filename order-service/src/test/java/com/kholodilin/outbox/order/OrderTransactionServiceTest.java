@@ -21,6 +21,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -34,6 +36,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -68,13 +71,16 @@ class OrderTransactionServiceTest {
     void setUp() {
         OrderServiceMetrics metrics = new OrderServiceMetrics(new SimpleMeterRegistry());
         ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+        lenient().when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
         service = new OrderTransactionService(
                 orderJdbcRepository,
                 outboxService,
                 idempotencyService,
                 outboxEventFactory,
                 traceContextSupport,
-                metrics
+                metrics,
+                transactionManager
         );
         lenient().when(traceContextSupport.runWithTraceParent(nullable(String.class), anyString(), any(Supplier.class)))
                 .thenAnswer(invocation -> invocation.<Supplier<?>>getArgument(2).get());

@@ -12,6 +12,7 @@ import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitializat
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverRecord;
@@ -29,7 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @DependsOnDatabaseInitialization
 public class KafkaNotificationConsumer {
 
-    private final KafkaReceiver<String, EventEnvelope> kafkaReceiver;
+    private final List<KafkaReceiver<String, EventEnvelope>> kafkaReceivers;
     private final NotificationStubHandler notificationStubHandler;
     private final NotificationStubProperties properties;
 
@@ -44,8 +45,21 @@ public class KafkaNotificationConsumer {
 
         log.info("Notification Kafka consumer starting after database initialization");
 
-        subscription = kafkaReceiver
-                .receive()
+        subscription = Flux.fromIterable(kafkaReceivers)
+                .flatMap(this::consume)
+                .subscribe(
+                        ignored -> {
+                        },
+                        exception ->
+                                log.error(
+                                        "Notification Kafka consumer terminated",
+                                        exception
+                                )
+                );
+    }
+
+    private Flux<?> consume(KafkaReceiver<String, EventEnvelope> receiver) {
+        return receiver.receive()
                 .doOnNext(this::acknowledgeMalformedRecord)
                 .filter(record -> record.value() != null)
                 .bufferTimeout(
@@ -53,9 +67,9 @@ public class KafkaNotificationConsumer {
                         properties.getKafka().getBatchWait()
                 )
                 .filter(batch -> !batch.isEmpty())
-                .concatMap(this::processBatch)
+                .concatMap(batch -> processBatch(batch).thenReturn(Boolean.TRUE))
                 /*
-                 * Technical error terminates the current receive pipeline.
+                 * Technical error terminates this receiver only.
                  * The failing batch was never acknowledged,
                  * so Kafka can redeliver it after the receiver retries.
                  */
@@ -71,15 +85,6 @@ public class KafkaNotificationConsumer {
                                                 signal.totalRetries() + 1,
                                                 signal.failure().toString()
                                         )
-                                )
-                )
-                .subscribe(
-                        ignored -> {
-                        },
-                        exception ->
-                                log.error(
-                                        "Notification Kafka consumer terminated",
-                                        exception
                                 )
                 );
     }

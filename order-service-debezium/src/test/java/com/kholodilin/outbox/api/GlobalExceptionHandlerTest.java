@@ -2,15 +2,33 @@ package com.kholodilin.outbox.api;
 
 import com.kholodilin.idempotency.exception.IdempotencyConflictException;
 import com.kholodilin.idempotency.model.IdempotencyKey;
+import com.kholodilin.outbox.metrics.OrderServiceMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.sql.SQLTransientConnectionException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 class GlobalExceptionHandlerTest {
 
-    private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    private SimpleMeterRegistry registry;
+    private GlobalExceptionHandler handler;
+
+    @BeforeEach
+    void setUp() {
+        registry = new SimpleMeterRegistry();
+        OrderServiceMetrics metrics = new OrderServiceMetrics(registry);
+        ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
+        handler = new GlobalExceptionHandler(metrics);
+    }
 
     @Test
     void mapsIdempotencyConflictTo409ProblemDetail() {
@@ -25,5 +43,59 @@ class GlobalExceptionHandlerTest {
         assertThat(problem.getTitle()).isEqualTo("Idempotency conflict");
         assertThat(problem.getDetail()).isEqualTo(ex.getMessage());
         assertThat(problem.getType()).isNotNull();
+    }
+
+    @Test
+    void mapsCannotGetJdbcConnectionTo429() {
+        CannotGetJdbcConnectionException ex = new CannotGetJdbcConnectionException(
+                "Failed to obtain JDBC Connection",
+                new SQLTransientConnectionException("HikariPool-1 - Connection is not available"));
+
+        ProblemDetail problem = handler.handleCannotGetJdbcConnection(ex);
+
+        assertThat(problem.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        assertThat(problem.getTitle()).isEqualTo("Database pool exhausted");
+        assertThat(problem.getDetail()).contains("Connection is not available");
+        assertThat(registry.find("outbox.pool_exhausted.rejects").counter().count()).isEqualTo(1.0);
+    }
+
+    @Test
+    void mapsSqlTransientConnectionTo429() {
+        ProblemDetail problem = handler.handleSqlTransientConnection(
+                new SQLTransientConnectionException("Connection is not available, request timed out"));
+
+        assertThat(problem.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        assertThat(problem.getTitle()).isEqualTo("Database pool exhausted");
+        assertThat(registry.find("outbox.pool_exhausted.rejects").counter().count()).isEqualTo(1.0);
+    }
+
+    @Test
+    void mapsCannotGetJdbcConnectionWithoutCauseUsingExceptionMessage() {
+        CannotGetJdbcConnectionException ex = new CannotGetJdbcConnectionException("Failed to obtain JDBC Connection");
+
+        ProblemDetail problem = handler.handleCannotGetJdbcConnection(ex);
+
+        assertThat(problem.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        assertThat(problem.getDetail()).contains("Failed to obtain JDBC Connection");
+    }
+
+    @Test
+    void mapsCannotGetJdbcConnectionWithoutMostSpecificCause() {
+        CannotGetJdbcConnectionException ex = spy(
+                new CannotGetJdbcConnectionException("Failed to obtain JDBC Connection"));
+        when(ex.getMostSpecificCause()).thenReturn(null);
+
+        ProblemDetail problem = handler.handleCannotGetJdbcConnection(ex);
+
+        assertThat(problem.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        assertThat(problem.getDetail()).isEqualTo("Failed to obtain JDBC Connection");
+    }
+
+    @Test
+    void mapsNullDetailToDefaultPoolExhaustedMessage() {
+        ProblemDetail problem = handler.handleSqlTransientConnection(new SQLTransientConnectionException());
+
+        assertThat(problem.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        assertThat(problem.getDetail()).isEqualTo("Database connection pool exhausted");
     }
 }

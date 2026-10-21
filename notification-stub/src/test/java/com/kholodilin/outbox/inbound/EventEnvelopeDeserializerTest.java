@@ -269,6 +269,41 @@ class EventEnvelopeDeserializerTest {
     }
 
     @Test
+    void orderPayloadAcceptsJsonStringPublishedByConnect() {
+        byte[] value = "\"{\\\"orderId\\\":4,\\\"customerId\\\":5,\\\"correlationId\\\":\\\"corr\\\"}\""
+                .getBytes(StandardCharsets.UTF_8);
+
+        EventEnvelope envelope = deserializer.deserialize(TOPIC, orderPayloadHeaders(), value);
+
+        assertThat(envelope.orderId()).isEqualTo(4L);
+        assertThat(envelope.customerId()).isEqualTo(5L);
+        assertThat(envelope.correlationId()).isEqualTo("corr");
+        assertThat(envelope.payload()).containsEntry("orderId", 4);
+    }
+
+    @Test
+    void orderPayloadStringThatIsNotJsonFails() {
+        assertThatThrownBy(() -> deserializer.deserialize(
+                TOPIC,
+                orderPayloadHeaders(),
+                "\"not-json\"".getBytes(StandardCharsets.UTF_8)
+        ))
+                .isInstanceOf(SerializationException.class)
+                .hasMessageContaining("JSON object");
+    }
+
+    @Test
+    void orderPayloadStringThatIsNotAnObjectFails() {
+        assertThatThrownBy(() -> deserializer.deserialize(
+                TOPIC,
+                orderPayloadHeaders(),
+                "\"[]\"".getBytes(StandardCharsets.UTF_8)
+        ))
+                .isInstanceOf(SerializationException.class)
+                .hasMessageContaining("JSON object");
+    }
+
+    @Test
     void nonObjectOrderPayloadFails() {
         assertThatThrownBy(() -> deserializer.deserialize(TOPIC, orderPayloadHeaders(), "[]".getBytes(StandardCharsets.UTF_8)))
                 .isInstanceOf(SerializationException.class)

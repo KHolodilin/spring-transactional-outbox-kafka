@@ -89,6 +89,7 @@ class PipelineObservabilityAlignmentTest {
     void vocabularyListsMatchSourceTokens() {
         assertThat(ObservabilityVocabulary.ORDER_EVENT_ACTIONS).hasSize(10);
         assertThat(ObservabilityVocabulary.ORDER_SPAN_NAMES).containsExactly(
+                ObservabilityVocabulary.SPAN_DB_PERSIST,
                 ObservabilityVocabulary.SPAN_OUTBOX_SAVE,
                 ObservabilityVocabulary.SPAN_BATCH_FETCH,
                 ObservabilityVocabulary.SPAN_BATCH_PUBLISH,

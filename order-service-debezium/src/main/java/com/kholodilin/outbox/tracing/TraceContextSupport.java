@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * Captures the active W3C {@code traceparent} so a later CDC publisher can continue this HTTP trace.
@@ -46,5 +47,40 @@ public class TraceContextSupport {
         Map<String, String> carrier = new HashMap<>();
         propagator.inject(current.context(), carrier, Map::put);
         return carrier.get(TRACE_PARENT_KEY);
+    }
+
+    /**
+     * Runs {@code action} under a child span and always closes that span.
+     * <p>
+     * A blank {@code traceParent} continues the span already on this thread, which is the HTTP
+     * request when {@code db.persist} starts. When tracing beans are absent, {@code action} runs
+     * with no span.
+     *
+     * @param traceParent W3C header, or {@code null} to continue the current trace
+     * @param spanName    span name
+     * @param action      work to measure; exceptions propagate after the span ends
+     * @param <T>         result type
+     * @return value produced by {@code action}
+     */
+    public <T> T runWithTraceParent(String traceParent, String spanName, Supplier<T> action) {
+        Tracer tracer = tracerProvider.getIfAvailable();
+        Propagator propagator = propagatorProvider.getIfAvailable();
+        if (tracer == null || propagator == null) {
+            return action.get();
+        }
+        Span span = startSpan(tracer, propagator, traceParent, spanName);
+        try (Tracer.SpanInScope scope = tracer.withSpan(span)) {
+            return action.get();
+        } finally {
+            span.end();
+        }
+    }
+
+    private Span startSpan(Tracer tracer, Propagator propagator, String traceParent, String spanName) {
+        if (traceParent == null || traceParent.isBlank()) {
+            return tracer.nextSpan().name(spanName).start();
+        }
+        Map<String, String> carrier = Map.of(TRACE_PARENT_KEY, traceParent);
+        return propagator.extract(carrier, Map::get).name(spanName).start();
     }
 }

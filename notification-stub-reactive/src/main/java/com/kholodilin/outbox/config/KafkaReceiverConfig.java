@@ -14,6 +14,7 @@ import reactor.kafka.receiver.ReceiverOptions;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,9 @@ import java.util.Map;
 @Configuration
 @EnableConfigurationProperties(NotificationStubProperties.class)
 public class KafkaReceiverConfig {
+
+    /** One receiver per {@code orders.events} partition so different customers run in parallel. */
+    static final int CONSUMER_CONCURRENCY = 10;
 
     @Bean
     public ReceiverOptions<String, EventEnvelope> receiverOptions(
@@ -86,10 +90,14 @@ public class KafkaReceiverConfig {
     }
 
     @Bean
-    public KafkaReceiver<String, EventEnvelope> kafkaReceiver(
+    public List<KafkaReceiver<String, EventEnvelope>> kafkaReceivers(
             ReceiverOptions<String, EventEnvelope> receiverOptions
     ) {
-        return KafkaReceiver.create(receiverOptions);
+        List<KafkaReceiver<String, EventEnvelope>> receivers = new ArrayList<>();
+        for (int index = 0; index < CONSUMER_CONCURRENCY; index++) {
+            receivers.add(KafkaReceiver.create(receiverOptions));
+        }
+        return receivers;
     }
 
     static JsonMapper kafkaObjectMapper() {

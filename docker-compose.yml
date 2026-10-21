@@ -3,7 +3,7 @@
 # Keep Kafka listeners in sync with docker/compose.servlet.yml, compose.reactive.yml, compose.vt.yml.
 services:
   postgres:
-    image: postgres:18.4
+    image: postgres:18.6
     environment:
       POSTGRES_DB: outbox
       POSTGRES_USER: outbox

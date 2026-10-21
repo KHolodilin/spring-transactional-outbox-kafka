@@ -1,0 +1,24 @@
+logging:
+  level:
+    com.kholodilin.outbox: DEBUG
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+app:
+  rate-limit:
+    global:
+      capacity: 50000
+      refill-per-second: 5000
+    per-customer:
+      capacity: 5000
+      refill-per-second: 1000
+    per-ip:
+      capacity: 2000
+      refill-per-second: 500

@@ -26,6 +26,8 @@ public final class ObservabilityVocabulary {
     public static final String NOTIFICATION_CONFLICT_SKIPPED = "notification.conflict.skipped";
     public static final String NOTIFICATION_PROCESSING_FAILED = "notification.processing.failed";
 
+    /** Transaction begin through commit. Child {@link #SPAN_OUTBOX_SAVE} is the inserts only. */
+    public static final String SPAN_DB_PERSIST = "db.persist";
     public static final String SPAN_OUTBOX_SAVE = "outbox.save";
     public static final String SPAN_BATCH_FETCH = "batch.fetch";
     public static final String SPAN_BATCH_PUBLISH = "batch.publish";
@@ -57,6 +59,7 @@ public final class ObservabilityVocabulary {
     );
 
     public static final List<String> ORDER_SPAN_NAMES = List.of(
+            SPAN_DB_PERSIST,
             SPAN_OUTBOX_SAVE,
             SPAN_BATCH_FETCH,
             SPAN_BATCH_PUBLISH,
@@ -80,6 +83,7 @@ public final class ObservabilityVocabulary {
             "OUTBOX_PUBLISH_FAILED",
             "OUTBOX_RETRY",
             "OUTBOX_RECOVERY_COMPLETED",
+            "SPAN_DB_PERSIST",
             "SPAN_OUTBOX_SAVE",
             "SPAN_BATCH_FETCH",
             "SPAN_BATCH_PUBLISH",

@@ -8,16 +8,21 @@ import com.kholodilin.idempotency.model.IdempotencyKey;
 import com.kholodilin.outbox.events.CreateOrderRequest;
 import com.kholodilin.outbox.events.CreateOrderResponse;
 import com.kholodilin.outbox.events.OrderItemRequest;
+import com.kholodilin.outbox.metrics.OrderServiceMetrics;
 import com.kholodilin.outbox.outbox.OutboxEventFactory;
 import com.kholodilin.outbox.persistence.OrderJdbcRepository;
 import com.kholodilin.outbox.persistence.OutboxJdbcRepository;
 import com.kholodilin.outbox.tracing.TraceContextSupport;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.MDC;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -30,6 +35,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,7 +78,9 @@ class OrderTransactionServiceTest {
                 ),
                 "corr-1"
         );
-        OrderTransactionService service = service();
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        OrderServiceMetrics metrics = metrics(registry);
+        OrderTransactionService service = service(metrics);
         when(orderJdbcRepository.insertOrder(eq(42L), eq(BigDecimal.valueOf(13)), any(Instant.class))).thenReturn(100L);
         when(outboxEventFactory.buildOrderCreatedPayload(100L, request)).thenReturn("{\"orderId\":100}");
         when(outboxEventFactory.eventType()).thenReturn("OrderCreated");
@@ -89,6 +99,7 @@ class OrderTransactionServiceTest {
         verify(orderJdbcRepository).insertOrderItem(eq(100L), eq(42L), eq("sku-2"), eq(1), eq(BigDecimal.valueOf(3)), any(Instant.class));
         assertThat(MDC.get("event.type")).isEqualTo("OrderCreated");
         assertThat(MDC.get("event.action")).isEqualTo("outbox.event.persisted");
+        assertThat(registry.get("order.transaction").timer().count()).isEqualTo(1);
     }
 
     @Test
@@ -156,13 +167,29 @@ class OrderTransactionServiceTest {
     }
 
     private OrderTransactionService service() {
+        return service(metrics(new SimpleMeterRegistry()));
+    }
+
+    private OrderTransactionService service(OrderServiceMetrics metrics) {
+        lenient().when(traceContextSupport.runWithTraceParent(nullable(String.class), anyString(), any(Supplier.class)))
+                .thenAnswer(invocation -> invocation.<Supplier<?>>getArgument(2).get());
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+        lenient().when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
         return new OrderTransactionService(
                 orderJdbcRepository,
                 outboxJdbcRepository,
                 idempotencyService,
                 outboxEventFactory,
-                traceContextSupport
+                traceContextSupport,
+                metrics,
+                transactionManager
         );
+    }
+
+    private static OrderServiceMetrics metrics(SimpleMeterRegistry registry) {
+        OrderServiceMetrics metrics = new OrderServiceMetrics(registry);
+        ReflectionTestUtils.invokeMethod(metrics, "registerMeters");
+        return metrics;
     }
 
     private void stubIdempotencyExecuteAction() {

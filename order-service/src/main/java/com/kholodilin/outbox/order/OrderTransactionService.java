@@ -15,7 +15,8 @@ import com.kholodilin.outbox.tracing.TraceContextSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -24,6 +25,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Writes order domain data and the outbox row in a single database transaction.
  * <p>
+ * {@code db.persist} is opened outside {@link TransactionTemplate} so the span includes
+ * transaction start and commit. {@code outbox.save} stays inside and covers the inserts.
  * Outbox append uses {@link OutboxService}; the starter enqueues the event id after commit
  * so Kafka never sees events that were rolled back with the business transaction.
  * <p>
@@ -41,17 +44,24 @@ public class OrderTransactionService {
     private final OutboxEventFactory outboxEventFactory;
     private final TraceContextSupport traceContextSupport;
     private final OrderServiceMetrics metrics;
+    private final PlatformTransactionManager transactionManager;
 
     /**
      * Claims the idempotency key and either creates a new order or returns a cached replay.
+     * <p>
+     * The {@code db.persist} span stays open until {@link TransactionTemplate} commits or rolls back.
      *
      * @param request        validated create-order payload
      * @param idempotencyKey client key scoped per customer via operation name
      * @return outcome with response body and whether a new order was created
      */
-    @Transactional
     public OrderCreateOutcome createOrder(CreateOrderRequest request, String idempotencyKey) {
-        return metrics.orderTransaction().record(() -> persistOrder(request, idempotencyKey));
+        return traceContextSupport.runWithTraceParent(
+                null,
+                ObservabilityVocabulary.SPAN_DB_PERSIST,
+                () -> metrics.orderTransaction().record(() ->
+                        new TransactionTemplate(transactionManager).execute(status -> persistOrder(request, idempotencyKey)))
+        );
     }
 
     private OrderCreateOutcome persistOrder(CreateOrderRequest request, String idempotencyKey) {

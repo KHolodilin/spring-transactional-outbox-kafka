@@ -47,16 +47,13 @@ public class CreateOrderReactiveSimulation extends Simulation {
             .acceptHeader("application/json")
             .shareConnections();
 
-    private final Iterator<Map<String, Object>> feeder = Stream.generate(() -> {
-                long customerId = longProp("customerId", 42L);
-                String correlationId = UUID.randomUUID().toString();
-                String idempotencyKey = UUID.randomUUID().toString();
-                return Map.<String, Object>of(
-                        "customerId", customerId,
-                        "correlationId", correlationId,
-                        "idempotencyKey", idempotencyKey
-                );
-            })
+    private final CustomerIdPool customerIds = new CustomerIdPool(longProp("customerPoolSize", 1000L));
+
+    private final Iterator<Map<String, Object>> feeder = Stream.generate(() -> Map.<String, Object>of(
+                    "customerId", customerIds.next(),
+                    "correlationId", UUID.randomUUID().toString(),
+                    "idempotencyKey", UUID.randomUUID().toString()
+            ))
             .iterator();
 
     private final ScenarioBuilder scn = scenario("CreateOrderReactive")

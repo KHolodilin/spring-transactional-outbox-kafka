@@ -29,6 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * R2DBC transactional create: idempotency claim → order → items → outbox → complete idempotency,
  * then enqueue AFTER commit.
+ * <p>
+ * {@code db.persist} wraps {@link TransactionalOperator} so the span stays open through commit.
+ * {@code outbox.save} is the insert work inside that transaction. Enqueue stays outside the span.
  */
 @Slf4j
 @Service
@@ -48,7 +51,10 @@ public class OrderTransactionService {
 
     public Mono<OrderCreateOutcome> createOrder(CreateOrderRequest request, String idempotencyKey) {
         long startNs = System.nanoTime();
-        return persistOrder(request, idempotencyKey)
+        return traceContextSupport.deferWithTraceParent(
+                        null,
+                        ObservabilityVocabulary.SPAN_DB_PERSIST,
+                        () -> persistOrder(request, idempotencyKey))
                 .doOnSuccess(outcome -> {
                     metrics.orderTransaction().record(System.nanoTime() - startNs, TimeUnit.NANOSECONDS);
                     if (outcome.created()) {

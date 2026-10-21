@@ -1,11 +1,12 @@
 # Debezium stack. Host ports do not overlap with servlet, reactive, or VT.
-# Order 8096, stub 8097, Connect REST 8087, Postgres 5435, Kafka 19095.
+# Order 8096, stub 8097, Connect REST 8087, Postgres 5435, Kafka 19095, Grafana 3003.
+# Observability matches the servlet stack: docker compose --profile observability up -d.
 # notification-stub is built from the local Dockerfile. The released GHCR image cannot read order-payload.
 name: outbox-debezium
 
 services:
   postgres:
-    image: postgres:18.4
+    image: postgres:18.6
     environment:
       POSTGRES_DB: outbox_debezium
       POSTGRES_USER: outbox
@@ -95,9 +96,12 @@ services:
       DB_USER: outbox
       DB_PASSWORD: outbox
       SERVER_PORT: "8086"
+      SPRING_PROFILES_ACTIVE: dev
       LOG_JSON_PATH: /var/log/app
       DEPLOYMENT_ENV: local
-      TRACING_ENABLED: "false"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
     volumes:
       - ../logs/debezium:/var/log/app
     depends_on:
@@ -120,7 +124,9 @@ services:
       KAFKA_BOOTSTRAP: kafka:29092
       LOG_JSON_PATH: /var/log/app
       DEPLOYMENT_ENV: local
-      TRACING_ENABLED: "false"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
     volumes:
       - ../logs/debezium:/var/log/app
     depends_on:
@@ -132,7 +138,13 @@ services:
         condition: service_healthy
 
   connect:
-    image: quay.io/debezium/connect:3.2.7.Final
+    # 3.2.4.Final is the newest published 3.2 image with publish.via.partition.root.
+    # 3.2.7.Final (Kafka Connect 3.9.1) is not on Quay.
+    # The local build adds the trace interceptor on top of that image.
+    image: quay.io/debezium/connect:3.2.4.Final
+    pull_policy: never
+    build:
+      context: ./debezium
     ports:
       - "8087:8083"
     environment:
@@ -147,6 +159,8 @@ services:
       KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      OTEL_SERVICE_NAME: debezium-connect
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -161,6 +175,7 @@ services:
     restart: "no"
     volumes:
       - ./debezium/outbox-connector.json:/connector.json:ro
+      - ./debezium/outbox-connector-config.json:/connector-config.json:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -178,10 +193,149 @@ services:
           exit 1
         fi
         if curl -sf http://connect:8083/connectors/outbox-events >/dev/null; then
-          echo "Connector outbox-events is already registered"
+          curl -sf -X PUT -H "Content-Type: application/json" \
+            --data @/connector-config.json \
+            http://connect:8083/connectors/outbox-events/config
+          echo "Connector outbox-events config updated"
           exit 0
         fi
         curl -sf -X POST -H "Content-Type: application/json" \
           --data @/connector.json \
           http://connect:8083/connectors
         echo "Connector outbox-events is registered"
+
+  postgres-exporter:
+    profiles: ["observability"]
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    environment:
+      DATA_SOURCE_NAME: "postgresql://outbox:outbox@postgres:5432/outbox_debezium?sslmode=disable"
+    ports:
+      - "9190:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  prometheus:
+    profiles: ["observability"]
+    image: prom/prometheus:v3.5.0
+    ports:
+      - "9103:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus-debezium.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:12.3.3
+    ports:
+      - "3003:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_RENDERING_SERVER_URL: http://grafana-image-renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://grafana:3000/
+    volumes:
+      - ../monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../monitoring/grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ../monitoring/grafana/provisioning/dashboards/orders-technical-dashboard.json:/etc/grafana/provisioning/dashboards/orders-technical.json:ro
+      - ../monitoring/grafana/provisioning/dashboards/outbox-dashboard.json:/etc/grafana/provisioning/dashboards/outbox.json:ro
+      - ../monitoring/grafana/provisioning/dashboards/postgres-dashboard.json:/etc/grafana/provisioning/dashboards/postgres.json:ro
+      - ../monitoring/grafana/provisioning/dashboards/notification-stub-dashboard.json:/etc/grafana/provisioning/dashboards/notification-stub.json:ro
+      - ../monitoring/grafana/provisioning/dashboards/tracing-dashboard.json:/etc/grafana/provisioning/dashboards/tracing.json:ro
+    depends_on:
+      - prometheus
+      - tempo
+      - grafana-image-renderer
+
+  grafana-image-renderer:
+    profiles: ["observability"]
+    image: grafana/grafana-image-renderer:3.12.2
+    ports:
+      - "3194:8081"
+
+  tempo:
+    profiles: ["observability"]
+    image: grafana/tempo:2.8.0
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    ports:
+      - "3203:3200"
+      - "4321:4318"
+    volumes:
+      - ../monitoring/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+
+  opensearch:
+    profiles: ["observability"]
+    image: opensearchproject/opensearch:2.19.2
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    ports:
+      - "9203:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+  opensearch-dashboards:
+    profiles: ["observability"]
+    image: opensearchproject/opensearch-dashboards:2.19.2
+    ports:
+      - "5604:5601"
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    depends_on:
+      - opensearch
+
+  opensearch-init:
+    profiles: ["observability"]
+    image: curlimages/curl:8.17.0
+    restart: "no"
+    volumes:
+      - ../monitoring/opensearch/index-template.json:/index-template.json:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until curl -sf http://opensearch:9200 >/dev/null; do sleep 2; done
+        curl -sf -X PUT http://opensearch:9200/_index_template/spring-outbox-logs \
+          -H "Content-Type: application/json" \
+          -d @/index-template.json
+        echo opensearch index template applied
+    depends_on:
+      opensearch:
+        condition: service_started
+
+  opensearch-dashboards-init:
+    profiles: ["observability"]
+    image: curlimages/curl:8.17.0
+    restart: "no"
+    volumes:
+      - ../monitoring/opensearch-dashboards/saved-objects.ndjson:/saved-objects.ndjson:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until curl -sf http://opensearch-dashboards:5601/api/status >/dev/null; do sleep 3; done
+        sleep 5
+        curl -sf -X POST "http://opensearch-dashboards:5601/api/saved_objects/_import?overwrite=true" \
+          -H "osd-xsrf: true" \
+          -F file=@/saved-objects.ndjson
+        echo opensearch dashboards saved objects imported
+    depends_on:
+      opensearch-dashboards:
+        condition: service_started
+
+  fluent-bit:
+    profiles: ["observability"]
+    image: fluent/fluent-bit:3.2.10
+    volumes:
+      - ../logs/debezium:/var/log/app:ro
+      - ../monitoring/fluent-bit/fluent-bit-debezium.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ../monitoring/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+    depends_on:
+      - opensearch
+
+volumes:
+  opensearch-data:

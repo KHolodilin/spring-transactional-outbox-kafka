@@ -37,7 +37,7 @@ class KafkaNotificationConsumerTest {
     @BeforeEach
     void setUp() {
         consumer = new KafkaNotificationConsumer(
-                kafkaReceiver,
+                List.of(kafkaReceiver),
                 handler,
                 new NotificationStubProperties()
         );
@@ -101,6 +101,15 @@ class KafkaNotificationConsumerTest {
 
     @Test
     void stopIsSafeWhenNeverStarted() {
+        consumer.stop();
+    }
+
+    @Test
+    void logsWhenReceiverFailsToStart() {
+        when(kafkaReceiver.receive()).thenThrow(new IllegalStateException("broker unavailable"));
+
+        consumer.start();
+
         consumer.stop();
     }
 

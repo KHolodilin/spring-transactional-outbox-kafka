@@ -4,6 +4,7 @@ import com.kholodilin.outbox.events.EventConstants;
 import com.kholodilin.outbox.events.EventEnvelope;
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.header.Headers;
+import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -16,6 +17,8 @@ import java.util.Map;
  * {@code eventId} and {@code eventType} come from headers. {@code orderId}, {@code customerId},
  * and {@code correlationId} come from the domain JSON. {@code occurredAt} stays empty so a
  * redelivery keeps the same idempotency fingerprint. {@code payload} is that same JSON object.
+ * Kafka Connect's JSON converter publishes the payload column as a JSON string, so a textual
+ * value is parsed once more.
  */
 public final class OrderPayloadParser implements InboundMessageParser {
 
@@ -35,9 +38,7 @@ public final class OrderPayloadParser implements InboundMessageParser {
 
     @Override
     public EventEnvelope parse(JsonNode body, Headers headers) {
-        if (body == null || !body.isObject()) {
-            throw new SerializationException("order-payload value must be a JSON object");
-        }
+        body = domainObject(body);
         long eventId = eventId(headers);
         String eventType = HeaderCodec.text(headers, HEADER_EVENT_TYPE);
         Long orderId = jsonLong(body, EventConstants.HEADER_ORDER_ID);
@@ -45,6 +46,20 @@ public final class OrderPayloadParser implements InboundMessageParser {
         String correlationId = jsonText(body, EventConstants.HEADER_CORRELATION_ID);
         Map<String, Object> payload = payload(body);
         return new EventEnvelope(eventId, orderId, customerId, eventType, payload, correlationId, null, null);
+    }
+
+    private JsonNode domainObject(JsonNode body) {
+        if (body != null && body.isString()) {
+            try {
+                body = objectMapper.readTree(body.stringValue());
+            } catch (JacksonException ex) {
+                throw new SerializationException("order-payload value must be a JSON object", ex);
+            }
+        }
+        if (body == null || !body.isObject()) {
+            throw new SerializationException("order-payload value must be a JSON object");
+        }
+        return body;
     }
 
     private static long eventId(Headers headers) {

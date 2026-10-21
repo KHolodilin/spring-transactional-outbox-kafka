@@ -292,13 +292,14 @@ After `docker compose --profile observability up -d` (clone) or the same profile
 
 You only need **Docker**. Java and Maven are not required.
 
-Pick a stack — servlet, WebFlux, or Virtual Threads. Host ports do not overlap; all three can run at once.
+Pick a stack — servlet, WebFlux, Virtual Threads, or Debezium. Host ports do not overlap.
 
 | Stack | Compose asset | Order | Stub | Grafana |
 |-------|---------------|-------|------|---------|
 | Servlet + JDBC | `compose.servlet.yml` | http://localhost:8090 | :8091 | :3000 |
 | WebFlux + R2DBC | `compose.reactive.yml` | http://localhost:8092 | :8093 | :3001 |
 | Virtual Threads + JDBC | `compose.vt.yml` | http://localhost:8094 | :8095 | :3002 |
+| Debezium + Kafka Connect | `compose.debezium.yml` | http://localhost:8096 | :8097 | :3003 |
 
 Compose modes (same on every flavor file):
 
@@ -308,6 +309,14 @@ Compose modes (same on every flavor file):
 | Observability | `docker compose -f docker/compose.servlet.yml --profile observability up -d` | Default plus Grafana, Prometheus, Tempo, OpenSearch |
 
 `compose.reactive.yml` is the same layout but runs `order-service-reactive` and `notification-stub-reactive` (host stub `:8093` → container `:8085`). `compose.vt.yml` runs `order-service-vt` and `notification-stub-vt` (host stub `:8095` → container `:8081`).
+
+`compose.debezium.yml` runs `order-service-debezium`, a locally built notification stub, and Debezium Connect (REST http://localhost:8087). Postgres is started with `wal_level=logical`. The order and the outbox row commit in one transaction; Connect reads the WAL and publishes to Kafka. This stack has no in-memory queue. The order service, stub, and Connect image are built from the clone, so start it from the repository:
+
+```bash
+docker compose -f docker/compose.debezium.yml up -d
+```
+
+Order Service: http://localhost:8096 — Notification Stub: http://localhost:8097. Connect answers on :8087 after its plugin scan, usually a few minutes. The same order request as below works against :8096.
 
 ### 🐳 1. Download a compose file and start
 
@@ -325,7 +334,7 @@ curl -fsSL -o compose.yml https://github.com/KHolodilin/spring-transactional-out
 docker compose -f compose.yml up -d
 ```
 
-Replace `compose.servlet.yml` with `compose.reactive.yml` or `compose.vt.yml` for the other stacks.
+Replace `compose.servlet.yml` with `compose.reactive.yml` or `compose.vt.yml` for the other prebuilt stacks. Debezium is started from the clone, as shown above.
 
 From a clone, the same files live in `docker/`:
 
@@ -364,7 +373,9 @@ The request creates:
 
 All three records are committed in the same PostgreSQL transaction.
 
-After the commit, the outbox event ID is placed into the Memory Queue, published to Kafka, and consumed by the Notification Stub.
+After the commit, the servlet, WebFlux, and virtual-thread stacks place the outbox event ID into the memory queue, publish it to Kafka, and the Notification Stub consumes it.
+
+On the Debezium stack the same transaction is the end of the request. Connect publishes the outbox insert from the WAL. The stub consumes that Kafka record.
 
 ### ♻️ 3. Verify idempotency
 
@@ -401,7 +412,7 @@ HTTP 409 Conflict
 docker compose -f docker/compose.servlet.yml --profile observability up -d
 ```
 
-The same `--profile observability` flag works on `compose.reactive.yml` (Grafana :3001) and `compose.vt.yml` (Grafana :3002). Each stack provisions its Orders Technical dashboard; the WebFlux stack also loads **Notification Stub (Reactive)** and **Distributed Tracing (Reactive)**.
+The same `--profile observability` flag works on `compose.reactive.yml` (Grafana :3001), `compose.vt.yml` (Grafana :3002), and `compose.debezium.yml` (Grafana :3003, Prometheus :9103, Tempo :3203). Each stack provisions its Orders Technical dashboard; the WebFlux stack also loads **Notification Stub (Reactive)** and **Distributed Tracing (Reactive)**.
 
 Open the local observability services (servlet example):
 

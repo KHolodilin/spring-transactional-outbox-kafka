@@ -24,6 +24,8 @@ import static io.gatling.javaapi.http.HttpDsl.*;
  *   <li>{@code rps1}/{@code rps2}/{@code rps3}/{@code rps4} (defaults {@code 50/100/150/200})</li>
  *   <li>{@code profile=warmup}: warmupRps → pause → loadRps for loadSeconds
  *       (defaults: 50 RPS / 30s, pause 15s, then 100 RPS / 120s)</li>
+ *   <li>{@code customerPoolSize} (default {@code 1000}): distinct {@code customerId} values
+ *       cycled per request so events spread across Kafka partitions</li>
  * </ul>
  */
 public class CreateOrderSimulation extends Simulation {
@@ -54,16 +56,13 @@ public class CreateOrderSimulation extends Simulation {
             .acceptHeader("application/json")
             .shareConnections();
 
-    private final Iterator<Map<String, Object>> feeder = Stream.generate(() -> {
-                long customerId = longProp("customerId", 42L);
-                String correlationId = UUID.randomUUID().toString();
-                String idempotencyKey = UUID.randomUUID().toString();
-                return Map.<String, Object>of(
-                        "customerId", customerId,
-                        "correlationId", correlationId,
-                        "idempotencyKey", idempotencyKey
-                );
-            })
+    private final CustomerIdPool customerIds = new CustomerIdPool(longProp("customerPoolSize", 1000L));
+
+    private final Iterator<Map<String, Object>> feeder = Stream.generate(() -> Map.<String, Object>of(
+                    "customerId", customerIds.next(),
+                    "correlationId", UUID.randomUUID().toString(),
+                    "idempotencyKey", UUID.randomUUID().toString()
+            ))
             .iterator();
 
     private final ScenarioBuilder scn = scenario("CreateOrder")

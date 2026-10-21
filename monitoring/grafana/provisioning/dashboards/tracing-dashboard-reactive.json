@@ -247,6 +247,11 @@
           },
           {
             "selected": false,
+            "text": "db.persist",
+            "value": "db.persist"
+          },
+          {
+            "selected": false,
             "text": "outbox.save",
             "value": "outbox.save"
           },
@@ -266,7 +271,7 @@
             "value": "notification.consume"
           }
         ],
-        "query": ".*,outbox.save,batch.fetch,batch.publish,batch.complete,outbox.publish,http post /api/v1/orders,notification.batch.receive,notification.consume",
+        "query": ".*,db.persist,outbox.save,batch.fetch,batch.publish,batch.complete,outbox.publish,http post /api/v1/orders,notification.batch.receive,notification.consume",
         "type": "custom"
       }
     ]

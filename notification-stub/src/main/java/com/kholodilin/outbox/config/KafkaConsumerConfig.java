@@ -70,6 +70,8 @@ public class KafkaConsumerConfig {
         factory.setConsumerFactory(consumerFactory);
         // Batch listener matches the publisher's batch-oriented throughput model.
         factory.setBatchListener(properties.getKafka().isBatchListener());
+        // One consumer thread per orders.events partition so different customers run in parallel.
+        factory.setConcurrency(10);
         return factory;
     }
 

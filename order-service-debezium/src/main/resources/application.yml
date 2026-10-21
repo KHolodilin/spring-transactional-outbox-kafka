@@ -16,7 +16,18 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        hikaricp.connections.acquire: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+        hikaricp.connections.acquire: 0.95, 0.99
   tracing:
     enabled: ${TRACING_ENABLED:true}
     sampling:
@@ -27,7 +38,7 @@ management:
     tracing:
       export:
         otlp:
-          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
 
 logging:
   level:
@@ -51,6 +62,26 @@ app:
     json:
       enabled: true
       path: ${LOG_JSON_PATH:./logs}
+  rate-limit:
+    throttle-multiplier: 0.5
+    usage-threshold: 0.8
+    global:
+      capacity: 1000
+      refill-per-second: 100
+    per-customer:
+      capacity: 100
+      refill-per-second: 10
+    per-ip:
+      capacity: 50
+      refill-per-second: 5
+  bulkhead:
+    max-concurrent-creates: 55
+  cdc:
+    slot-name: debezium_outbox
+    lag-capacity-bytes: 10485760
 
 server:
   port: 8086
+  tomcat:
+    mbeanregistry:
+      enabled: true

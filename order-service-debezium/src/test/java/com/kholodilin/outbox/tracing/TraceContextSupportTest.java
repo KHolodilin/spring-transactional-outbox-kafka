@@ -8,12 +8,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class TraceContextSupportTest {
@@ -62,6 +64,77 @@ class TraceContextSupportTest {
     void captureTraceParentReturnsNullWhenTracingDisabled() {
         assertThat(support(null, null).captureTraceParent()).isNull();
         assertThat(support(mock(Tracer.class), null).captureTraceParent()).isNull();
+    }
+
+    @Test
+    void runWithBlankTraceParentContinuesCurrentTrace() {
+        Tracer tracer = mock(Tracer.class);
+        Span child = mock(Span.class);
+        when(tracer.nextSpan()).thenReturn(child);
+        when(child.name("db.persist")).thenReturn(child);
+        when(child.start()).thenReturn(child);
+        when(tracer.withSpan(child)).thenReturn(mock(Tracer.SpanInScope.class));
+
+        String result = support(tracer, mock(Propagator.class)).runWithTraceParent(null, "db.persist", () -> "saved");
+
+        assertThat(result).isEqualTo("saved");
+        verify(child).end();
+    }
+
+    @Test
+    void runWithTraceParentRestoresStoredContext() {
+        Tracer tracer = mock(Tracer.class);
+        Propagator propagator = mock(Propagator.class);
+        Span.Builder builder = mock(Span.Builder.class);
+        Span child = mock(Span.class);
+        when(propagator.extract(any(), any())).thenReturn(builder);
+        when(builder.name("outbox.save")).thenReturn(builder);
+        when(builder.start()).thenReturn(child);
+        when(tracer.withSpan(child)).thenReturn(mock(Tracer.SpanInScope.class));
+
+        AtomicReference<String> seen = new AtomicReference<>();
+        support(tracer, propagator).runWithTraceParent(TRACE_PARENT, "outbox.save", () -> {
+            seen.set("ran");
+            return null;
+        });
+
+        assertThat(seen).hasValue("ran");
+        verify(child).end();
+    }
+
+    @Test
+    void runWithTraceParentSkipsSpanWhenTracingDisabled() {
+        AtomicReference<String> seen = new AtomicReference<>();
+        support(null, null).runWithTraceParent(TRACE_PARENT, "db.persist", () -> {
+            seen.set("ran");
+            return null;
+        });
+        assertThat(seen).hasValue("ran");
+    }
+
+    @Test
+    void runWithTraceParentSkipsSpanWhenPropagatorMissing() {
+        AtomicReference<String> seen = new AtomicReference<>();
+        support(mock(Tracer.class), null).runWithTraceParent(TRACE_PARENT, "db.persist", () -> {
+            seen.set("ran");
+            return null;
+        });
+        assertThat(seen).hasValue("ran");
+    }
+
+    @Test
+    void runWithBlankStringContinuesCurrentTrace() {
+        Tracer tracer = mock(Tracer.class);
+        Span child = mock(Span.class);
+        when(tracer.nextSpan()).thenReturn(child);
+        when(child.name("db.persist")).thenReturn(child);
+        when(child.start()).thenReturn(child);
+        when(tracer.withSpan(child)).thenReturn(mock(Tracer.SpanInScope.class));
+
+        String result = support(tracer, mock(Propagator.class)).runWithTraceParent("  ", "db.persist", () -> "saved");
+
+        assertThat(result).isEqualTo("saved");
+        verify(child).end();
     }
 
     private static TraceContextSupport support(Tracer tracer, Propagator propagator) {
