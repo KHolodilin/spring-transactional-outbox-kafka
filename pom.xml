@@ -35,7 +35,7 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <jacoco.version>0.8.15</jacoco.version>
         <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
-        <idempotency-starter.version>0.3.5</idempotency-starter.version>
+        <idempotency-starter.version>1.2.0</idempotency-starter.version>
         <outbox-starter.version>0.2.3</outbox-starter.version>
         <mockito.agent.argLine>-javaagent:@{org.mockito:mockito-core:jar}</mockito.agent.argLine>
         <idempotency-starter-reactive.version>1.2.0</idempotency-starter-reactive.version>
